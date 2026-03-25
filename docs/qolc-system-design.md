@@ -69,8 +69,8 @@ QOLCには4種類の利用者がいて、それぞれ別の画面が必要。
 |--------|------|----------|
 | **QOLC運営者（ユニバーサル）** | 管理画面 | 加盟店登録、施設管理、サービス提供者登録、全体監視 |
 | **サービス提供者** | 提供者ポータル | 明細（レセプト）アップロード、決済状況確認 |
-| **介護施設** | 施設ポータル | 入居者管理、家族管理、領収書発行設定 |
-| **入居者・家族** | LINE LIFF / Webアプリ | 明細確認、領収書PDFダウンロード、カード登録 |
+| **介護施設** | 施設ポータル | 入居者管理、アカウント管理、領収書発行設定 |
+| **入居者・家族** | 利用者ポータル（/user） | 明細確認、領収書PDFダウンロード、カード登録 |
 
 ---
 
@@ -112,16 +112,18 @@ QOLCには4種類の利用者がいて、それぞれ別の画面が必要。
 ### 5.3 介護施設向け機能
 
 - 入居者情報の管理
-- 家族情報の管理
+- アカウント情報の管理（入居者本人/家族アカウント、決済担当者設定）
 - 領収書発行設定（発行タイミングのカスタム）
 - 通知状況の確認
+- ※カード登録は利用者本人が利用者ポータルから行う
 
-### 5.4 入居者・家族向け機能
+### 5.4 利用者ポータル機能（/user）
 
+- アカウント種別（入居者本人/家族）に応じた表示
 - 利用明細の確認（事後確認）
 - 領収書PDFのダウンロード
-- カード登録（USEN画面へリダイレクト）
-- 通知設定
+- カード登録・管理（決済担当者のみ）
+- アカウント情報・通知設定
 
 ---
 
@@ -274,18 +276,23 @@ interface Resident {
 }
 ```
 
-### Family（家族）
+### Account（アカウント）
 
 ```typescript
-interface Family {
+type AccountType = 'self' | 'family';
+
+interface Account {
   id: string;
   residentId: string;
+  type: AccountType;          // 入居者本人 or 家族
   name: string;
-  relationship: string;     // 続柄
-  email: string;
-  phone: string;
+  relationship?: string;      // 続柄（家族の場合）
+  email?: string;
+  phone?: string;
   lineUserId?: string;
-  notificationPreference: 'line' | 'email' | 'mail';
+  notifyMethod: 'line' | 'email' | 'mail';
+  receiveNotify: boolean;     // 明細通知を受け取るか
+  isBillingPerson: boolean;   // 決済担当者（1入居者につき1名のみ）
   createdAt: Date;
   updatedAt: Date;
 }

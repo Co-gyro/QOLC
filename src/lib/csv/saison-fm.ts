@@ -4,7 +4,9 @@ import { yyyymmddToSlashed } from "./naming";
 
 export interface SaisonSalesRow {
   締年月日: string;
+  加盟店店舗No: string;
   加盟店名: string;
+  支払方法: string;
   売上合計: number;
 }
 
@@ -38,7 +40,7 @@ export interface FmAggregateInput {
   feeRatePercent: number;
 }
 
-const REQUIRED_COLUMNS = ["締年月日", "加盟店名", "売上合計"] as const;
+const REQUIRED_COLUMNS = ["締年月日", "加盟店店舗No.", "加盟店名", "支払方法", "売上合計"] as const;
 const FM_HEADER = [
   "振込年月日",
   "支払先番号",
@@ -66,21 +68,31 @@ export function parseSaisonCsv(text: string): SaisonSalesRow[] {
   for (const required of REQUIRED_COLUMNS) indexOf(required);
 
   const idxClosing = indexOf("締年月日");
+  const idxStoreNo = indexOf("加盟店店舗No.");
   const idxMerchant = indexOf("加盟店名");
+  const idxPayment = indexOf("支払方法");
   const idxTotal = indexOf("売上合計");
 
   const rows: SaisonSalesRow[] = [];
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(",");
     const closing = (cols[idxClosing] ?? "").trim();
+    const storeNo = (cols[idxStoreNo] ?? "").trim();
     const merchant = (cols[idxMerchant] ?? "").trim();
+    const payment = (cols[idxPayment] ?? "").trim();
     const totalRaw = (cols[idxTotal] ?? "").trim();
     if (!closing && !merchant && !totalRaw) continue;
     const total = Number(totalRaw);
     if (!Number.isFinite(total)) {
       throw new Error(`売上合計を数値に変換できません（${i + 1}行目: "${totalRaw}"）`);
     }
-    rows.push({ 締年月日: closing, 加盟店名: merchant, 売上合計: total });
+    rows.push({
+      締年月日: closing,
+      加盟店店舗No: storeNo,
+      加盟店名: merchant,
+      支払方法: payment,
+      売上合計: total,
+    });
   }
   return rows;
 }

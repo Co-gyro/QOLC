@@ -20,6 +20,9 @@
 .DS_Store
 *.pem
 
+# pdfjs-dist assets (copied from node_modules by postinstall)
+/public/pdfjs/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

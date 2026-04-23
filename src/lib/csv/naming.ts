@@ -25,3 +25,12 @@ export function isValidPayeeNumber(value: string): boolean {
 export function isValidClosingDate(iso: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(iso);
 }
+
+export function yyyymmddToSlashed(yyyymmdd: string): string {
+  if (!/^\d{8}$/.test(yyyymmdd)) return yyyymmdd;
+  return `${yyyymmdd.slice(0, 4)}/${yyyymmdd.slice(4, 6)}/${yyyymmdd.slice(6, 8)}`;
+}
+
+export function isoToSlashed(iso: string): string {
+  return iso.replace(/-/g, "/");
+}

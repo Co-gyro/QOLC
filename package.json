@@ -14,6 +14,7 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "encoding-japanese": "^2.2.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.563.0",
     "next": "14.2.35",
@@ -23,6 +24,7 @@
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
+    "@types/encoding-japanese": "^2.2.1",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

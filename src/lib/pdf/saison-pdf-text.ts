@@ -2,14 +2,16 @@ import type { SaisonPdfData, SaisonPdfExtractor } from "./saison-pdf";
 
 let pdfjsModule: typeof import("pdfjs-dist") | null = null;
 
+// pdfjs-dist v5 は内部でwebpackバンドル済みのESM。Next.jsのwebpackで二重ラッピング
+// しようとすると __webpack_require__.r が Object.defineProperty called on non-object
+// で失敗する。webpackIgnore コメントで webpack の処理をバイパスし、ブラウザに
+// ネイティブの import() で直接ロードさせる (public/pdfjs/ から配信)。
 async function loadPdfjs() {
   if (pdfjsModule) return pdfjsModule;
-  const mod = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  mod.GlobalWorkerOptions.workerSrc = new URL(
-    "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
-    import.meta.url,
-  ).toString();
-  pdfjsModule = mod as unknown as typeof import("pdfjs-dist");
+  const url = "/pdfjs/pdf.min.mjs";
+  const mod = (await import(/* webpackIgnore: true */ url)) as typeof import("pdfjs-dist");
+  mod.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.mjs";
+  pdfjsModule = mod;
   return pdfjsModule;
 }
 
@@ -117,6 +119,13 @@ export const textLayerExtractor: SaisonPdfExtractor = {
         "テキストレイヤから文字列を抽出できませんでした（画像ベースPDFの可能性）。",
       );
     }
-    return parseSaisonPdfText(text);
+    try {
+      return parseSaisonPdfText(text);
+    } catch (err) {
+      console.error(
+        `[saison-pdf-text] parse failed for "${file.name}". Extracted text:\n${text}`,
+      );
+      throw err;
+    }
   },
 };

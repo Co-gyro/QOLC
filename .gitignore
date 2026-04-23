@@ -20,6 +20,10 @@
 .DS_Store
 *.pem
 
+# 実データ（カード会社の本物の支払計算書・売上データ等）はコミットしない
+# ファイル名に「実データ」を含むものはローカル専用とする
+test-data/*実データ*
+
 # pdfjs-dist assets (copied from node_modules by postinstall)
 /public/pdfjs/
 

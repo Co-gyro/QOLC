@@ -18,6 +18,15 @@ import {
   type JcbEcApplication,
   type ValidationIssue,
 } from "@/lib/merchant-application/jcb-ec";
+import {
+  EMPTY_STORE_EXTRAS,
+  IC_SET_STATUSES,
+  STORE_SALES_STYLES,
+  buildStoreExcelFilename,
+  generateJcbStoreExcel,
+  validateStoreExtras,
+  type JcbStoreExtras,
+} from "@/lib/merchant-application/jcb-store";
 
 const EMPTY_APP: JcbEcApplication = {
   corpIndiv: "1",
@@ -167,20 +176,44 @@ function TextareaRow({
 
 export function JcbEcForm() {
   const [app, setApp] = useState<JcbEcApplication>(EMPTY_APP);
+  const [storeExtras, setStoreExtras] = useState<JcbStoreExtras>(EMPTY_STORE_EXTRAS);
+  const [showStoreSection, setShowStoreSection] = useState(false);
   const [showAllErrors, setShowAllErrors] = useState(false);
+  const [showStoreErrors, setShowStoreErrors] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadingStore, setDownloadingStore] = useState(false);
 
   const set = <K extends Field>(key: K) => (v: string) =>
     setApp((prev) => ({ ...prev, [key]: v }));
+
+  const setStore = <K extends keyof JcbStoreExtras>(key: K) => (v: string) =>
+    setStoreExtras((prev) => ({ ...prev, [key]: v as JcbStoreExtras[K] }));
 
   const issues = useMemo(() => validateApplication(app), [app]);
   const errorIssues = issues.filter((i) => i.level === "error");
   const warningIssues = issues.filter((i) => i.level === "warning");
   const errorsToShow = showAllErrors ? issues : [];
 
+  const storeIssues = useMemo(() => validateStoreExtras(storeExtras), [storeExtras]);
+  const storeErrors = storeIssues.filter((i) => i.level === "error");
+
   const isCorpWithNo = app.corpIndiv === "1";
   const isCorporation = app.corpIndiv === "1" || app.corpIndiv === "2";
   const isIndividual = app.corpIndiv === "3";
+
+  const triggerDownload = (bytes: Uint8Array<ArrayBuffer>, filename: string) => {
+    const blob = new Blob([bytes], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const handleDownload = async () => {
     setShowAllErrors(true);
@@ -188,26 +221,31 @@ export function JcbEcForm() {
     setDownloading(true);
     try {
       const bytes = await generateJcbEcExcel(app);
-      const blob = new Blob([bytes], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = buildExcelFilename(app.tenantNameKanji);
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      triggerDownload(bytes, buildExcelFilename(app.tenantNameKanji));
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleDownloadStore = async () => {
+    setShowAllErrors(true);
+    setShowStoreErrors(true);
+    if (errorIssues.length > 0 || storeErrors.length > 0) return;
+    setDownloadingStore(true);
+    try {
+      const bytes = await generateJcbStoreExcel(app, storeExtras);
+      triggerDownload(bytes, buildStoreExcelFilename(app.tenantNameKanji));
+    } finally {
+      setDownloadingStore(false);
     }
   };
 
   const handleReset = () => {
     if (confirm("入力内容をリセットしますか？")) {
       setApp(EMPTY_APP);
+      setStoreExtras(EMPTY_STORE_EXTRAS);
       setShowAllErrors(false);
+      setShowStoreErrors(false);
     }
   };
 
@@ -518,7 +556,7 @@ export function JcbEcForm() {
           </div>
 
           <div className="rounded-md border p-4">
-            <p className="mb-2 text-sm font-medium">読み取り専用 (自動設定値)</p>
+            <p className="mb-2 text-sm font-medium">読み取り専用 (EC版自動設定値)</p>
             <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
               <Pair k="申請区分" v="1 (新規)" />
               <Pair k="包括事業者コード" v={AUTO_VALUES.enterpriseCode} />
@@ -532,23 +570,174 @@ export function JcbEcForm() {
               <Pair k="本人認証 / セキュリティコード" v="1 (実施済) / 1 (実施済)" />
               <Pair k="不正配送先 / 属性行動分析 / その他" v="3 (実施予定なし) / 3 / 3" />
             </dl>
+            <p className="mt-3 text-[11px] text-muted-foreground">
+              ※ 店頭版では3Dセキュア系項目 (J/Secure / Protect Buy / AMEX Safekey 等) は仕様上存在しません。
+            </p>
           </div>
         </CardContent>
       </Card>
 
-      {/* バリデーションサマリ + ダウンロード */}
+      {/* JCB 店頭版固有項目 (出力に応じて開閉) */}
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <div>
-            <CardTitle className="text-xl">Excel出力</CardTitle>
+            <CardTitle>JCB 店頭版 固有項目</CardTitle>
             <CardDescription>
-              71列のJCB EC新規申請フォーマットでXLSXを生成します。
+              店頭版Excel出力に必要な項目 (店舗形態、IC端末、QUICPay/iD・交通系SPRWID等)。
+              EC版のみ使用する場合は入力不要です。
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowStoreSection((s) => !s)}>
+            {showStoreSection ? "店頭版項目を閉じる" : "店頭版項目を表示"}
+          </Button>
+        </CardHeader>
+        {showStoreSection ? (
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="storeSalesStyle" className="text-xs">
+                  店舗形態 <span className="text-destructive">*</span>
+                </Label>
+                <select
+                  id="storeSalesStyle"
+                  value={storeExtras.storeSalesStyle}
+                  onChange={(e) => setStore("storeSalesStyle")(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  {STORE_SALES_STYLES.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-muted-foreground">
+                  EC版の「販売形態区分」とは別の選択肢です。
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="icSetStatus" className="text-xs">
+                  IC端末設置状況 <span className="text-destructive">*</span>
+                </Label>
+                <select
+                  id="icSetStatus"
+                  value={storeExtras.icSetStatus}
+                  onChange={(e) => setStore("icSetStatus")(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  {IC_SET_STATUSES.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="rounded-md border bg-muted/20 p-4">
+              <p className="mb-3 text-xs font-medium">クレジット/PREMO用POS支店コード (2)〜(5) — 任意、各13桁数字</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(["posBranchCode2", "posBranchCode3", "posBranchCode4", "posBranchCode5"] as const).map(
+                  (key, idx) => (
+                    <div key={key} className="space-y-1.5">
+                      <Label htmlFor={key} className="text-xs">{`POS支店コード(${idx + 2})`}</Label>
+                      <Input
+                        id={key}
+                        value={storeExtras[key]}
+                        onChange={(e) => setStore(key)(e.target.value)}
+                        maxLength={13}
+                        placeholder="13桁数字"
+                      />
+                    </div>
+                  ),
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-md border bg-muted/20 p-4">
+              <p className="mb-3 text-xs font-medium">QUICPay/iD用POS支店コード (1)〜(5) — 任意、各13桁数字</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    "qpPosBranchCode1",
+                    "qpPosBranchCode2",
+                    "qpPosBranchCode3",
+                    "qpPosBranchCode4",
+                    "qpPosBranchCode5",
+                  ] as const
+                ).map((key, idx) => (
+                  <div key={key} className="space-y-1.5">
+                    <Label htmlFor={key} className="text-xs">{`QUICPay/iD POS(${idx + 1})`}</Label>
+                    <Input
+                      id={key}
+                      value={storeExtras[key]}
+                      onChange={(e) => setStore(key)(e.target.value)}
+                      maxLength={13}
+                      placeholder="13桁数字"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-md border bg-muted/20 p-4">
+              <p className="mb-3 text-xs font-medium">交通系SPRWID (1)〜(5) — 任意、各13桁英数字 (ハイフン不可)</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    "transSprwid1",
+                    "transSprwid2",
+                    "transSprwid3",
+                    "transSprwid4",
+                    "transSprwid5",
+                  ] as const
+                ).map((key, idx) => (
+                  <div key={key} className="space-y-1.5">
+                    <Label htmlFor={key} className="text-xs">{`SPRWID(${idx + 1})`}</Label>
+                    <Input
+                      id={key}
+                      value={storeExtras[key]}
+                      onChange={(e) => setStore(key)(e.target.value.toUpperCase())}
+                      maxLength={13}
+                      placeholder="13桁英数字"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {showStoreErrors && storeErrors.length > 0 ? (
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                <p className="mb-2 font-medium text-destructive">
+                  店頭版固有項目のエラー {storeErrors.length}件
+                </p>
+                <ul className="space-y-1 text-xs text-destructive">
+                  {storeErrors.map((e, i) => (
+                    <li key={i}>• {e.message}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </CardContent>
+        ) : null}
+      </Card>
+
+      {/* バリデーションサマリ + ダウンロード */}
+      <Card>
+        <CardHeader className="flex-row items-start justify-between space-y-0">
+          <div>
+            <CardTitle className="text-xl">Excel出力</CardTitle>
+            <CardDescription>
+              JCB の各申請フォーマット (71列) でXLSXを生成します。
+              EC版・店頭版それぞれ仕様書「【別紙】申請データFMT」シートに合わせた列順で出力。
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap justify-end gap-2">
             <Button variant="outline" onClick={handleReset}>リセット</Button>
-            <Button onClick={handleDownload} disabled={downloading}>
+            <Button onClick={handleDownload} disabled={downloading || downloadingStore}>
               {downloading ? "生成中…" : "JCB EC版 Excelダウンロード"}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handleDownloadStore}
+              disabled={downloading || downloadingStore}
+            >
+              {downloadingStore ? "生成中…" : "JCB 店頭版 Excelダウンロード"}
             </Button>
           </div>
         </CardHeader>

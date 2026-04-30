@@ -12,27 +12,14 @@ export default function MerchantApplicationPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="jcb-ec" className="w-full">
-        <TabsList className="grid w-full max-w-2xl grid-cols-3">
-          <TabsTrigger value="jcb-ec">JCB EC版</TabsTrigger>
-          <TabsTrigger value="jcb-store">JCB 店頭版</TabsTrigger>
+      <Tabs defaultValue="jcb" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="jcb">JCB (EC版/店頭版)</TabsTrigger>
           <TabsTrigger value="saison">セゾン</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="jcb-ec" className="mt-6">
+        <TabsContent value="jcb" className="mt-6">
           <JcbEcForm />
-        </TabsContent>
-
-        <TabsContent value="jcb-store" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>JCB 店頭版</CardTitle>
-              <CardDescription>店頭加盟店登録用フォーマット。</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">準備中</p>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         <TabsContent value="saison" className="mt-6">

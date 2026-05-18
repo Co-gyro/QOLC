@@ -1,0 +1,30 @@
+name: Security scan
+
+on:
+  schedule:
+    - cron: "0 18 * * *" # 毎日 JST 03:00
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Full npm audit
+        run: npm audit --json > audit-report.json || true
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit
+          path: audit-report.json
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/check-secrets.sh

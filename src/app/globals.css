@@ -50,10 +50,29 @@
 }
 
 @layer base {
+  /* QOLC デザイントークン */
+  :root {
+    --qolc-primary: #4C986A;
+    --qolc-primary-hover: #3D7A55;
+    --qolc-bg-soft: #F0F9F4;
+    --qolc-accent: #E8913A;
+    --qolc-text: #333333;
+    --qolc-border: #E0DDD8;
+    --qolc-muted: #6B7280;
+  }
+
   * {
     @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
+    font-family: "Noto Sans JP", "Inter", system-ui, -apple-system, sans-serif;
+    color: var(--qolc-text);
+    font-size: 16px; /* 最小14px、本文16px */
+  }
+
+  /* タッチターゲット最小サイズ */
+  button, [role="button"], a.qolc-btn {
+    min-height: 44px;
   }
 }

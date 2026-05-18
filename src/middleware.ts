@@ -59,7 +59,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // レスポンスはここで初期化（Supabaseクライアントが cookies を書き込む対象）
-  let response = NextResponse.next({ request: { headers: request.headers } });
+  const response = NextResponse.next({ request: { headers: request.headers } });
 
   // 環境変数未設定でも middleware は通す（開発の便宜上）
   if (

@@ -36,7 +36,7 @@ export function loadHmacKey(): Buffer {
   let buf: Buffer;
   try {
     buf = readFileSync(path);
-  } catch (e) {
+  } catch (_e) {
     // エラーメッセージにファイルパス以上の情報を漏らさない
     throw new HmacKeyError(`HMACキーファイルを読み込めませんでした: ${path}`);
   }

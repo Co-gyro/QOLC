@@ -35,6 +35,14 @@ yarn-error.log*
 # local env files
 .env*.local
 
+# USEN PSP HMAC binary keys (must NEVER be committed)
+*.NMK
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
 # vercel
 .vercel
 

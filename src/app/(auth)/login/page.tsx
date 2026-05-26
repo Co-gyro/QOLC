@@ -5,6 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { UserRole } from "@/types";
+
+/** ロール → ログイン後の遷移先 */
+const ROLE_HOME: Record<UserRole, string> = {
+  admin: "/admin/dashboard",
+  facility_staff: "/facility/dashboard",
+  provider: "/provider/dashboard",
+  family: "/user/home",
+};
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -16,11 +26,33 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    // TODO: Supabase Auth signInWithPassword
-    setTimeout(() => {
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (signInError || !data.user) {
+        setError(signInError?.message ?? "ログインに失敗しました");
+        setLoading(false);
+        return;
+      }
+
+      // ロールを取得（profiles を自己参照、RLSで許可済み）
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", data.user.id)
+        .single();
+      const role = (profile?.role as UserRole | undefined) ?? "family";
+
+      // 全画面遷移で middleware に新しいセッションCookieを処理させる
+      window.location.assign(ROLE_HOME[role]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "予期しないエラーが発生しました");
       setLoading(false);
-      setError("認証エンドポイントは未実装です");
-    }, 500);
+    }
   }
 
   return (
@@ -42,6 +74,7 @@ export default function LoginPage() {
                 id="email"
                 type="email"
                 required
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={{ minHeight: 44 }}
@@ -53,6 +86,7 @@ export default function LoginPage() {
                 id="password"
                 type="password"
                 required
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={{ minHeight: 44 }}

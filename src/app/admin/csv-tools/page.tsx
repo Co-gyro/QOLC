@@ -1,4 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PortalLayout } from "@/components/layout/portal-layout";
+import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { JcbRenameTool } from "./_components/jcb-rename-tool";
 import { SaisonRenameTool } from "./_components/saison-rename-tool";
 import { SaisonFmTool } from "./_components/saison-fm-tool";
@@ -6,10 +8,11 @@ import { SaisonFiTool } from "./_components/saison-fi-tool";
 
 export default function CsvToolsPage() {
   return (
-    <main className="container mx-auto max-w-5xl py-10">
+    <PortalLayout portal="admin">
+      <Breadcrumb items={[{ label: "ダッシュボード", href: "/admin/dashboard" }, { label: "データ変換" }]} />
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">CSV変換ツール</h1>
-        <p className="mt-2 text-muted-foreground">
+        <h1 className="text-2xl font-bold tracking-tight">CSV変換ツール</h1>
+        <p className="mt-2" style={{ color: "var(--qolc-muted)" }}>
           カード会社のCSVをセルフィッシュ命名規則でリネーム/集計します。
         </p>
       </div>
@@ -46,6 +49,6 @@ export default function CsvToolsPage() {
           </Tabs>
         </TabsContent>
       </Tabs>
-    </main>
+    </PortalLayout>
   );
 }

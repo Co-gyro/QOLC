@@ -14,13 +14,13 @@ DECLARE
   chars CONSTANT TEXT := '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   c3 INT;
   c4 INT;
-  code VARCHAR(4);
+  v_code VARCHAR(4);
 BEGIN
   FOR c3 IN 1..length(chars) LOOP
     FOR c4 IN 1..length(chars) LOOP
-      code := 'A3' || substring(chars FROM c3 FOR 1) || substring(chars FROM c4 FOR 1);
+      v_code := 'A3' || substring(chars FROM c3 FOR 1) || substring(chars FROM c4 FOR 1);
       INSERT INTO public.mall_code_pool (code, status)
-      VALUES (code, 'available')
+      VALUES (v_code, 'available')
       ON CONFLICT (code) DO NOTHING;
     END LOOP;
   END LOOP;

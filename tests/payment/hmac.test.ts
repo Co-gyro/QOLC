@@ -1,187 +1,130 @@
 /**
- * HMAC 署名モジュールのユニットテスト
+ * チェックコード（署名）モジュールのテスト（IF仕様書 2.4.2 / EC導入ガイド 4.2.3 準拠）
  *
- * - 固定鍵で HMAC-SHA256 / HMAC-MD5 の期待値検証
- * - 空文字列、日本語、特殊文字の入力テスト
- * - 鍵ファイル未設定 / 不存在のエラーハンドリング
+ * - "HM" プレフィックス
+ * - 指定フィールドを "," 連結してハッシュ
+ * - HMAC-MD5（会員ID）/ HMAC-SHA256（EC）
+ * - サイト鍵 / モール鍵を環境変数パスからロード
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { createHmac } from "node:crypto";
 import { writeFileSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  signWithKey,
-  sign,
-  loadHmacKey,
+  hmacHex,
+  generateCheckCodeWithKey,
+  generateCheckCode,
+  loadUsenKey,
   resetHmacKeyCache,
-  buildSignaturePayload,
+  CHECK_CODE_PREFIX,
 } from "../../src/lib/payment/hmac";
 import { HmacKeyError } from "../../src/lib/payment/errors";
 
-// 固定の64バイトテスト鍵（バイナリ。ゼロ埋め+カウンタで構成）
-const TEST_KEY = Buffer.from(
-  Array.from({ length: 64 }, (_, i) => i),
-);
+// 64バイトの固定テスト鍵
+const TEST_KEY = Buffer.from(Array.from({ length: 64 }, (_, i) => i));
 
-describe("signWithKey: HMAC-SHA256", () => {
-  it("Node.js crypto と同じ結果を返す（known answer）", () => {
-    // openssl dgst -sha256 -mac HMAC -macopt hexkey:00...3f
-    // で算出済みの既知の値
-    const sig = signWithKey("sha256", TEST_KEY, "hello");
-    expect(sig).toHaveLength(64); // SHA256 = 32 bytes = 64 hex chars
-    expect(sig).toMatch(/^[0-9a-f]{64}$/);
+describe("hmacHex", () => {
+  it("HMAC-MD5 は16進32文字", () => {
+    const h = hmacHex("md5", TEST_KEY, "TSJM-0000001,10500");
+    expect(h).toMatch(/^[0-9a-f]{32}$/);
+    // Node crypto と一致
+    const expected = createHmac("md5", TEST_KEY).update("TSJM-0000001,10500", "utf8").digest("hex");
+    expect(h).toBe(expected);
   });
 
-  it("空文字でも署名できる", () => {
-    const sig = signWithKey("sha256", TEST_KEY, "");
-    expect(sig).toMatch(/^[0-9a-f]{64}$/);
-  });
-
-  it("日本語を含む文字列で署名できる", () => {
-    const sig = signWithKey("sha256", TEST_KEY, "ユニバーサルデベロップメント");
-    expect(sig).toMatch(/^[0-9a-f]{64}$/);
-  });
-
-  it("特殊文字（&, =, % など）でも署名できる", () => {
-    const sig = signWithKey("sha256", TEST_KEY, "a=1&b=2%20c");
-    expect(sig).toMatch(/^[0-9a-f]{64}$/);
-  });
-
-  it("同じ入力で常に同じ結果（決定的）", () => {
-    const s1 = signWithKey("sha256", TEST_KEY, "deterministic");
-    const s2 = signWithKey("sha256", TEST_KEY, "deterministic");
-    expect(s1).toBe(s2);
-  });
-
-  it("異なる入力で異なる結果", () => {
-    const s1 = signWithKey("sha256", TEST_KEY, "input-1");
-    const s2 = signWithKey("sha256", TEST_KEY, "input-2");
-    expect(s1).not.toBe(s2);
-  });
-
-  it("異なる鍵で異なる結果", () => {
-    const otherKey = Buffer.from(Array.from({ length: 64 }, (_, i) => 64 - i));
-    const s1 = signWithKey("sha256", TEST_KEY, "same");
-    const s2 = signWithKey("sha256", otherKey, "same");
-    expect(s1).not.toBe(s2);
+  it("HMAC-SHA256 は16進64文字", () => {
+    const h = hmacHex("sha256", TEST_KEY, "TSJL-0000001,1");
+    expect(h).toMatch(/^[0-9a-f]{64}$/);
+    const expected = createHmac("sha256", TEST_KEY).update("TSJL-0000001,1", "utf8").digest("hex");
+    expect(h).toBe(expected);
   });
 });
 
-describe("signWithKey: HMAC-MD5", () => {
-  it("16進32文字を返す", () => {
-    const sig = signWithKey("md5", TEST_KEY, "hello");
-    expect(sig).toHaveLength(32); // MD5 = 16 bytes = 32 hex chars
-    expect(sig).toMatch(/^[0-9a-f]{32}$/);
+describe("generateCheckCodeWithKey", () => {
+  it("先頭に 'HM' を付与する", () => {
+    const cc = generateCheckCodeWithKey("md5", TEST_KEY, ["TSJM-0000001", 10500]);
+    expect(cc.startsWith(CHECK_CODE_PREFIX)).toBe(true);
+    expect(cc).toBe("HM" + hmacHex("md5", TEST_KEY, "TSJM-0000001,10500"));
   });
 
-  it("空文字でも署名できる", () => {
-    const sig = signWithKey("md5", TEST_KEY, "");
-    expect(sig).toMatch(/^[0-9a-f]{32}$/);
+  it("フィールドを ',' で連結（順序保持）", () => {
+    const cc = generateCheckCodeWithKey("sha256", TEST_KEY, ["A", "B", "C"]);
+    expect(cc).toBe("HM" + hmacHex("sha256", TEST_KEY, "A,B,C"));
   });
 
-  it("SHA256 と MD5 で異なる結果", () => {
-    const sha = signWithKey("sha256", TEST_KEY, "same-input");
-    const md5 = signWithKey("md5", TEST_KEY, "same-input");
-    expect(sha).not.toBe(md5);
-    expect(sha).toHaveLength(64);
-    expect(md5).toHaveLength(32);
-  });
-});
-
-describe("buildSignaturePayload", () => {
-  it("キーの ASCII 昇順で値を連結する", () => {
-    const payload = buildSignaturePayload({
-      site_cd: "S203",
-      mall_cd: "A300",
-      amount: 1,
-      jutyu_cd: "A300-0000001",
-    });
-    // ASCII 順: amount, jutyu_cd, mall_cd, site_cd
-    expect(payload).toBe("1A300-0000001A300S203");
+  it("単一フィールドはカンマなし（search/trade 想定）", () => {
+    const cc = generateCheckCodeWithKey("md5", TEST_KEY, ["TSJM-0000001"]);
+    expect(cc).toBe("HM" + hmacHex("md5", TEST_KEY, "TSJM-0000001"));
   });
 
-  it("undefined / null を除外する", () => {
-    const payload = buildSignaturePayload({
-      a: "1",
-      b: null,
-      c: undefined,
-      d: "2",
-    });
-    expect(payload).toBe("12");
+  it("数値も文字列化して連結", () => {
+    const cc = generateCheckCodeWithKey("md5", TEST_KEY, ["x", 1]);
+    expect(cc).toBe("HM" + hmacHex("md5", TEST_KEY, "x,1"));
   });
 
-  it("connector 指定で区切れる", () => {
-    const payload = buildSignaturePayload(
-      { a: "x", b: "y" },
-      "|",
-    );
-    expect(payload).toBe("x|y");
-  });
-
-  it("数値も文字列化される", () => {
-    const payload = buildSignaturePayload({ a: 100, b: 0 });
-    expect(payload).toBe("1000");
+  it("会員ID(MD5) と EC(SHA256) で結果が異なる", () => {
+    const md5 = generateCheckCodeWithKey("md5", TEST_KEY, ["TSJM-0000001", 100]);
+    const sha = generateCheckCodeWithKey("sha256", TEST_KEY, ["TSJM-0000001", 100]);
+    expect(md5).not.toBe(sha);
+    expect(md5).toHaveLength(2 + 32);
+    expect(sha).toHaveLength(2 + 64);
   });
 });
 
-describe("loadHmacKey / sign（環境変数経由）", () => {
-  let tmpKeyPath: string;
-  const ORIGINAL_ENV = process.env.USEN_HMAC_KEY_PATH;
+describe("loadUsenKey / generateCheckCode（環境変数経由）", () => {
+  let siteKeyPath: string;
+  let mallKeyPath: string;
+  const ORIG_SITE = process.env.USEN_SITE_HMAC_KEY_PATH;
+  const ORIG_MALL = process.env.USEN_MALL_HMAC_KEY_PATH;
 
   beforeEach(() => {
     resetHmacKeyCache();
-    tmpKeyPath = join(tmpdir(), `qolc-test-${Date.now()}.NMK`);
-    writeFileSync(tmpKeyPath, TEST_KEY);
-    process.env.USEN_HMAC_KEY_PATH = tmpKeyPath;
+    siteKeyPath = join(tmpdir(), `qolc-site-${Date.now()}.NMK`);
+    mallKeyPath = join(tmpdir(), `qolc-mall-${Date.now()}.NMK`);
+    writeFileSync(siteKeyPath, TEST_KEY);
+    writeFileSync(mallKeyPath, Buffer.from(Array.from({ length: 64 }, (_, i) => 64 - i)));
+    process.env.USEN_SITE_HMAC_KEY_PATH = siteKeyPath;
+    process.env.USEN_MALL_HMAC_KEY_PATH = mallKeyPath;
   });
 
   afterEach(() => {
     resetHmacKeyCache();
-    try {
-      unlinkSync(tmpKeyPath);
-    } catch {
-      // ignore
+    for (const p of [siteKeyPath, mallKeyPath]) {
+      try { unlinkSync(p); } catch { /* ignore */ }
     }
-    if (ORIGINAL_ENV === undefined) {
-      delete process.env.USEN_HMAC_KEY_PATH;
-    } else {
-      process.env.USEN_HMAC_KEY_PATH = ORIGINAL_ENV;
-    }
+    if (ORIG_SITE === undefined) delete process.env.USEN_SITE_HMAC_KEY_PATH;
+    else process.env.USEN_SITE_HMAC_KEY_PATH = ORIG_SITE;
+    if (ORIG_MALL === undefined) delete process.env.USEN_MALL_HMAC_KEY_PATH;
+    else process.env.USEN_MALL_HMAC_KEY_PATH = ORIG_MALL;
   });
 
-  it("環境変数から鍵を読んで HMAC-SHA256 署名を生成できる", () => {
-    const sig = sign("sha256", "test-payload");
-    const expected = signWithKey("sha256", TEST_KEY, "test-payload");
-    expect(sig).toBe(expected);
+  it("サイト鍵でチェックコードを生成できる", () => {
+    const cc = generateCheckCode("sha256", "site", ["TSJL-0000001", 1]);
+    expect(cc).toBe(generateCheckCodeWithKey("sha256", TEST_KEY, ["TSJL-0000001", 1]));
   });
 
-  it("環境変数から鍵を読んで HMAC-MD5 署名を生成できる", () => {
-    const sig = sign("md5", "test-payload");
-    const expected = signWithKey("md5", TEST_KEY, "test-payload");
-    expect(sig).toBe(expected);
+  it("サイト鍵とモール鍵で結果が異なる", () => {
+    const site = generateCheckCode("md5", "site", ["TSJM-0000001", 100]);
+    const mall = generateCheckCode("md5", "mall", ["TSJM-0000001", 100]);
+    expect(site).not.toBe(mall);
   });
 
-  it("loadHmacKey は同じパスならキャッシュを返す（参照同一）", () => {
-    const k1 = loadHmacKey();
-    const k2 = loadHmacKey();
+  it("loadUsenkey は同一パスでキャッシュを返す", () => {
+    const k1 = loadUsenKey("site");
+    const k2 = loadUsenKey("site");
     expect(k1).toBe(k2);
   });
 
-  it("USEN_HMAC_KEY_PATH 未設定で HmacKeyError", () => {
-    delete process.env.USEN_HMAC_KEY_PATH;
+  it("環境変数未設定で HmacKeyError", () => {
+    delete process.env.USEN_SITE_HMAC_KEY_PATH;
     resetHmacKeyCache();
-    expect(() => loadHmacKey()).toThrow(HmacKeyError);
+    expect(() => loadUsenKey("site")).toThrow(HmacKeyError);
   });
 
   it("存在しないパスで HmacKeyError", () => {
-    process.env.USEN_HMAC_KEY_PATH = "/nonexistent/path/to/key.NMK";
+    process.env.USEN_MALL_HMAC_KEY_PATH = "/nonexistent/x.NMK";
     resetHmacKeyCache();
-    expect(() => loadHmacKey()).toThrow(HmacKeyError);
-  });
-
-  it("空ファイルで HmacKeyError", () => {
-    writeFileSync(tmpKeyPath, "");
-    resetHmacKeyCache();
-    expect(() => loadHmacKey()).toThrow(HmacKeyError);
+    expect(() => loadUsenKey("mall")).toThrow(HmacKeyError);
   });
 });

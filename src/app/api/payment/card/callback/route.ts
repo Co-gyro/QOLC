@@ -1,51 +1,26 @@
 /**
- * GET/POST /api/payment/card/callback
+ * GET /api/payment/card/callback
  *
- * USEN PSP からのコールバック受信エンドポイント。
- * - /i/result で結果を取得し、成功なら member_id を resident_accounts に保存
- * - 同時に 1円与信を /auth/void で取消
- * - 完了後、ユーザーをカード管理画面にリダイレクト
+ * 3DセキュアEC決済(checkout)完了後の ret_url コールバック。
+ * - USEN から jutyu_cd, user_card_corp, member_id, check_cd が返る
+ * - 自前で付与した ra(resident_account_id), sp(sum_price) も受け取る
+ * - check_cd を検証し、会員登録成功なら usen_member_id を保存
  */
 import { NextResponse, type NextRequest } from "next/server";
-import { z } from "zod";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { tokenResult } from "@/lib/payment/token-api";
-import { memberEntryByJutyuCd, authVoid } from "@/lib/payment/member-api";
-import { apiError } from "@/types/api";
-
-const callbackSchema = z.object({
-  jutyu_cd: z.string().min(1).max(20),
-  mall_cd: z.string().length(4).optional(),
-});
+import { verifyReturnCheckCode, isRegistrationSuccess } from "@/lib/payment/ec-api";
+import { logPaymentAudit } from "@/lib/payment/audit-log";
 
 async function handle(req: NextRequest) {
-  // GETの場合はクエリ、POSTの場合はフォームから受信
-  let params: Record<string, string> = {};
-  if (req.method === "GET") {
-    req.nextUrl.searchParams.forEach((v, k) => (params[k] = v));
-  } else {
-    const ct = req.headers.get("content-type") ?? "";
-    if (ct.includes("application/x-www-form-urlencoded")) {
-      const form = await req.formData();
-      form.forEach((v, k) => (params[k] = String(v)));
-    } else {
-      try {
-        params = (await req.json()) as Record<string, string>;
-      } catch {
-        // ignore
-      }
-    }
-  }
+  const sp = req.nextUrl.searchParams;
+  const jutyu_cd = sp.get("jutyu_cd") ?? "";
+  const user_card_corp = sp.get("user_card_corp") ?? "";
+  const member_id = sp.get("member_id") ?? "";
+  const check_cd = sp.get("check_cd") ?? "";
+  const residentAccountId = sp.get("ra") ?? "";
+  const sumPrice = Number(sp.get("sp") ?? "1");
 
-  const parsed = callbackSchema.safeParse(params);
-  if (!parsed.success) {
-    return NextResponse.json(apiError("不正なコールバック", "BAD_CALLBACK"), {
-      status: 400,
-    });
-  }
-
-  // 認証セッションが残っていればユーザーID取得（監査ログ用）
   const supabase = createSupabaseServerClient();
   const {
     data: { user },
@@ -53,59 +28,49 @@ async function handle(req: NextRequest) {
   const performedBy = user?.id ?? null;
   const ip = req.headers.get("x-forwarded-for") ?? null;
 
-  try {
-    const result = await tokenResult(
-      { jutyu_cd: parsed.data.jutyu_cd, mall_cd: parsed.data.mall_cd },
-      { performedBy, ipAddress: ip }
+  const redirect = (status: string, reason?: string) =>
+    NextResponse.redirect(
+      new URL(
+        `/user/card?status=${status}${reason ? `&reason=${encodeURIComponent(reason)}` : ""}`,
+        req.url
+      )
     );
 
-    if (!result.member_id) {
-      return NextResponse.redirect(
-        new URL(
-          `/user/card?status=failed&reason=${encodeURIComponent(result.err_msg ?? "no_member_id")}`,
-          req.url
-        )
-      );
-    }
+  await logPaymentAudit({
+    action: "ec_return",
+    request: { jutyu_cd, user_card_corp, member_id_present: !!member_id, ra: residentAccountId },
+    performedBy,
+    ipAddress: ip,
+  });
 
-    const memberId = result.member_id;
-
-    // 会員登録（取引経由）
-    await memberEntryByJutyuCd(
-      { member_id: memberId, jutyu_cd: parsed.data.jutyu_cd, mall_cd: parsed.data.mall_cd },
-      { performedBy, ipAddress: ip }
-    );
-
-    // resident_accounts に member_id を保存
-    const admin = getSupabaseAdminClient();
-    // jutyu_cd から払い出した resident_account を一意に特定するため、
-    // payments.usen_jutyu_cd の resident_account_id を経由する必要があるが、
-    // カード登録時は Payment レコードを作らないため、jutyu_cd と resident_account の対応を
-    // 別途持つ必要がある（将来的にテーブル追加検討）。
-    // ここでは認証ユーザーから resident_accounts を取得し、最も新しい未登録のものに紐付ける暫定実装。
-    if (user) {
-      await admin
-        .from("resident_accounts")
-        .update({ usen_member_id: memberId })
-        .eq("user_id", user.id)
-        .eq("is_payment_owner", true)
-        .is("deleted_at", null)
-        .is("usen_member_id", null);
-    }
-
-    // 1円与信を取消
-    await authVoid(
-      { jutyu_cd: parsed.data.jutyu_cd, mall_cd: parsed.data.mall_cd },
-      { performedBy, ipAddress: ip }
-    );
-
-    return NextResponse.redirect(new URL("/user/card?status=registered", req.url));
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "unknown";
-    return NextResponse.redirect(
-      new URL(`/user/card?status=failed&reason=${encodeURIComponent(msg)}`, req.url)
-    );
+  // check_cd 検証（jutyu_cd はサイトコードで採番したため site 鍵）
+  if (!jutyu_cd || !check_cd) {
+    return redirect("failed", "missing_params");
   }
+  const valid = verifyReturnCheckCode({ jutyu_cd, user_card_corp, check_cd }, sumPrice, "site");
+  if (!valid) {
+    return redirect("failed", "invalid_check_cd");
+  }
+
+  // 会員登録成功判定（member_id が非ブランク）
+  if (!isRegistrationSuccess({ member_id })) {
+    return redirect("failed", "registration_failed");
+  }
+
+  // usen_member_id を保存
+  if (residentAccountId) {
+    const admin = getSupabaseAdminClient();
+    const { error } = await admin
+      .from("resident_accounts")
+      .update({ usen_member_id: member_id })
+      .eq("id", residentAccountId)
+      .is("usen_member_id", null);
+    if (error) {
+      return redirect("failed", "save_failed");
+    }
+  }
+
+  return redirect("registered");
 }
 
 export const GET = handle;

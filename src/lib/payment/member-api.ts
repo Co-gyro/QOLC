@@ -1,97 +1,97 @@
 /**
- * USEN PSP 会員ID決済API クライアント（定常決済）
+ * USEN PSP 会員ID決済API クライアント（IF仕様書 1.1.0 準拠）
  *
- * 認証: HMAC-MD5
- * エンドポイント例（本番）: https://inet-uketsuke1.netmove.jp/payment/...
- *
- * QOLC の核心機能。登録済みカード（usen_member_id）に対して与信→売上計上を行う。
+ * - 認証: チェックコード = "HM" + HMAC-MD5(指定フィールドを "," 連結, HMACキー)
+ * - キー: 会員登録系=サイト鍵 / 与信・売上・取消系=モール鍵
+ * - レスポンス: XML（<response><result>ok|ng</result>...）
+ * - jutyu_cd の上位4桁がモールコード（mall_cd 単独パラメータは無い）
  */
-import { callUsenApi, joinUrl, isUsenSuccess } from "./usen-client";
+import { postForm, parseXmlResponse, joinUrl, isOk } from "./usen-client";
+import { generateCheckCode, type UsenKeyType } from "./hmac";
 import { logPaymentAudit } from "./audit-log";
 import { UsenApiError } from "./errors";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type {
-  AuthByMemberIdRequest,
-  AuthByMemberIdResponse,
-  SalesActionRequest,
-  SalesActionResponse,
-  AuthVoidRequest,
-  AuthVoidResponse,
-  SearchTradeRequest,
-  SearchTradeResponse,
-  MemberEntryRequest,
-  MemberEntryResponse,
-  MemberGetRequest,
-  MemberGetResponse,
+  MemberApiResult,
+  AuthByMemberIdParams,
+  SalesAddParams,
+  SalesCancelParams,
+  AuthVoidParams,
+  MemberEntryParams,
+  MemberGetParams,
+  SearchTradeParams,
   AuditAction,
 } from "./types";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
-const ALGORITHM = "md5" as const;
+const ALGO = "md5" as const;
 
-/** 会員ID API のベースURL を環境変数から取得 */
-function baseUrl(): string {
-  const url = process.env.USEN_API_BASE_URL;
-  if (!url) {
-    throw new UsenApiError("USEN_API_BASE_URL が設定されていません");
-  }
+/** 会員ID決済APIのベースURL */
+function memberBaseUrl(): string {
+  const url = process.env.USEN_MEMBER_API_BASE_URL;
+  if (!url) throw new UsenApiError("USEN_MEMBER_API_BASE_URL が設定されていません");
   return url;
 }
 
-/** Member API の必須環境変数 */
-function siteAndMall(overrideMall?: string): { site_cd: string; mall_cd: string } {
-  const site_cd = process.env.USEN_SITE_CD;
-  if (!site_cd) throw new UsenApiError("USEN_SITE_CD が設定されていません");
-  const mall_cd = overrideMall ?? process.env.USEN_MALL_CD;
-  if (!mall_cd) throw new UsenApiError("mall_cd が解決できません");
-  return { site_cd, mall_cd };
+/** サイトコードを環境変数から取得 */
+function siteCd(): string {
+  const v = process.env.USEN_SITE_CD;
+  if (!v) throw new UsenApiError("USEN_SITE_CD が設定されていません");
+  return v;
 }
 
-/** 監査ログを記録しつつAPIを呼ぶ共通関数 */
-async function callAndLog<TReq extends object, TResp extends { res_cd?: string }>(
-  path: string,
-  action: AuditAction,
-  request: TReq,
-  options: {
-    paymentId?: string | null;
-    performedBy?: string | null;
-    ipAddress?: string | null;
-    fetchImpl?: typeof fetch;
-  } = {}
-): Promise<TResp> {
-  const url = joinUrl(baseUrl(), path);
-  const params = request as unknown as Record<
-    string,
-    string | number | undefined | null
-  >;
+/** Date を yyyy/mm/dd 形式に整形（USEN仕様の日付形式） */
+export function formatUsenDate(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}/${m}/${day}`;
+}
 
-  let resp: TResp;
+interface CallContext {
+  paymentId?: string | null;
+  performedBy?: string | null;
+  ipAddress?: string | null;
+  fetchImpl?: typeof fetch;
+}
+
+/**
+ * 会員ID決済APIを呼び出す共通処理。
+ * check_cd を生成して付与し、XMLをパースし、監査ログを記録する。
+ */
+async function callMemberApi(opts: {
+  path: string;
+  keyType: UsenKeyType;
+  action: AuditAction;
+  params: Record<string, string | number | undefined>;
+  checkFields: Array<string | number>;
+  ctx: CallContext;
+}): Promise<MemberApiResult> {
+  const check_cd = generateCheckCode(ALGO, opts.keyType, opts.checkFields);
+  const url = joinUrl(memberBaseUrl(), opts.path);
+  const sendParams = { ...opts.params, check_cd };
+
+  let result: MemberApiResult = {};
   let errorThrown: unknown = null;
   try {
-    resp = await callUsenApi<TResp>({
-      url,
-      params,
-      algorithm: ALGORITHM,
-      fetchImpl: options.fetchImpl,
-    });
+    const text = await postForm({ url, params: sendParams, fetchImpl: opts.ctx.fetchImpl });
+    result = parseXmlResponse(text) as MemberApiResult;
   } catch (e) {
     errorThrown = e;
-    resp = {} as TResp;
   }
 
-  // 監査ログ記録（失敗時もログを残す）
   await logPaymentAudit({
-    paymentId: options.paymentId ?? null,
-    action,
-    request,
+    paymentId: opts.ctx.paymentId ?? null,
+    action: opts.action,
+    request: opts.params, // check_cd 自体は秘匿のため記録しない
     response: errorThrown
       ? { error: errorThrown instanceof Error ? errorThrown.message : String(errorThrown) }
-      : resp,
-    performedBy: options.performedBy ?? null,
-    ipAddress: options.ipAddress ?? null,
+      : result,
+    performedBy: opts.ctx.performedBy ?? null,
+    ipAddress: opts.ctx.ipAddress ?? null,
   });
 
   if (errorThrown) throw errorThrown;
-  return resp;
+  return result;
 }
 
 // ============================================================
@@ -99,241 +99,232 @@ async function callAndLog<TReq extends object, TResp extends { res_cd?: string }
 // ============================================================
 
 /**
- * mall_cd ごとの jutyu_cd を採番する（DB関数 next_jutyu_cd を呼び出し）。
- * 形式: [mall_cd]-[7桁連番] 例: A300-0000001
+ * mall_cd ごとの jutyu_cd を採番（DB関数 next_jutyu_cd）。形式 [mall_cd]-[7桁]。
  */
-export async function nextJutyuCd(mallCd: string): Promise<string> {
+export async function nextJutyuCd(mallCode: string): Promise<string> {
   const admin = getSupabaseAdminClient();
-  const { data, error } = await admin.rpc("next_jutyu_cd", {
-    p_mall_cd: mallCd,
-  });
-  if (error) {
-    throw new UsenApiError(`jutyu_cd 採番失敗: ${error.message}`);
-  }
-  if (typeof data !== "string") {
-    throw new UsenApiError("jutyu_cd 採番結果が文字列ではありません");
-  }
+  const { data, error } = await admin.rpc("next_jutyu_cd", { p_mall_cd: mallCode });
+  if (error) throw new UsenApiError(`jutyu_cd 採番失敗: ${error.message}`);
+  if (typeof data !== "string") throw new UsenApiError("jutyu_cd 採番結果が不正です");
   return data;
 }
 
 // ============================================================
-// 会員管理
+// 与信・売上（モール鍵、署名対象 jutyu_cd,amount）
 // ============================================================
 
-/** /member/entrybyjutyucd: 取引経由で会員登録（カード登録フローの最後） */
-export async function memberEntryByJutyuCd(
-  args: { member_id: string; jutyu_cd: string; mall_cd?: string },
-  ctx: { paymentId?: string | null; performedBy?: string | null; ipAddress?: string | null; fetchImpl?: typeof fetch } = {}
-): Promise<MemberEntryResponse> {
-  const { site_cd, mall_cd } = siteAndMall(args.mall_cd);
-  const req: MemberEntryRequest = {
-    site_cd,
-    mall_cd,
-    jutyu_cd: args.jutyu_cd,
-    member_id: args.member_id,
-  };
-  return callAndLog<MemberEntryRequest, MemberEntryResponse>(
-    "/member/entrybyjutyucd",
-    "member_entry",
-    req,
-    ctx
-  );
-}
-
-/** /member/get: 会員情報取得（カード下4桁、ブランド、有効期限） */
-export async function memberGet(
-  args: { member_id: string; mall_cd?: string },
-  ctx: { performedBy?: string | null; fetchImpl?: typeof fetch } = {}
-): Promise<MemberGetResponse> {
-  const { site_cd, mall_cd } = siteAndMall(args.mall_cd);
-  const req: MemberGetRequest = { site_cd, mall_cd, member_id: args.member_id };
-  return callAndLog<MemberGetRequest, MemberGetResponse>(
-    "/member/get",
-    "member_get",
-    req,
-    ctx
-  );
-}
-
-/** /member/inactivate: 会員を一時無効化 */
-export async function memberInactivate(
-  args: { member_id: string; mall_cd?: string },
-  ctx: { performedBy?: string | null; fetchImpl?: typeof fetch } = {}
-) {
-  const { site_cd, mall_cd } = siteAndMall(args.mall_cd);
-  return callAndLog(
-    "/member/inactivate",
-    "member_inactivate",
-    { site_cd, mall_cd, member_id: args.member_id },
-    ctx
-  );
-}
-
-/** /member/activate: 会員を再有効化 */
-export async function memberActivate(
-  args: { member_id: string; mall_cd?: string },
-  ctx: { performedBy?: string | null; fetchImpl?: typeof fetch } = {}
-) {
-  const { site_cd, mall_cd } = siteAndMall(args.mall_cd);
-  return callAndLog(
-    "/member/activate",
-    "member_activate",
-    { site_cd, mall_cd, member_id: args.member_id },
-    ctx
-  );
-}
-
-/** /member/delete: 会員削除 */
-export async function memberDelete(
-  args: { member_id: string; mall_cd?: string },
-  ctx: { performedBy?: string | null; fetchImpl?: typeof fetch } = {}
-) {
-  const { site_cd, mall_cd } = siteAndMall(args.mall_cd);
-  return callAndLog(
-    "/member/delete",
-    "member_delete",
-    { site_cd, mall_cd, member_id: args.member_id },
-    ctx
-  );
-}
-
-// ============================================================
-// 与信・売上
-// ============================================================
-
-/**
- * /member/authbymemberid: 会員IDで与信取得（★QOLCのメイン決済API）
- */
+/** /member/authbymemberid: 会員IDで与信照会（★メイン） */
 export async function authByMemberId(
-  args: { member_id: string; amount: number; jutyu_cd: string; mall_cd?: string },
-  ctx: {
-    paymentId?: string | null;
-    performedBy?: string | null;
-    ipAddress?: string | null;
-    fetchImpl?: typeof fetch;
-  } = {}
-): Promise<AuthByMemberIdResponse> {
-  const { site_cd, mall_cd } = siteAndMall(args.mall_cd);
-  const req: AuthByMemberIdRequest = {
-    site_cd,
-    mall_cd,
-    member_id: args.member_id,
-    jutyu_cd: args.jutyu_cd,
+  args: { jutyuCd: string; amount: number; memberId: string; jutyuDay?: string; payMethod?: AuthByMemberIdParams["pay_method"] },
+  ctx: CallContext = {}
+): Promise<MemberApiResult> {
+  const params: Record<string, string | number | undefined> = {
+    jutyu_cd: args.jutyuCd,
     amount: args.amount,
+    site_cd: siteCd(),
+    member_id: args.memberId,
+    jutyu_day: args.jutyuDay ?? formatUsenDate(),
+    pay_method: args.payMethod,
   };
-  const resp = await callAndLog<AuthByMemberIdRequest, AuthByMemberIdResponse>(
-    "/member/authbymemberid",
-    "auth_by_member_id",
-    req,
-    ctx
-  );
-  if (!isUsenSuccess(resp)) {
-    throw new UsenApiError(
-      `与信失敗: ${resp.err_msg ?? resp.res_cd ?? "unknown"}`,
-      { errorCode: resp.err_cd ?? resp.res_cd, responseBody: resp }
-    );
+  const res = await callMemberApi({
+    path: "/member/authbymemberid",
+    keyType: "mall",
+    action: "auth_by_member_id",
+    params,
+    checkFields: [args.jutyuCd, args.amount],
+    ctx,
+  });
+  if (!isOk(res)) {
+    throw new UsenApiError(`与信失敗 (code=${res.code ?? "?"})`, {
+      errorCode: res.code,
+      responseBody: res,
+    });
   }
-  return resp;
+  return res;
 }
 
 /** /sales/salesadd: 売上計上 */
 export async function salesAdd(
-  args: { jutyu_cd: string; amount?: number; mall_cd?: string },
-  ctx: {
-    paymentId?: string | null;
-    performedBy?: string | null;
-    ipAddress?: string | null;
-    fetchImpl?: typeof fetch;
-  } = {}
-): Promise<SalesActionResponse> {
-  const { site_cd, mall_cd } = siteAndMall(args.mall_cd);
-  const req: SalesActionRequest = {
-    site_cd,
-    mall_cd,
-    jutyu_cd: args.jutyu_cd,
+  args: { jutyuCd: string; amount: number; salesDay?: string },
+  ctx: CallContext = {}
+): Promise<MemberApiResult> {
+  const params: SalesAddParams = {
+    jutyu_cd: args.jutyuCd,
     amount: args.amount,
+    sales_day: args.salesDay ?? formatUsenDate(),
   };
-  return callAndLog<SalesActionRequest, SalesActionResponse>(
-    "/sales/salesadd",
-    "sales_add",
-    req,
-    ctx
-  );
+  const res = await callMemberApi({
+    path: "/sales/salesadd",
+    keyType: "mall",
+    action: "sales_add",
+    params: params as unknown as Record<string, string | number | undefined>,
+    checkFields: [args.jutyuCd, args.amount],
+    ctx,
+  });
+  if (!isOk(res)) {
+    throw new UsenApiError(`売上計上失敗 (code=${res.code ?? "?"})`, {
+      errorCode: res.code,
+      responseBody: res,
+    });
+  }
+  return res;
 }
 
 /** /sales/salescancel: 売上取消 */
 export async function salesCancel(
-  args: { jutyu_cd: string; mall_cd?: string },
-  ctx: { paymentId?: string | null; performedBy?: string | null; fetchImpl?: typeof fetch } = {}
-): Promise<SalesActionResponse> {
-  const { site_cd, mall_cd } = siteAndMall(args.mall_cd);
-  return callAndLog<SalesActionRequest, SalesActionResponse>(
-    "/sales/salescancel",
-    "sales_cancel",
-    { site_cd, mall_cd, jutyu_cd: args.jutyu_cd },
-    ctx
-  );
+  args: { jutyuCd: string; amount: number },
+  ctx: CallContext = {}
+): Promise<MemberApiResult> {
+  const params: SalesCancelParams = { jutyu_cd: args.jutyuCd, amount: args.amount };
+  return callMemberApi({
+    path: "/sales/salescancel",
+    keyType: "mall",
+    action: "sales_cancel",
+    params: params as unknown as Record<string, string | number | undefined>,
+    checkFields: [args.jutyuCd, args.amount],
+    ctx,
+  });
 }
 
-/** /sales/salesreturn: 返金 */
+/** /sales/salesreturn: 売上返品 */
 export async function salesReturn(
-  args: { jutyu_cd: string; amount?: number; mall_cd?: string },
-  ctx: { paymentId?: string | null; performedBy?: string | null; fetchImpl?: typeof fetch } = {}
-): Promise<SalesActionResponse> {
-  const { site_cd, mall_cd } = siteAndMall(args.mall_cd);
-  return callAndLog<SalesActionRequest, SalesActionResponse>(
-    "/sales/salesreturn",
-    "sales_return",
-    { site_cd, mall_cd, jutyu_cd: args.jutyu_cd, amount: args.amount },
-    ctx
-  );
+  args: { jutyuCd: string; amount: number },
+  ctx: CallContext = {}
+): Promise<MemberApiResult> {
+  return callMemberApi({
+    path: "/sales/salesreturn",
+    keyType: "mall",
+    action: "sales_return",
+    params: { jutyu_cd: args.jutyuCd, amount: args.amount },
+    checkFields: [args.jutyuCd, args.amount],
+    ctx,
+  });
 }
 
 /** /auth/void: 与信取消 */
 export async function authVoid(
-  args: { jutyu_cd: string; mall_cd?: string },
-  ctx: {
-    paymentId?: string | null;
-    performedBy?: string | null;
-    ipAddress?: string | null;
-    fetchImpl?: typeof fetch;
-  } = {}
-): Promise<AuthVoidResponse> {
-  const { site_cd, mall_cd } = siteAndMall(args.mall_cd);
-  const req: AuthVoidRequest = { site_cd, mall_cd, jutyu_cd: args.jutyu_cd };
-  return callAndLog<AuthVoidRequest, AuthVoidResponse>(
-    "/auth/void",
-    "auth_void",
-    req,
-    ctx
-  );
+  args: { jutyuCd: string; amount: number; jutyuDay?: string },
+  ctx: CallContext = {}
+): Promise<MemberApiResult> {
+  const params: AuthVoidParams = {
+    jutyu_cd: args.jutyuCd,
+    amount: args.amount,
+    jutyu_day: args.jutyuDay ?? formatUsenDate(),
+  };
+  return callMemberApi({
+    path: "/auth/void",
+    keyType: "mall",
+    action: "auth_void",
+    params: params as unknown as Record<string, string | number | undefined>,
+    checkFields: [args.jutyuCd, args.amount],
+    ctx,
+  });
 }
 
-/** /auth/change: 与信金額変更 */
-export async function authChange(
-  args: { jutyu_cd: string; amount: number; mall_cd?: string },
-  ctx: { paymentId?: string | null; performedBy?: string | null; fetchImpl?: typeof fetch } = {}
-): Promise<SalesActionResponse> {
-  const { site_cd, mall_cd } = siteAndMall(args.mall_cd);
-  return callAndLog<SalesActionRequest, SalesActionResponse>(
-    "/auth/change",
-    "auth_change",
-    { site_cd, mall_cd, jutyu_cd: args.jutyu_cd, amount: args.amount },
-    ctx
-  );
-}
-
-/** /search/trade: 取引照会 */
+/** /search/trade: 取引照会（署名対象は jutyu_cd のみ） */
 export async function searchTrade(
-  args: { jutyu_cd: string; mall_cd?: string },
-  ctx: { fetchImpl?: typeof fetch } = {}
-): Promise<SearchTradeResponse> {
-  const { site_cd, mall_cd } = siteAndMall(args.mall_cd);
-  const req: SearchTradeRequest = { site_cd, mall_cd, jutyu_cd: args.jutyu_cd };
-  return callAndLog<SearchTradeRequest, SearchTradeResponse>(
-    "/search/trade",
-    "search_trade",
-    req,
-    ctx
-  );
+  args: { jutyuCd: string },
+  ctx: CallContext = {}
+): Promise<MemberApiResult> {
+  const params: SearchTradeParams = { jutyu_cd: args.jutyuCd };
+  return callMemberApi({
+    path: "/search/trade",
+    keyType: "mall",
+    action: "search_trade",
+    params: params as unknown as Record<string, string | number | undefined>,
+    checkFields: [args.jutyuCd],
+    ctx,
+  });
+}
+
+// ============================================================
+// 会員操作（サイト鍵、署名対象 site_cd,member_id）
+// ============================================================
+
+/** /member/entrybyjutyucd: 与信会員登録（カード登録フローの最後） */
+export async function memberEntryByJutyuCd(
+  args: { memberId: string; jutyuCd: string; holderName?: string; remarks?: string },
+  ctx: CallContext = {}
+): Promise<MemberApiResult> {
+  const site = siteCd();
+  const params: MemberEntryParams = {
+    site_cd: site,
+    member_id: args.memberId,
+    jutyu_cd: args.jutyuCd,
+    holder_name: args.holderName,
+    remarks: args.remarks,
+  };
+  return callMemberApi({
+    path: "/member/entrybyjutyucd",
+    keyType: "site",
+    action: "member_entry",
+    params: params as unknown as Record<string, string | number | undefined>,
+    checkFields: [site, args.memberId],
+    ctx,
+  });
+}
+
+/** /member/get: 会員情報取得 */
+export async function memberGet(
+  args: { memberId: string },
+  ctx: CallContext = {}
+): Promise<MemberApiResult> {
+  const site = siteCd();
+  const params: MemberGetParams = { site_cd: site, member_id: args.memberId };
+  return callMemberApi({
+    path: "/member/get",
+    keyType: "site",
+    action: "member_get",
+    params: params as unknown as Record<string, string | number | undefined>,
+    checkFields: [site, args.memberId],
+    ctx,
+  });
+}
+
+/** /member/inactivate: 会員無効化 */
+export async function memberInactivate(
+  args: { memberId: string },
+  ctx: CallContext = {}
+): Promise<MemberApiResult> {
+  const site = siteCd();
+  return callMemberApi({
+    path: "/member/inactivate",
+    keyType: "site",
+    action: "member_inactivate",
+    params: { site_cd: site, member_id: args.memberId },
+    checkFields: [site, args.memberId],
+    ctx,
+  });
+}
+
+/** /member/activate: 会員有効化 */
+export async function memberActivate(
+  args: { memberId: string },
+  ctx: CallContext = {}
+): Promise<MemberApiResult> {
+  const site = siteCd();
+  return callMemberApi({
+    path: "/member/activate",
+    keyType: "site",
+    action: "member_activate",
+    params: { site_cd: site, member_id: args.memberId },
+    checkFields: [site, args.memberId],
+    ctx,
+  });
+}
+
+/** /member/delete: 会員情報削除 */
+export async function memberDelete(
+  args: { memberId: string },
+  ctx: CallContext = {}
+): Promise<MemberApiResult> {
+  const site = siteCd();
+  return callMemberApi({
+    path: "/member/delete",
+    keyType: "site",
+    action: "member_delete",
+    params: { site_cd: site, member_id: args.memberId },
+    checkFields: [site, args.memberId],
+    ctx,
+  });
 }

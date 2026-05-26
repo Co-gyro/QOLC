@@ -1,138 +1,126 @@
 /**
- * USEN PSP API 共通型定義
+ * USEN PSP API 型定義（IF仕様書 1.1.0 / 3DセキュアEC決済導入ガイド 1.0.5 準拠）
  */
 
 /** HMAC アルゴリズム種別 */
 export type HmacAlgorithm = "sha256" | "md5";
 
-/** USEN API レスポンス共通構造 */
-export interface UsenApiResponseBase {
-  /** USEN 応答コード（"S" 等の成功コード） */
-  res_cd?: string;
-  /** エラーコード */
-  err_cd?: string;
-  /** エラーメッセージ */
-  err_msg?: string;
-}
-
-/** カード登録（EC決済 トークンAPI）初期化リクエスト */
-export interface TokenInitRequest {
-  site_cd: string;
-  mall_cd: string;
-  jutyu_cd: string;
-  amount: number; // カード登録時は 1（1円与信）
-  /** 3DS 必須 */
-  acs_flg: "1";
-  /** 完了後のリダイレクト先 URL */
-  ret_url: string;
-}
-
-/** カード登録初期化レスポンス */
-export interface TokenInitResponse extends UsenApiResponseBase {
-  /** USEN の決済画面 URL */
-  redirect_url?: string;
-  /** USEN 内部の取引ID */
-  trade_id?: string;
-}
-
-/** /i/result リクエスト */
-export interface TokenResultRequest {
-  site_cd: string;
-  mall_cd: string;
-  jutyu_cd: string;
-}
-
-/** /i/result レスポンス */
-export interface TokenResultResponse extends UsenApiResponseBase {
-  /** 与信ステータス */
-  auth_status?: string;
-  /** USEN 会員ID（カード登録成功時に払い出される） */
+/** 会員ID決済APIの共通XMLレスポンス（result: ok|ng） */
+export interface MemberApiResult {
+  jutyu_cd?: string;
+  result?: "ok" | "ng" | string;
+  /** 処理結果詳細コード（例: 01=与信成功, 40=売上計上完了, 41=対象無し 等） */
+  code?: string;
+  /** カードブランド（VISA, MASTER, JCB ...） */
+  ucorp?: string;
+  /** 売上計上日（salesadd のみ） */
+  process_day?: string;
+  /** site_cd / member_id（会員操作系で返る場合あり） */
+  site_cd?: string;
   member_id?: string;
-  /** 取引ID */
-  trade_id?: string;
+  [key: string]: string | undefined;
 }
 
-/** 会員ID 与信リクエスト（/member/authbymemberid） */
-export interface AuthByMemberIdRequest {
+/** 支払区分（pay_method） */
+export type PayMethod = "10" | "21" | "61" | "69" | "80";
+
+/** 会員与信照会（/member/authbymemberid）リクエスト */
+export interface AuthByMemberIdParams {
+  /** [モールコード]-[7桁] 例: TSJM-0000001 */
+  jutyu_cd: string;
+  /** 税送料込み金額（最大7桁） */
+  amount: number;
+  /** 会員IDが登録されているサイトコード */
   site_cd: string;
-  mall_cd: string;
   member_id: string;
+  /** 受注日 yyyy/mm/dd */
+  jutyu_day: string;
+  pay_method?: PayMethod;
+  pay_times?: string;
+}
+
+/** 売上計上（/sales/salesadd）リクエスト */
+export interface SalesAddParams {
+  jutyu_cd: string;
+  amount: number;
+  /** 売上計上日 yyyy/mm/dd（与信日 ≦ 売上計上日 ≦ 当日） */
+  sales_day: string;
+}
+
+/** 売上取消（/sales/salescancel）/ 売上返品（/sales/salesreturn）リクエスト */
+export interface SalesCancelParams {
   jutyu_cd: string;
   amount: number;
 }
 
-export interface AuthByMemberIdResponse extends UsenApiResponseBase {
-  trade_id?: string;
-  auth_status?: string;
-}
-
-/** 売上計上 / 取消 / 返金 共通リクエスト */
-export interface SalesActionRequest {
-  site_cd: string;
-  mall_cd: string;
+/** 与信取消（/auth/void）リクエスト */
+export interface AuthVoidParams {
   jutyu_cd: string;
-  amount?: number;
+  amount: number;
+  /** 取消日 yyyy/mm/dd（受注日ではなく取消実行日） */
+  jutyu_day: string;
 }
 
-export interface SalesActionResponse extends UsenApiResponseBase {
-  trade_id?: string;
-}
-
-/** 与信取消（/auth/void） */
-export interface AuthVoidRequest {
+/** 与信会員登録（/member/entrybyjutyucd）リクエスト */
+export interface MemberEntryParams {
   site_cd: string;
-  mall_cd: string;
+  member_id: string;
   jutyu_cd: string;
+  holder_name?: string;
+  remarks?: string;
 }
 
-export type AuthVoidResponse = SalesActionResponse;
-
-/** 取引照会（/search/trade） */
-export interface SearchTradeRequest {
+/** 会員情報取得（/member/get）リクエスト */
+export interface MemberGetParams {
   site_cd: string;
-  mall_cd: string;
-  jutyu_cd: string;
-}
-
-export interface SearchTradeResponse extends UsenApiResponseBase {
-  trade_id?: string;
-  status?: string;
-  amount?: number;
-}
-
-/** 会員登録（/member/entrybyjutyucd） */
-export interface MemberEntryRequest {
-  site_cd: string;
-  mall_cd: string;
-  jutyu_cd: string;
   member_id: string;
 }
 
-export interface MemberEntryResponse extends UsenApiResponseBase {
-  member_id?: string;
+/** 取引照会（/search/trade）リクエスト */
+export interface SearchTradeParams {
+  jutyu_cd: string;
 }
 
-/** 会員情報取得 */
-export interface MemberGetRequest {
-  site_cd: string;
-  mall_cd: string;
+// ============================================================
+// 3DセキュアEC決済（決済画面表示 API: ec-payment-front/checkout）
+// ============================================================
+
+/** 決済画面表示APIのリクエストパラメータ（必須＋主要任意） */
+export interface EcCheckoutParams {
+  /** [サイト or モールコード]-[7桁]。管理画面で売上を上げる場合はサイトコード */
+  jutyu_cd: string;
+  /** 受注金額総額（税込）。会員登録のみは 1 円 */
+  sum_price: number;
+  /** 受注日 yyyy/mm/dd */
+  jutyu_day: string;
+  /** 会員ID（指定するとカード有効性確認後にカードを紐付け保管） */
+  member_id?: string;
+  item_name?: string;
+  /** 決済有効期限 yyyy/MM/dd HH:mm（最大60日後） */
+  expiration_date?: string;
+  ret_url?: string;
+  ret_url_type?: "POST" | "GET" | "REDIRECT";
+  cancel_url?: string;
+  cancel_url_method?: "POST" | "GET";
+  /** member-modify, capture をカンマ区切りで */
+  option?: string;
+}
+
+/** ret_url コールバックで戻るパラメータ */
+export interface EcReturnParams {
+  jutyu_cd: string;
+  /** カードブランド（VISA 等）。会員登録成功時に値が入る */
+  user_card_corp: string;
+  /** 会員ID。会員登録成功時に init 指定値が入る。失敗・未指定はブランク */
   member_id: string;
-}
-
-export interface MemberGetResponse extends UsenApiResponseBase {
-  member_id?: string;
-  /** カード番号下4桁 */
-  card_last4?: string;
-  /** カードブランド */
-  card_brand?: string;
-  /** 有効期限 YYMM */
-  card_expiry?: string;
+  /** 判定コード = "HM"+HMAC-SHA256(jutyu_cd, user_card_corp, sum_price) */
+  check_cd: string;
 }
 
 /** 監査ログのアクション種別 */
 export type AuditAction =
-  | "token_init"
-  | "token_result"
+  | "ec_checkout"
+  | "ec_return"
   | "member_entry"
   | "member_get"
   | "member_inactivate"

@@ -1,80 +1,71 @@
 /**
- * USEN PSP API 共通HTTPクライアント
+ * USEN PSP API 共通HTTPユーティリティ
  *
- * - リクエストパラメータをHMACで署名
- * - x-www-form-urlencoded で送信（USEN PSP の規約）
- * - レスポンスを JSON or key=value 形式でパース
- * - エラー時は UsenApiError をスロー
+ * - リクエストは application/x-www-form-urlencoded で POST（UTF-8）
+ * - 会員ID決済APIのレスポンスは XML（フラットな <response> 配下のタグ）
  */
-import { sign, buildSignaturePayload } from "./hmac";
-import type { HmacAlgorithm, UsenApiResponseBase } from "./types";
 import { UsenApiError } from "./errors";
 
-/** USEN レスポンスの成功判定コード（IF仕様書に従う） */
-const SUCCESS_CODES = new Set(["S", "0", "00", "OK"]);
-
-/** USEN PSP API への POST リクエストを行うパラメータ */
-export interface UsenRequestOptions {
-  /** 完全URL（ベース + パス） */
-  url: string;
-  /** リクエストパラメータ（HMAC署名対象） */
-  params: Record<string, string | number | undefined | null>;
-  /** 署名アルゴリズム（EC=sha256, 会員ID=md5） */
-  algorithm: HmacAlgorithm;
-  /** 署名フィールド名（USEN PSP の規約に従う。既定: 'sig'） */
-  signatureField?: string;
-  /** タイムアウト（ms、既定: 30秒） */
-  timeoutMs?: number;
-  /** 注入可能な fetch（テスト用） */
-  fetchImpl?: typeof fetch;
+/** ベースURLとパスを結合（重複スラッシュ吸収） */
+export function joinUrl(base: string, path: string): string {
+  const b = base.endsWith("/") ? base.slice(0, -1) : base;
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return b + p;
 }
 
-/** USEN レスポンスを application/x-www-form-urlencoded として解釈する */
-export function parseUrlEncoded(text: string): Record<string, string> {
+/**
+ * フラットな XML（<response><tag>value</tag>...</response>）を
+ * { tag: value } の連想配列にパースする。
+ * 仕様上ネストは無いため軽量な正規表現で処理する。
+ */
+export function parseXmlResponse(xml: string): Record<string, string> {
   const out: Record<string, string> = {};
-  if (!text) return out;
-  for (const pair of text.split("&")) {
-    if (!pair) continue;
-    const idx = pair.indexOf("=");
-    if (idx < 0) {
-      out[decodeURIComponent(pair)] = "";
-    } else {
-      const k = decodeURIComponent(pair.slice(0, idx));
-      const v = decodeURIComponent(pair.slice(idx + 1));
-      out[k] = v;
-    }
+  if (!xml) return out;
+  // <response> 配下を対象にする（無ければ全体）
+  const bodyMatch = xml.match(/<response[^>]*>([\s\S]*?)<\/response>/i);
+  const body = bodyMatch ? bodyMatch[1] : xml;
+  const tagRe = /<([A-Za-z_][\w.-]*)>([\s\S]*?)<\/\1>/g;
+  let m: RegExpExecArray | null;
+  while ((m = tagRe.exec(body)) !== null) {
+    out[m[1]] = decodeXmlEntities(m[2].trim());
   }
   return out;
 }
 
+function decodeXmlEntities(s: string): string {
+  return s
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
+export interface PostFormOptions {
+  url: string;
+  /** フォームパラメータ（check_cd も含めて渡す） */
+  params: Record<string, string | number | undefined | null>;
+  timeoutMs?: number;
+  fetchImpl?: typeof fetch;
+}
+
 /**
- * USEN PSP API を呼び出す。レスポンスをパースして返す。
- * 成功判定（res_cd など）は呼び出し側で行うこと。
- *
- * @throws {UsenApiError} ネットワーク・HTTPステータス異常時
+ * x-www-form-urlencoded で POST し、レスポンス本文（テキスト）を返す。
+ * @throws {UsenApiError} 通信失敗・HTTP異常時
  */
-export async function callUsenApi<TResp extends UsenApiResponseBase>(
-  opts: UsenRequestOptions
-): Promise<TResp> {
-  const signatureField = opts.signatureField ?? "sig";
+export async function postForm(opts: PostFormOptions): Promise<string> {
   const fetchImpl = opts.fetchImpl ?? fetch;
   const timeoutMs = opts.timeoutMs ?? 30_000;
 
-  // 署名対象（署名フィールド自身は除外）
-  const signTarget = buildSignaturePayload(opts.params);
-  const signature = sign(opts.algorithm, signTarget);
-
-  // body 構築
   const body = new URLSearchParams();
   for (const [k, v] of Object.entries(opts.params)) {
     if (v === undefined || v === null) continue;
     body.append(k, String(v));
   }
-  body.append(signatureField, signature);
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-
   let res: Response;
   try {
     res = await fetchImpl(opts.url, {
@@ -93,39 +84,25 @@ export async function callUsenApi<TResp extends UsenApiResponseBase>(
   }
 
   const text = await res.text();
-
   if (!res.ok) {
-    throw new UsenApiError(
-      `USEN API がエラーを返しました (HTTP ${res.status})`,
-      { httpStatus: res.status, responseBody: text }
-    );
+    throw new UsenApiError(`USEN API がエラーを返しました (HTTP ${res.status})`, {
+      httpStatus: res.status,
+      responseBody: text,
+    });
   }
-
-  // レスポンスは text/plain or application/x-www-form-urlencoded の想定
-  // JSON も念のためサポート
-  const trimmed = text.trim();
-  let parsed: Record<string, string> = {};
-  if (trimmed.startsWith("{")) {
-    try {
-      parsed = JSON.parse(trimmed) as Record<string, string>;
-    } catch {
-      parsed = parseUrlEncoded(trimmed);
-    }
-  } else {
-    parsed = parseUrlEncoded(trimmed);
-  }
-
-  return parsed as unknown as TResp;
+  return text;
 }
 
-/** USEN レスポンスが成功か判定する */
-export function isUsenSuccess(resp: UsenApiResponseBase): boolean {
-  return !!resp.res_cd && SUCCESS_CODES.has(resp.res_cd);
+/** 会員ID決済APIのXMLレスポンスをパースして共通形に整える */
+export interface UsenXmlResult {
+  jutyu_cd?: string;
+  result?: "ok" | "ng" | string;
+  code?: string;
+  ucorp?: string;
+  [key: string]: string | undefined;
 }
 
-/** ベースURLとパスを結合する（末尾スラッシュ吸収） */
-export function joinUrl(base: string, path: string): string {
-  const b = base.endsWith("/") ? base.slice(0, -1) : base;
-  const p = path.startsWith("/") ? path : `/${path}`;
-  return b + p;
+/** result === "ok" を成功とみなす */
+export function isOk(result: UsenXmlResult): boolean {
+  return result.result === "ok";
 }

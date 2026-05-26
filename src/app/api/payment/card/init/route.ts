@@ -1,29 +1,26 @@
 /**
  * POST /api/payment/card/init
  *
- * カード登録の初期化エンドポイント。
- * ログイン中の family ユーザー（payment owner）がカード登録を開始する際に呼び出す。
+ * カード登録の初期化。3DセキュアEC決済(checkout)の自動送信フォーム定義を返す。
+ * フロントエンドは返却された url/fields でフォームを生成し USEN 決済画面へ遷移させる。
  *
- * フロー:
- *   1. 認証ユーザーから resident_account を解決
- *   2. is_payment_owner = true であること、まだ usen_member_id がないことを確認
- *   3. jutyu_cd を採番
- *   4. tokenInit でUSEN PSPに1円与信 + 3DS開始 → redirect_url を取得
- *   5. クライアントへ redirect_url を返す
+ * - jutyu_cd はサイトコードで採番（会員登録用途）→ check_cd はサイト鍵で署名
+ * - sum_price=1（カード有効性確認）、member_id を指定してカードを紐付け
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { tokenInit } from "@/lib/payment/token-api";
-import { nextJutyuCd } from "@/lib/payment/member-api";
+import { buildCheckoutForm } from "@/lib/payment/ec-api";
+import { nextJutyuCd, formatUsenDate } from "@/lib/payment/member-api";
+import { logPaymentAudit } from "@/lib/payment/audit-log";
 import { apiError, apiOk } from "@/types/api";
 
 const requestSchema = z.object({
   residentAccountId: z.string().uuid(),
-  /** USEN のコールバックURL（デフォルトはアプリ側で組み立て） */
-  retUrl: z.string().url().optional(),
 });
+
+const SUM_PRICE = 1; // カード有効性確認は1円
 
 export async function POST(req: NextRequest) {
   const supabase = createSupabaseServerClient();
@@ -31,38 +28,29 @@ export async function POST(req: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json(apiError("認証されていません", "UNAUTHORIZED"), {
-      status: 401,
-    });
+    return NextResponse.json(apiError("認証されていません", "UNAUTHORIZED"), { status: 401 });
   }
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json(apiError("不正なリクエスト", "BAD_REQUEST"), {
-      status: 400,
-    });
+    return NextResponse.json(apiError("不正なリクエスト", "BAD_REQUEST"), { status: 400 });
   }
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      apiError("入力検証エラー", "VALIDATION_ERROR"),
-      { status: 400 }
-    );
+    return NextResponse.json(apiError("入力検証エラー", "VALIDATION_ERROR"), { status: 400 });
   }
 
   const admin = getSupabaseAdminClient();
   const { data: account } = await admin
     .from("resident_accounts")
-    .select("id, user_id, is_payment_owner, usen_member_id, resident_id")
+    .select("id, user_id, is_payment_owner, usen_member_id")
     .eq("id", parsed.data.residentAccountId)
     .is("deleted_at", null)
     .maybeSingle();
   if (!account || account.user_id !== user.id) {
-    return NextResponse.json(apiError("対象アカウントが見つかりません", "NOT_FOUND"), {
-      status: 404,
-    });
+    return NextResponse.json(apiError("対象アカウントが見つかりません", "NOT_FOUND"), { status: 404 });
   }
   if (!account.is_payment_owner) {
     return NextResponse.json(
@@ -71,48 +59,46 @@ export async function POST(req: NextRequest) {
     );
   }
   if (account.usen_member_id) {
-    return NextResponse.json(
-      apiError("既にカードが登録されています", "ALREADY_REGISTERED"),
-      { status: 409 }
-    );
+    return NextResponse.json(apiError("既にカードが登録されています", "ALREADY_REGISTERED"), { status: 409 });
   }
 
-  // 入居者から施設→加盟店のmall_codeを解決（決済用モール）
-  const { data: resident } = await admin
-    .from("residents")
-    .select("id, facility_id, facilities ( mall_code )")
-    .eq("id", account.resident_id)
-    .maybeSingle();
-  const mallCode = (
-    resident?.facilities as unknown as { mall_code: string | null } | null
-  )?.mall_code;
-  if (!mallCode) {
-    return NextResponse.json(
-      apiError("施設にモールコードが未割り当てです", "MALL_CODE_MISSING"),
-      { status: 422 }
-    );
+  const siteCd = process.env.USEN_SITE_CD;
+  if (!siteCd) {
+    return NextResponse.json(apiError("USEN_SITE_CD 未設定", "CONFIG"), { status: 500 });
   }
 
-  const jutyu_cd = await nextJutyuCd(mallCode);
+  // サイトコードで jutyu_cd を採番（会員登録用途）
+  const jutyuCd = await nextJutyuCd(siteCd);
+  // 会員IDは resident_account から生成（英数・最大48桁）
+  const memberId = "M" + account.id.replace(/-/g, "");
+
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  // ret_url にコールバック検証に必要な情報を付与（sum_price, resident_account_id）
   const retUrl =
-    parsed.data.retUrl ?? `${baseUrl}/api/payment/card/callback`;
+    `${baseUrl}/api/payment/card/callback` +
+    `?ra=${encodeURIComponent(account.id)}&sp=${SUM_PRICE}`;
 
-  try {
-    const resp = await tokenInit(
-      { jutyu_cd, retUrl, mall_cd: mallCode },
-      {
-        performedBy: user.id,
-        ipAddress: req.headers.get("x-forwarded-for") ?? null,
-      }
-    );
-    return NextResponse.json(
-      apiOk({ redirectUrl: resp.redirect_url, jutyuCd: jutyu_cd })
-    );
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "unknown";
-    return NextResponse.json(apiError(`カード登録初期化失敗: ${msg}`, "USEN_ERROR"), {
-      status: 502,
-    });
-  }
+  const form = buildCheckoutForm(
+    {
+      jutyu_cd: jutyuCd,
+      sum_price: SUM_PRICE,
+      jutyu_day: formatUsenDate(),
+      member_id: memberId,
+      item_name: "QOLC カード登録",
+      ret_url: retUrl,
+      ret_url_type: "GET",
+    },
+    "site"
+  );
+
+  await logPaymentAudit({
+    action: "ec_checkout",
+    request: { jutyu_cd: jutyuCd, sum_price: SUM_PRICE, member_id: memberId },
+    performedBy: user.id,
+    ipAddress: req.headers.get("x-forwarded-for") ?? null,
+  });
+
+  return NextResponse.json(
+    apiOk({ url: form.url, method: form.method, fields: form.fields, jutyuCd, memberId })
+  );
 }

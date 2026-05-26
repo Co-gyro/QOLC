@@ -1,110 +1,108 @@
 /**
- * USEN PSP API HMAC 署名モジュール
+ * USEN PSP API チェックコード（署名）モジュール
  *
- * USEN PSP は2種類のHMAC署名を使い分ける:
- *   1. EC決済API（カード登録）  : HMAC-SHA256
- *   2. 会員ID決済API（定常決済） : HMAC-MD5
- *
- * いずれも 64バイトバイナリ鍵（*.NMK ファイル）を使用する。
+ * 仕様（会員ID決済IF仕様書 2.4.2 / 3DセキュアEC決済導入ガイド 4.2.3）:
+ *   チェックコード = "HM" + HMAC-hex(各API指定パラメータを "," で連結した文字列, HMACキー)
+ *     - 会員ID決済API : HMAC-MD5
+ *     - EC決済API(3DS): HMAC-SHA256
+ *   HMACキーは 64バイトバイナリで、サイトコード/モールコードごとに異なる:
+ *     - サイトのキー: 会員登録系API（entrybyjutyucd, get, inactivate, activate, delete）
+ *     - モールのキー: 与信/売上/取消系API（authbymemberid, salesadd, void 等）
  *
  * セキュリティ:
- *   - 鍵ファイルは .gitignore で *.NMK 除外済み
- *   - process 起動時に1回だけ読み込み、メモリにキャッシュ
- *   - ログには絶対に鍵バイト列を出力しない
- *   - エラー時もメッセージに鍵の値を含めない
+ *   - 鍵ファイル(*.NMK)は .gitignore 除外済み。パスは環境変数経由（ハードコード禁止）
+ *   - 鍵バイト列・パスをログ出力しない
  */
 import { createHmac, type BinaryLike } from "node:crypto";
 import { readFileSync } from "node:fs";
 import type { HmacAlgorithm } from "./types";
 import { HmacKeyError } from "./errors";
 
-let cachedKey: Buffer | null = null;
-let cachedKeyPath: string | null = null;
+/** チェックコードの固定プレフィックス（仕様で規定） */
+export const CHECK_CODE_PREFIX = "HM";
+
+/** HMACキーの種別（サイト or モール） */
+export type UsenKeyType = "site" | "mall";
+
+const ENV_BY_TYPE: Record<UsenKeyType, string> = {
+  site: "USEN_SITE_HMAC_KEY_PATH",
+  mall: "USEN_MALL_HMAC_KEY_PATH",
+};
+
+const keyCache = new Map<string, Buffer>();
 
 /**
- * 環境変数 USEN_HMAC_KEY_PATH から HMAC キーをロードして返す（キャッシュ）。
- * テストや別環境の鍵を使う場合は {@link signWithKey} を直接呼ぶこと。
+ * 指定種別の HMAC キーを環境変数のパスからロードする（パス単位でキャッシュ）。
  */
-export function loadHmacKey(): Buffer {
-  const path = process.env.USEN_HMAC_KEY_PATH;
+export function loadUsenKey(type: UsenKeyType): Buffer {
+  const envName = ENV_BY_TYPE[type];
+  const path = process.env[envName];
   if (!path) {
-    throw new HmacKeyError("USEN_HMAC_KEY_PATH 環境変数が設定されていません");
+    throw new HmacKeyError(`${envName} 環境変数が設定されていません`);
   }
-  if (cachedKey && cachedKeyPath === path) {
-    return cachedKey;
-  }
+  const cached = keyCache.get(path);
+  if (cached) return cached;
+
   let buf: Buffer;
   try {
     buf = readFileSync(path);
   } catch (_e) {
-    // エラーメッセージにファイルパス以上の情報を漏らさない
+    // エラーメッセージに鍵の内容を漏らさない（パスのみ）
     throw new HmacKeyError(`HMACキーファイルを読み込めませんでした: ${path}`);
   }
   if (buf.length === 0) {
     throw new HmacKeyError("HMACキーファイルが空です");
   }
-  cachedKey = buf;
-  cachedKeyPath = path;
+  keyCache.set(path, buf);
   return buf;
 }
 
-/**
- * テスト用 / 内部用にキャッシュをクリアする。
- */
+/** テスト用・再読込用にキャッシュをクリアする。 */
 export function resetHmacKeyCache(): void {
-  cachedKey = null;
-  cachedKeyPath = null;
+  keyCache.clear();
 }
 
 /**
- * 指定アルゴリズム / 任意の鍵で HMAC 署名を生成する。
- * 戻り値は16進小文字。
- *
- * @param algorithm - 'sha256' または 'md5'
- * @param key - HMAC キー（バイナリ）
- * @param payload - 署名対象（文字列または Buffer）
+ * 任意の鍵で HMAC を計算し、16進小文字文字列を返す（プレフィックスなし）。
+ * テストや低レベル用途向け。
  */
-export function signWithKey(
+export function hmacHex(
   algorithm: HmacAlgorithm,
   key: BinaryLike,
-  payload: string | Buffer
+  payload: string
 ): string {
   const algo = algorithm === "sha256" ? "sha256" : "md5";
-  const hmac = createHmac(algo, key);
-  hmac.update(payload);
-  return hmac.digest("hex");
+  return createHmac(algo, key).update(payload, "utf8").digest("hex");
 }
 
 /**
- * 環境変数 USEN_HMAC_KEY_PATH のキーで HMAC 署名を生成する。
+ * チェックコードを生成する: "HM" + HMAC-hex(fields を "," で連結, key)。
  *
- * EC決済API（カード登録用）は 'sha256'、
- * 会員ID決済API（定常決済用）は 'md5' を指定する。
+ * @param algorithm - 'md5'（会員ID決済）/ 'sha256'（EC決済）
+ * @param key - HMACキー（64バイトバイナリ）
+ * @param fields - 各API仕様で規定された順序のパラメータ値
  */
-export function sign(
+export function generateCheckCodeWithKey(
   algorithm: HmacAlgorithm,
-  payload: string | Buffer
+  key: BinaryLike,
+  fields: Array<string | number>
 ): string {
-  const key = loadHmacKey();
-  return signWithKey(algorithm, key, payload);
+  const data = fields.map((f) => String(f)).join(",");
+  return CHECK_CODE_PREFIX + hmacHex(algorithm, key, data);
 }
 
 /**
- * USEN PSP のリクエストパラメータを「キーのASCII順で連結」する規約に基づき
- * 署名対象文字列を組み立てる。
+ * 環境変数のキー（サイト or モール）でチェックコードを生成する。
  *
- * 仕様: 値を connector（既定 ""）で連結。NULL/undefined は除外。
- * 順序はキーの ASCII 昇順（USEN PSP IF仕様書に準拠）。
- *
- * @param params - リクエストパラメータ（key: string, value: string | number）
- * @param connector - 値の区切り文字（既定: ""）
+ * @param algorithm - 'md5' / 'sha256'
+ * @param keyType - 'site' / 'mall'
+ * @param fields - 署名対象のパラメータ値（仕様順）
  */
-export function buildSignaturePayload(
-  params: Record<string, string | number | undefined | null>,
-  connector = ""
+export function generateCheckCode(
+  algorithm: HmacAlgorithm,
+  keyType: UsenKeyType,
+  fields: Array<string | number>
 ): string {
-  const keys = Object.keys(params)
-    .filter((k) => params[k] !== undefined && params[k] !== null)
-    .sort();
-  return keys.map((k) => String(params[k])).join(connector);
+  const key = loadUsenKey(keyType);
+  return generateCheckCodeWithKey(algorithm, key, fields);
 }

@@ -282,10 +282,9 @@ async function processGroup(args: {
   try {
     await authByMemberId(
       {
-        member_id: owner.usenMemberId,
+        memberId: owner.usenMemberId,
         amount: group.totalAmount,
-        jutyu_cd,
-        mall_cd: merchant.mall_code,
+        jutyuCd: jutyu_cd,
       },
       { paymentId, performedBy, ipAddress, fetchImpl: args.fetchImpl }
     );
@@ -315,7 +314,7 @@ async function processGroup(args: {
   // 売上計上
   try {
     await salesAdd(
-      { jutyu_cd, amount: group.totalAmount, mall_cd: merchant.mall_code },
+      { jutyuCd: jutyu_cd, amount: group.totalAmount },
       { paymentId, performedBy, ipAddress, fetchImpl: args.fetchImpl }
     );
     await client

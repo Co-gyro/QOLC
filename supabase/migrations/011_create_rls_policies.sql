@@ -33,10 +33,14 @@ ALTER TABLE public.terminal_id_pool              ENABLE ROW LEVEL SECURITY;
 -- ============================================================
 -- JWT から claim を取り出すヘルパー関数
 -- ============================================================
+-- 注: これらは profiles を参照するため SECURITY DEFINER 必須。
+-- そうしないと profiles の RLS が再帰的に is_admin()/jwt_role() を呼び無限再帰する。
 CREATE OR REPLACE FUNCTION public.jwt_role()
 RETURNS TEXT
 LANGUAGE sql
 STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
   SELECT COALESCE(
     current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'role',
@@ -48,6 +52,8 @@ CREATE OR REPLACE FUNCTION public.jwt_facility_id()
 RETURNS UUID
 LANGUAGE sql
 STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
   SELECT NULLIF(
     COALESCE(
@@ -62,6 +68,8 @@ CREATE OR REPLACE FUNCTION public.jwt_merchant_id()
 RETURNS UUID
 LANGUAGE sql
 STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
   SELECT NULLIF(
     COALESCE(
@@ -76,6 +84,8 @@ CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
   SELECT public.jwt_role() = 'admin';
 $$;

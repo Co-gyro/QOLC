@@ -44,6 +44,7 @@ export function FacilityFormDialog({
   useEffect(() => {
     if (open) {
       setError(null);
+      setSaving(false);
       setValues(
         target
           ? {
@@ -165,7 +166,7 @@ export function FacilityFormDialog({
             </p>
           )}
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+            <Button type="button" variant="outline" onClick={onClose}>
               キャンセル
             </Button>
             <Button

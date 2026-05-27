@@ -42,6 +42,7 @@ export function MerchantFormDialog({
   useEffect(() => {
     if (open) {
       setError(null);
+      setSaving(false);
       setValues(
         target
           ? {
@@ -129,13 +130,26 @@ export function MerchantFormDialog({
               className="w-full border rounded px-3 py-2"
               style={{ borderColor: "var(--qolc-border)", minHeight: 44 }}
             >
-              <option value="">（なし）</option>
+              <option value="">（未設定）</option>
               {formats.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.name}
                 </option>
               ))}
             </select>
+            <p className="text-xs mt-1" style={{ color: "var(--qolc-muted)" }}>
+              この加盟店が明細CSVをアップロードする際の<strong>列の対応付け</strong>（CSVのどの列が
+              「被保険者番号」「金額」かなどの定義）です。提供者ごとにCSVの形式が異なるため、
+              この加盟店の形式に合うものを選びます。未設定の場合は既定の項目名（被保険者番号／金額 等）で解釈します。
+              {formats.length === 0 && (
+                <>
+                  <br />
+                  <span style={{ color: "#B45309" }}>
+                    登録済みフォーマットがありません（マスタ管理で追加予定）。未設定のままでも登録できます。
+                  </span>
+                </>
+              )}
+            </p>
           </div>
 
           {/* プール払い出しは新規作成時のみ */}
@@ -168,7 +182,7 @@ export function MerchantFormDialog({
 
           {error && <p className="text-sm" style={{ color: "#DC2626" }}>{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+            <Button type="button" variant="outline" onClick={onClose}>
               キャンセル
             </Button>
             <Button type="submit" disabled={saving} style={{ backgroundColor: "var(--qolc-primary)", color: "white" }}>

@@ -8,6 +8,7 @@ import { merchantFormSchema, type MerchantFormValues } from "@/lib/portal/schema
 import {
   createMerchant,
   updateMerchant,
+  assignMerchantCodes,
   type MerchantRow,
   type UploadFormatOption,
 } from "@/lib/portal/admin-queries";
@@ -81,6 +82,12 @@ export function MerchantFormDialog({
     try {
       if (target) {
         await updateMerchant(target.id, parsed.data);
+        // 未割当のコードのみ、チェックされていれば払い出し
+        const needMall = !!parsed.data.assign_mall_code && !target.mallCode;
+        const needTerminal = !!parsed.data.assign_terminal_id && !target.terminalId;
+        if (needMall || needTerminal) {
+          await assignMerchantCodes(target.id, { mall: needMall, terminal: needTerminal });
+        }
       } else {
         await createMerchant(parsed.data);
       }
@@ -152,33 +159,46 @@ export function MerchantFormDialog({
             </p>
           </div>
 
-          {/* プール払い出しは新規作成時のみ */}
-          {!target ? (
-            <div className="rounded p-3 space-y-2" style={{ backgroundColor: "var(--qolc-bg-soft)" }}>
-              <p className="text-sm font-medium">USENコードの払い出し</p>
+          {/* USENコードの払い出し: 新規作成時 or 編集時の未割当分のみ */}
+          <div className="rounded p-3 space-y-2" style={{ backgroundColor: "var(--qolc-bg-soft)" }}>
+            <p className="text-sm font-medium">USENコードの払い出し</p>
+
+            {/* モールコード */}
+            {target?.mallCode ? (
+              <p className="text-sm" style={{ color: "var(--qolc-muted)" }}>
+                モールコード: <strong>{target.mallCode}</strong>（割当済み）
+              </p>
+            ) : (
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={values.assign_mall_code ?? false}
                   onChange={(e) => setValues({ ...values, assign_mall_code: e.target.checked })}
                 />
-                モールコードをプールから自動払い出し
+                モールコードをプールから払い出す
               </label>
+            )}
+
+            {/* 端末識別番号 */}
+            {target?.terminalId ? (
+              <p className="text-sm" style={{ color: "var(--qolc-muted)" }}>
+                端末識別番号: <strong>{target.terminalId}</strong>（割当済み）
+              </p>
+            ) : (
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={values.assign_terminal_id ?? false}
                   onChange={(e) => setValues({ ...values, assign_terminal_id: e.target.checked })}
                 />
-                端末識別番号をプールから自動払い出し
+                端末識別番号をプールから払い出す
               </label>
-            </div>
-          ) : (
-            <div className="rounded p-3 text-sm" style={{ backgroundColor: "var(--qolc-bg-soft)", color: "var(--qolc-muted)" }}>
-              モールコード: {target.mallCode ?? "未割当"} ／ 端末番号: {target.terminalId ?? "未割当"}
-              <br />（コードの払い出しは新規作成時のみ）
-            </div>
-          )}
+            )}
+
+            <p className="text-xs" style={{ color: "var(--qolc-muted)" }}>
+              ※ 払い出したコードは取り消せません（プールから1つ消費します）。割当済みのコードは変更できません。
+            </p>
+          </div>
 
           {error && <p className="text-sm" style={{ color: "#DC2626" }}>{error}</p>}
           <div className="flex justify-end gap-2 pt-2">

@@ -201,6 +201,26 @@ export async function softDeleteMerchant(id: string): Promise<void> {
   if (error) throw new Error(`加盟店の削除に失敗しました: ${error.message}`);
 }
 
+/** 既存加盟店へ未割当コードを払い出す（サーバーAPI経由） */
+export async function assignMerchantCodes(
+  id: string,
+  opts: { mall?: boolean; terminal?: boolean }
+): Promise<{ mallCode: string | null; terminalId: string | null }> {
+  const res = await fetch(`/api/admin/merchants/${id}/assign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      assign_mall_code: opts.mall ?? false,
+      assign_terminal_id: opts.terminal ?? false,
+    }),
+  });
+  const json = (await res.json()) as
+    | { success: true; data: { mallCode: string | null; terminalId: string | null } }
+    | { success: false; error: string };
+  if (!json.success) throw new Error(json.error);
+  return json.data;
+}
+
 /** 加盟店作成（プール払い出しを含むためサーバーAPI経由） */
 export async function createMerchant(v: {
   name: string;

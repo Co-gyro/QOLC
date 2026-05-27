@@ -7,6 +7,7 @@ import { FileUpload } from "@/components/shared/file-upload";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { UploadHistory } from "@/components/shared/upload-history";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ApiResponse } from "@/types/api";
 import type { PreviewResult } from "@/lib/upload/preview";
@@ -29,6 +30,7 @@ export default function ProviderUploadPage() {
   const [confirming, setConfirming] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [result, setResult] = useState<ExecuteResult | null>(null);
+  const [historyKey, setHistoryKey] = useState(0);
 
   async function handleFile(file: File) {
     setError(null);
@@ -46,6 +48,7 @@ export default function ProviderUploadPage() {
         return;
       }
       setPreview(json.data);
+      setHistoryKey((k) => k + 1); // バッチ作成 → 履歴更新
     } catch (e) {
       setError(e instanceof Error ? e.message : "アップロードに失敗しました");
     } finally {
@@ -78,6 +81,7 @@ export default function ProviderUploadPage() {
         return;
       }
       setResult(json.data);
+      setHistoryKey((k) => k + 1); // 実行完了 → 履歴更新
     } catch (e) {
       setError(e instanceof Error ? e.message : "決済実行に失敗しました");
     } finally {
@@ -254,6 +258,11 @@ export default function ProviderUploadPage() {
           </CardContent>
         </Card>
       )}
+
+      <section className="mt-10">
+        <h2 className="text-lg font-semibold mb-3">アップロード履歴</h2>
+        <UploadHistory refreshKey={historyKey} hideMerchant />
+      </section>
 
       <ConfirmDialog
         open={confirming}

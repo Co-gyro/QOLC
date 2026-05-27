@@ -1,7 +1,7 @@
 import { PortalLayout } from "@/components/layout/portal-layout";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState } from "@/components/shared/empty-state";
+import { UploadHistory } from "@/components/shared/upload-history";
 
 export default function FacilityStatementsPage() {
   return (
@@ -26,10 +26,7 @@ export default function FacilityStatementsPage() {
         </CardContent>
       </Card>
       <h2 className="text-lg font-semibold mb-3">アップロード履歴</h2>
-      <EmptyState
-        title="まだアップロード履歴がありません"
-        description="提供者または施設から明細をアップロードすると、ここに表示されます。"
-      />
+      <UploadHistory />
     </PortalLayout>
   );
 }

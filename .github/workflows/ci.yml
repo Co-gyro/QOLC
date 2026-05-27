@@ -73,3 +73,14 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          # テストユーザーの認証情報（未設定時は helpers.ts の既定値を使用）
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_FACILITY_EMAIL: ${{ secrets.E2E_FACILITY_EMAIL }}
+          E2E_FACILITY_PASSWORD: ${{ secrets.E2E_FACILITY_PASSWORD }}
+          E2E_PROVIDER_EMAIL: ${{ secrets.E2E_PROVIDER_EMAIL }}
+          E2E_PROVIDER_PASSWORD: ${{ secrets.E2E_PROVIDER_PASSWORD }}
+          E2E_FAMILY_EMAIL: ${{ secrets.E2E_FAMILY_EMAIL }}
+          E2E_FAMILY_PASSWORD: ${{ secrets.E2E_FAMILY_PASSWORD }}

@@ -9,6 +9,7 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "postinstall": "node scripts/copy-pdfjs-assets.mjs",
     "copy-pdfjs-assets": "node scripts/copy-pdfjs-assets.mjs"
   },

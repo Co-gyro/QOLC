@@ -5,59 +5,55 @@ import { PortalLayout } from "@/components/layout/portal-layout";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { FileUpload } from "@/components/shared/file-upload";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
-import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ApiResponse } from "@/types/api";
+import type { PreviewResult } from "@/lib/upload/preview";
 
-interface PreviewLine {
-  residentName: string | null;
-  insuranceNumber: string;
-  amount: number;
-  matchStatus: "matched" | "unmatched" | "ambiguous";
-}
-
-interface PreviewGroup {
-  facilityName: string;
-  totalAmount: number;
-  residents: { name: string; totalAmount: number; lines: PreviewLine[] }[];
-  unmatched: PreviewLine[];
-}
-
-const MOCK_PREVIEW: PreviewGroup[] = [
-  {
-    facilityName: "〇〇介護施設",
-    totalAmount: 20000,
-    residents: [
-      { name: "田中太郎", totalAmount: 5000, lines: [{ residentName: "田中太郎", insuranceNumber: "0000001234", amount: 5000, matchStatus: "matched" }] },
-      { name: "鈴木花子", totalAmount: 3000, lines: [{ residentName: "鈴木花子", insuranceNumber: "0000005678", amount: 3000, matchStatus: "matched" }] },
-      { name: "佐藤次郎", totalAmount: 8000, lines: [{ residentName: "佐藤次郎", insuranceNumber: "0000009999", amount: 8000, matchStatus: "matched" }] },
-    ],
-    unmatched: [
-      { residentName: null, insuranceNumber: "12345678", amount: 6000, matchStatus: "unmatched" },
-    ],
-  },
-];
+const yen = (n: number) => `¥${n.toLocaleString("ja-JP")}`;
 
 export default function ProviderUploadPage() {
-  const [file, setFile] = useState<File | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [preview, setPreview] = useState<PreviewGroup[] | null>(null);
-  const [confirming, setConfirming] = useState(false);
-  const [done, setDone] = useState(false);
+  const [preview, setPreview] = useState<PreviewResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  async function handleFile(f: File) {
-    setFile(f);
+  async function handleFile(file: File) {
+    setError(null);
+    setPreview(null);
+    setFileName(file.name);
     setLoading(true);
-    // モック: 実際は /api/upload を呼ぶ
-    await new Promise((r) => setTimeout(r, 600));
-    setPreview(MOCK_PREVIEW);
-    setLoading(false);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const json = (await res.json()) as ApiResponse<PreviewResult>;
+      if (!json.success) {
+        setError(json.error);
+        setLoading(false);
+        return;
+      }
+      setPreview(json.data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "アップロードに失敗しました");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function executePayment() {
-    setConfirming(false);
-    setDone(true);
+  function reset() {
+    setPreview(null);
+    setFileName(null);
+    setError(null);
   }
+
+  const matchedCount = preview
+    ? preview.facilities.reduce((s, f) => s + f.residents.length, 0)
+    : 0;
+  const unmatchedCount = preview
+    ? preview.facilities.reduce((s, f) => s + f.unmatched.length, 0) +
+      preview.unmatched.length
+    : 0;
 
   return (
     <PortalLayout portal="provider">
@@ -72,8 +68,13 @@ export default function ProviderUploadPage() {
           <CardContent>
             <FileUpload
               onFile={handleFile}
-              helperText="自社の明細CSV（被保険者番号を含む）をアップロードしてください。最大10MB。"
+              helperText="被保険者番号を含む明細CSVをアップロードしてください（ヘッダー行必須、最大10MB）。"
             />
+            {error && (
+              <p className="text-sm mt-3" style={{ color: "#DC2626" }}>
+                {error}
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
@@ -81,99 +82,98 @@ export default function ProviderUploadPage() {
       {loading && (
         <Card>
           <CardContent className="py-8 flex justify-center">
-            <LoadingSpinner size="lg" label={`${file?.name ?? "ファイル"} を処理中...`} />
+            <LoadingSpinner size="lg" label={`${fileName ?? "ファイル"} を処理中...`} />
           </CardContent>
         </Card>
       )}
 
-      {preview && !done && (
+      {preview && (
         <>
-          <Card className="mb-6">
+          <Card className="mb-4">
             <CardHeader>
-              <CardTitle>プレビュー</CardTitle>
+              <CardTitle>
+                プレビュー（マッチ {matchedCount}名 / 未マッチ {unmatchedCount}件 / 合計{" "}
+                {yen(preview.totalAmount)}）
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              {preview.map((g) => (
-                <div key={g.facilityName} className="mb-6 last:mb-0">
+              {preview.facilities.length === 0 && preview.unmatched.length === 0 && (
+                <p style={{ color: "var(--qolc-muted)" }}>明細がありませんでした。</p>
+              )}
+
+              {preview.facilities.map((f) => (
+                <div key={f.facilityId ?? "none"} className="mb-6 last:mb-0">
                   <h3 className="font-semibold text-lg mb-2">
-                    {g.facilityName}
+                    {f.facilityName}
                     <span className="ml-2 text-sm font-normal" style={{ color: "var(--qolc-muted)" }}>
-                      （{g.residents.length}名、合計 ¥{g.totalAmount.toLocaleString("ja-JP")}）
+                      （{f.residents.length}名、合計 {yen(f.totalAmount)}）
                     </span>
                   </h3>
                   <ul className="ml-4 space-y-1">
-                    {g.residents.map((r) => (
-                      <li key={r.name} className="flex justify-between border-b py-1 text-sm">
-                        <span>├ {r.name}</span>
-                        <span className="font-medium">¥{r.totalAmount.toLocaleString("ja-JP")}</span>
+                    {f.residents.map((r) => (
+                      <li key={r.residentId} className="flex justify-between border-b py-1 text-sm">
+                        <span>├ {r.residentName}</span>
+                        <span className="font-medium">{yen(r.totalAmount)}</span>
                       </li>
                     ))}
-                    {g.unmatched.map((u, idx) => (
-                      <li key={idx} className="flex justify-between border-b py-1 text-sm" style={{ color: "#B45309" }}>
+                    {f.unmatched.map((u) => (
+                      <li
+                        key={u.statementLineId}
+                        className="flex justify-between border-b py-1 text-sm"
+                        style={{ color: "#B45309" }}
+                      >
+                        <span>？被保険者番号: {u.insuranceNumber || "(空)"}</span>
                         <span>
-                          ？不明（被保険者番号: {u.insuranceNumber}）
-                        </span>
-                        <span>
-                          ¥{u.amount.toLocaleString("ja-JP")} <StatusBadge status="unmatched" />
+                          {yen(u.amount)} <StatusBadge status={u.matchStatus} />
                         </span>
                       </li>
                     ))}
                   </ul>
                 </div>
               ))}
+
+              {preview.unmatched.length > 0 && (
+                <div className="mt-4 p-3 rounded" style={{ backgroundColor: "#FFF7E6" }}>
+                  <p className="font-semibold mb-2" style={{ color: "#B45309" }}>
+                    施設未確定（{preview.unmatched.length}件）
+                  </p>
+                  <ul className="ml-2 space-y-1 text-sm">
+                    {preview.unmatched.map((u) => (
+                      <li key={u.statementLineId} className="flex justify-between">
+                        <span>被保険者番号: {u.insuranceNumber || "(空)"}</span>
+                        <span>
+                          {yen(u.amount)} <StatusBadge status={u.matchStatus} />
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </CardContent>
           </Card>
+
           <div className="flex gap-2 justify-end">
             <button
               className="qolc-btn px-4 py-2 rounded border"
               style={{ borderColor: "var(--qolc-border)" }}
-              onClick={() => {
-                setFile(null);
-                setPreview(null);
-              }}
+              onClick={reset}
             >
-              キャンセル
+              別のファイルを選ぶ
             </button>
             <button
-              className="qolc-btn px-4 py-2 rounded text-white font-medium"
+              className="qolc-btn px-4 py-2 rounded text-white font-medium disabled:opacity-50"
               style={{ backgroundColor: "var(--qolc-primary)" }}
-              onClick={() => setConfirming(true)}
+              disabled={matchedCount === 0}
+              title={matchedCount === 0 ? "決済可能な明細がありません" : undefined}
             >
-              決済を実行
+              決済を実行（{matchedCount}名）
             </button>
           </div>
+          <p className="text-xs mt-2" style={{ color: "var(--qolc-muted)" }}>
+            ※ 決済実行は USEN テスト環境の設定確認後に有効化します（バッチID: {preview.batchId.slice(0, 8)}…）
+          </p>
         </>
       )}
-
-      {done && (
-        <Card>
-          <CardHeader>
-            <CardTitle>決済を実行しました</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm mb-4" style={{ color: "var(--qolc-muted)" }}>
-              成功 3件 / 保留 1件（カード未登録）/ 失敗 0件
-            </p>
-            <a
-              href="/provider/dashboard"
-              className="qolc-btn inline-block px-4 py-2 rounded text-white"
-              style={{ backgroundColor: "var(--qolc-primary)" }}
-            >
-              ダッシュボードへ戻る
-            </a>
-          </CardContent>
-        </Card>
-      )}
-
-      <ConfirmDialog
-        open={confirming}
-        title="決済を実行しますか？"
-        description="この操作はカード登録済みの入居者に対して即座に与信・売上計上を行います。取り消しできません。"
-        confirmLabel="実行する"
-        cancelLabel="やめる"
-        onConfirm={executePayment}
-        onCancel={() => setConfirming(false)}
-      />
     </PortalLayout>
   );
 }

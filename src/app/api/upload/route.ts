@@ -31,7 +31,8 @@ const MAX_ROWS = 10_000;
 const ALLOWED_MIME = new Set(["text/csv", "application/octet-stream", "text/plain"]);
 
 const querySchema = z.object({
-  merchantId: z.string().uuid(),
+  // provider は自分の merchant に固定するため任意。admin/facility_staff は指定可。
+  merchantId: z.string().uuid().optional(),
   uploadFormatId: z.string().uuid().optional(),
 });
 
@@ -69,13 +70,41 @@ export async function POST(req: NextRequest) {
   // クエリ
   const url = new URL(req.url);
   const qs = querySchema.safeParse({
-    merchantId: url.searchParams.get("merchantId") ?? "",
+    merchantId: url.searchParams.get("merchantId") ?? undefined,
     uploadFormatId: url.searchParams.get("uploadFormatId") ?? undefined,
   });
   if (!qs.success) {
     return NextResponse.json(apiError("クエリパラメータ不正", "VALIDATION_ERROR"), {
       status: 400,
     });
+  }
+
+  const admin = getSupabaseAdminClient();
+
+  // merchant_id をロールに応じて安全に解決（provider は自分の加盟店に固定）
+  let merchantId: string | null = null;
+  if (role === "provider") {
+    const { data: prof } = await admin
+      .from("profiles")
+      .select("merchant_id")
+      .eq("id", user.id)
+      .single();
+    merchantId = (prof?.merchant_id as string | null) ?? null;
+    if (!merchantId) {
+      return NextResponse.json(
+        apiError("プロフィールに加盟店が設定されていません", "NO_MERCHANT"),
+        { status: 403 }
+      );
+    }
+  } else {
+    // admin / facility_staff はクエリで指定（必須）
+    if (!qs.data.merchantId) {
+      return NextResponse.json(
+        apiError("merchantId が必要です", "VALIDATION_ERROR"),
+        { status: 400 }
+      );
+    }
+    merchantId = qs.data.merchantId;
   }
 
   // multipart 受信
@@ -111,15 +140,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const admin = getSupabaseAdminClient();
-
-  // アップロードフォーマット解決
+  // アップロードフォーマット解決（指定 > 加盟店設定 > デフォルト）
   let mapping: FormatMapping = { insurance_number: "被保険者番号", amount: "金額" };
-  if (qs.data.uploadFormatId) {
+  let formatId = qs.data.uploadFormatId ?? null;
+  if (!formatId) {
+    const { data: mer } = await admin
+      .from("merchants")
+      .select("upload_format_id")
+      .eq("id", merchantId)
+      .single();
+    formatId = (mer?.upload_format_id as string | null) ?? null;
+  }
+  if (formatId) {
     const { data: fmt } = await admin
       .from("upload_formats")
       .select("column_mapping")
-      .eq("id", qs.data.uploadFormatId)
+      .eq("id", formatId)
       .single();
     if (fmt?.column_mapping) {
       mapping = fmt.column_mapping as FormatMapping;
@@ -143,7 +179,7 @@ export async function POST(req: NextRequest) {
   let facilityIds: string[] = [];
   let facilityIdForSelf: string | null = null;
   if (role === "provider") {
-    facilityIds = await getActiveFacilityIdsForMerchant(admin, qs.data.merchantId);
+    facilityIds = await getActiveFacilityIdsForMerchant(admin, merchantId);
   } else if (role === "facility_staff") {
     const { data: profile } = await admin
       .from("profiles")
@@ -169,7 +205,7 @@ export async function POST(req: NextRequest) {
   const { data: batch, error: batchErr } = await admin
     .from("upload_batches")
     .insert({
-      merchant_id: qs.data.merchantId,
+      merchant_id: merchantId,
       provider_type: role === "facility_staff" ? "facility_self" : "external_provider",
       file_name: fileName,
       total_rows: rows.length,

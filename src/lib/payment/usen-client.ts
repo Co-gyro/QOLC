@@ -93,6 +93,58 @@ export async function postForm(opts: PostFormOptions): Promise<string> {
   return text;
 }
 
+export interface PostJsonOptions {
+  url: string;
+  body: unknown;
+  timeoutMs?: number;
+  fetchImpl?: typeof fetch;
+  /** 追加ヘッダ（会員情報取得の X-Check-Cd 等） */
+  headers?: Record<string, string>;
+  method?: "POST" | "GET";
+}
+
+/**
+ * JSON で POST/GET し、レスポンスを JSON としてパースして返す（トークン式EC決済API用）。
+ * @throws {UsenApiError} 通信失敗・HTTP異常時
+ */
+export async function requestJson<T>(opts: PostJsonOptions): Promise<T> {
+  const fetchImpl = opts.fetchImpl ?? fetch;
+  const timeoutMs = opts.timeoutMs ?? 30_000;
+  const method = opts.method ?? "POST";
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response;
+  try {
+    res = await fetchImpl(opts.url, {
+      method,
+      headers: { "Content-Type": "application/json", ...(opts.headers ?? {}) },
+      body: method === "GET" ? undefined : JSON.stringify(opts.body ?? {}),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "fetch failed";
+    throw new UsenApiError(`USEN API 通信失敗: ${msg}`);
+  } finally {
+    clearTimeout(timer);
+  }
+
+  const text = await res.text();
+  if (!res.ok) {
+    throw new UsenApiError(`USEN API がエラーを返しました (HTTP ${res.status})`, {
+      httpStatus: res.status,
+      responseBody: text,
+    });
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new UsenApiError("USEN API レスポンスのJSONパースに失敗しました", {
+      responseBody: text,
+    });
+  }
+}
+
 /** 会員ID決済APIのXMLレスポンスをパースして共通形に整える */
 export interface UsenXmlResult {
   jutyu_cd?: string;

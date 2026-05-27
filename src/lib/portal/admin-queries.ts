@@ -242,3 +242,110 @@ export async function createMerchant(v: {
   if (!json.success) throw new Error(json.error);
   return json.data;
 }
+
+// ============================================================
+// アップロードフォーマット（マスタ管理）
+// ============================================================
+
+/** column_mapping の標準フィールド（CSVのどの列に対応するか） */
+export interface UploadFormatMapping {
+  insurance_number?: string;
+  service_code?: string;
+  service_name?: string;
+  quantity?: string;
+  unit_price?: string;
+  amount?: string;
+  self_pay_amount?: string;
+}
+
+export interface UploadFormatDetail {
+  id: string;
+  name: string;
+  description: string | null;
+  mapping: UploadFormatMapping;
+}
+
+export async function fetchUploadFormatsDetailed(): Promise<UploadFormatDetail[]> {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("upload_formats")
+    .select("id, name, description, column_mapping")
+    .order("name");
+  if (error) throw new Error(`フォーマットの取得に失敗しました: ${error.message}`);
+  return ((data ?? []) as Array<{ id: string; name: string; description: string | null; column_mapping: UploadFormatMapping }>).map(
+    (r) => ({ id: r.id, name: r.name, description: r.description, mapping: r.column_mapping ?? {} })
+  );
+}
+
+/** 空値を除いた column_mapping を作る */
+function cleanMapping(m: UploadFormatMapping): UploadFormatMapping {
+  const out: UploadFormatMapping = {};
+  for (const [k, v] of Object.entries(m)) {
+    if (typeof v === "string" && v.trim()) out[k as keyof UploadFormatMapping] = v.trim();
+  }
+  return out;
+}
+
+export async function createUploadFormat(v: {
+  name: string;
+  description?: string;
+  mapping: UploadFormatMapping;
+}): Promise<void> {
+  const supabase = createSupabaseBrowserClient();
+  const { error } = await supabase.from("upload_formats").insert({
+    name: v.name.trim(),
+    description: v.description?.trim() || null,
+    column_mapping: cleanMapping(v.mapping),
+  });
+  if (error) throw new Error(`フォーマットの作成に失敗しました: ${error.message}`);
+}
+
+export async function updateUploadFormat(
+  id: string,
+  v: { name: string; description?: string; mapping: UploadFormatMapping }
+): Promise<void> {
+  const supabase = createSupabaseBrowserClient();
+  const { error } = await supabase
+    .from("upload_formats")
+    .update({
+      name: v.name.trim(),
+      description: v.description?.trim() || null,
+      column_mapping: cleanMapping(v.mapping),
+    })
+    .eq("id", id);
+  if (error) throw new Error(`フォーマットの更新に失敗しました: ${error.message}`);
+}
+
+export async function deleteUploadFormat(id: string): Promise<void> {
+  const supabase = createSupabaseBrowserClient();
+  const { error } = await supabase.from("upload_formats").delete().eq("id", id);
+  if (error) {
+    if (error.code === "23503") {
+      throw new Error("このフォーマットは加盟店に使用されているため削除できません");
+    }
+    throw new Error(`フォーマットの削除に失敗しました: ${error.message}`);
+  }
+}
+
+// ============================================================
+// プール残数（マスタ管理）
+// ============================================================
+
+export interface PoolAvailability {
+  mallCode: { available: number; assigned: number; total: number };
+  terminalId: { available: number; assigned: number; total: number };
+}
+
+export async function fetchPoolAvailability(): Promise<PoolAvailability> {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("pool_availability");
+  if (error) throw new Error(`プール残数の取得に失敗しました: ${error.message}`);
+  const rows = (data ?? []) as Array<{ pool: string; available: number; assigned: number; total: number }>;
+  const find = (p: string) => rows.find((r) => r.pool === p) ?? { available: 0, assigned: 0, total: 0 };
+  const m = find("mall_code");
+  const t = find("terminal_id");
+  return {
+    mallCode: { available: Number(m.available), assigned: Number(m.assigned), total: Number(m.total) },
+    terminalId: { available: Number(t.available), assigned: Number(t.assigned), total: Number(t.total) },
+  };
+}

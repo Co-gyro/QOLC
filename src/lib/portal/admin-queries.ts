@@ -107,3 +107,118 @@ export async function softDeleteFacility(id: string): Promise<void> {
 }
 
 export { toFacilityRecord };
+
+// ============================================================
+// 加盟店（merchants）
+// ============================================================
+
+export interface MerchantRow {
+  id: string;
+  name: string;
+  nameKana: string | null;
+  address: string | null;
+  phone: string | null;
+  mallCode: string | null;
+  terminalId: string | null;
+  uploadFormatId: string | null;
+  facilityCount: number;
+}
+
+interface RawMerchant {
+  id: string;
+  name: string;
+  name_kana: string | null;
+  address: string | null;
+  phone: string | null;
+  mall_code: string | null;
+  terminal_id: string | null;
+  upload_format_id: string | null;
+  facility_merchant_relations: { count: number }[];
+}
+
+/** 加盟店一覧（提携施設数つき、論理削除を除く） */
+export async function fetchMerchants(): Promise<MerchantRow[]> {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("merchants")
+    .select(
+      "id, name, name_kana, address, phone, mall_code, terminal_id, upload_format_id, facility_merchant_relations(count)"
+    )
+    .is("deleted_at", null)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(`加盟店の取得に失敗しました: ${error.message}`);
+  const rows = (data ?? []) as unknown as RawMerchant[];
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    nameKana: r.name_kana,
+    address: r.address,
+    phone: r.phone,
+    mallCode: r.mall_code,
+    terminalId: r.terminal_id,
+    uploadFormatId: r.upload_format_id,
+    facilityCount: r.facility_merchant_relations?.[0]?.count ?? 0,
+  }));
+}
+
+export interface UploadFormatOption {
+  id: string;
+  name: string;
+}
+
+export async function fetchUploadFormats(): Promise<UploadFormatOption[]> {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.from("upload_formats").select("id, name").order("name");
+  if (error) throw new Error(`フォーマットの取得に失敗しました: ${error.message}`);
+  return (data ?? []) as UploadFormatOption[];
+}
+
+/** 加盟店の基本情報更新（プールは変更しない） */
+export async function updateMerchant(
+  id: string,
+  v: { name: string; name_kana?: string; address?: string; phone?: string; upload_format_id?: string | null }
+): Promise<void> {
+  const supabase = createSupabaseBrowserClient();
+  const { error } = await supabase
+    .from("merchants")
+    .update({
+      name: v.name.trim(),
+      name_kana: v.name_kana?.trim() || null,
+      address: v.address?.trim() || null,
+      phone: v.phone?.trim() || null,
+      upload_format_id: v.upload_format_id || null,
+    })
+    .eq("id", id);
+  if (error) throw new Error(`加盟店の更新に失敗しました: ${error.message}`);
+}
+
+export async function softDeleteMerchant(id: string): Promise<void> {
+  const supabase = createSupabaseBrowserClient();
+  const { error } = await supabase
+    .from("merchants")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(`加盟店の削除に失敗しました: ${error.message}`);
+}
+
+/** 加盟店作成（プール払い出しを含むためサーバーAPI経由） */
+export async function createMerchant(v: {
+  name: string;
+  name_kana?: string;
+  address?: string;
+  phone?: string;
+  upload_format_id?: string | null;
+  assign_mall_code?: boolean;
+  assign_terminal_id?: boolean;
+}): Promise<{ id: string; mallCode: string | null; terminalId: string | null }> {
+  const res = await fetch("/api/admin/merchants", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(v),
+  });
+  const json = (await res.json()) as
+    | { success: true; data: { id: string; mallCode: string | null; terminalId: string | null } }
+    | { success: false; error: string };
+  if (!json.success) throw new Error(json.error);
+  return json.data;
+}

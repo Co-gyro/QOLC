@@ -146,3 +146,51 @@ export async function createInvitation(
   if (!json.success) throw new Error(json.error);
   return json.data;
 }
+
+export interface ResidentAccountDetail {
+  id: string;
+  type: "self" | "family";
+  isPaymentOwner: boolean;
+  cardRegistered: boolean;
+  displayName: string | null;
+  email: string | null;
+}
+
+export interface InvitationDetail {
+  id: string;
+  accountType: "self" | "family";
+  isPaymentOwner: boolean;
+  email: string | null;
+  status: "pending" | "used" | "expired";
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface ResidentDetail {
+  resident: { nameLast: string; nameFirst: string; insuranceNumber: string };
+  accounts: ResidentAccountDetail[];
+  invitations: InvitationDetail[];
+}
+
+/** 入居者詳細（アカウント一覧・招待状況）を取得 */
+export async function fetchResidentDetail(residentId: string): Promise<ResidentDetail> {
+  const res = await fetch(`/api/facility/residents/${residentId}`);
+  const json = (await res.json()) as
+    | { success: true; data: ResidentDetail }
+    | { success: false; error: string };
+  if (!json.success) throw new Error(json.error);
+  return json.data;
+}
+
+/** 支払い担当者を指定アカウントに設定/移譲 */
+export async function setPaymentOwner(residentId: string, accountId: string): Promise<void> {
+  const res = await fetch(`/api/facility/residents/${residentId}/payment-owner`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accountId }),
+  });
+  const json = (await res.json()) as
+    | { success: true; data: unknown }
+    | { success: false; error: string };
+  if (!json.success) throw new Error(json.error);
+}

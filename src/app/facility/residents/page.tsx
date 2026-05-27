@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ResidentFormDialog } from "@/components/forms/resident-form-dialog";
 import { InviteDialog } from "@/components/forms/invite-dialog";
+import { ResidentDetailDialog } from "@/components/forms/resident-detail-dialog";
 import {
   fetchResidents,
   getMyFacilityId,
@@ -25,6 +26,7 @@ export default function FacilityResidentsPage() {
   const [editTarget, setEditTarget] = useState<ResidentRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResidentRow | null>(null);
   const [inviteTarget, setInviteTarget] = useState<ResidentRow | null>(null);
+  const [detailTarget, setDetailTarget] = useState<ResidentRow | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -135,6 +137,16 @@ export default function FacilityResidentsPage() {
                     style={{ color: "var(--qolc-primary)" }}
                     onClick={(e) => {
                       e.stopPropagation();
+                      setDetailTarget(r);
+                    }}
+                  >
+                    詳細
+                  </button>
+                  <button
+                    className="text-sm underline"
+                    style={{ color: "var(--qolc-primary)" }}
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setInviteTarget(r);
                     }}
                   >
@@ -182,6 +194,11 @@ export default function FacilityResidentsPage() {
         open={!!inviteTarget}
         resident={inviteTarget}
         onClose={() => setInviteTarget(null)}
+      />
+      <ResidentDetailDialog
+        open={!!detailTarget}
+        resident={detailTarget}
+        onClose={() => setDetailTarget(null)}
       />
       <ConfirmDialog
         open={!!deleteTarget}

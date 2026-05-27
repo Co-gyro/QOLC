@@ -125,3 +125,24 @@ export async function softDeleteResident(id: string): Promise<void> {
 }
 
 export { toResidentRecord };
+
+/** 家族招待を発行（サーバーAPI経由でトークン生成） */
+export async function createInvitation(
+  residentId: string,
+  opts: { accountType: "self" | "family"; isPaymentOwner: boolean }
+): Promise<{ token: string; url: string; expiresAt: string }> {
+  const res = await fetch("/api/facility/invitations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      residentId,
+      accountType: opts.accountType,
+      isPaymentOwner: opts.isPaymentOwner,
+    }),
+  });
+  const json = (await res.json()) as
+    | { success: true; data: { token: string; url: string; expiresAt: string } }
+    | { success: false; error: string };
+  if (!json.success) throw new Error(json.error);
+  return json.data;
+}

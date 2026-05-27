@@ -9,6 +9,7 @@ import { LoadingSpinner } from "@/components/shared/loading-spinner";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ResidentFormDialog } from "@/components/forms/resident-form-dialog";
+import { InviteDialog } from "@/components/forms/invite-dialog";
 import {
   fetchResidents,
   getMyFacilityId,
@@ -23,6 +24,7 @@ export default function FacilityResidentsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ResidentRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResidentRow | null>(null);
+  const [inviteTarget, setInviteTarget] = useState<ResidentRow | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -133,6 +135,16 @@ export default function FacilityResidentsPage() {
                     style={{ color: "var(--qolc-primary)" }}
                     onClick={(e) => {
                       e.stopPropagation();
+                      setInviteTarget(r);
+                    }}
+                  >
+                    招待
+                  </button>
+                  <button
+                    className="text-sm underline"
+                    style={{ color: "var(--qolc-primary)" }}
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setEditTarget(r);
                       setFormOpen(true);
                     }}
@@ -166,6 +178,11 @@ export default function FacilityResidentsPage() {
           onSaved={handleSaved}
         />
       )}
+      <InviteDialog
+        open={!!inviteTarget}
+        resident={inviteTarget}
+        onClose={() => setInviteTarget(null)}
+      />
       <ConfirmDialog
         open={!!deleteTarget}
         title="入居者を削除しますか？"

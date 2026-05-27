@@ -6,17 +6,29 @@ import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { FileUpload } from "@/components/shared/file-upload";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ApiResponse } from "@/types/api";
 import type { PreviewResult } from "@/lib/upload/preview";
 
 const yen = (n: number) => `¥${n.toLocaleString("ja-JP")}`;
 
+/** /api/payment/execute の結果型（payment-service.ProcessBatchResult に対応） */
+interface ExecuteResult {
+  total: number;
+  success: number;
+  failed: number;
+  pending: number;
+}
+
 export default function ProviderUploadPage() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [executing, setExecuting] = useState(false);
+  const [result, setResult] = useState<ExecuteResult | null>(null);
 
   async function handleFile(file: File) {
     setError(null);
@@ -45,6 +57,32 @@ export default function ProviderUploadPage() {
     setPreview(null);
     setFileName(null);
     setError(null);
+    setResult(null);
+  }
+
+  async function executePayment() {
+    if (!preview) return;
+    setConfirming(false);
+    setExecuting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/payment/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uploadBatchId: preview.batchId }),
+      });
+      const json = (await res.json()) as ApiResponse<ExecuteResult>;
+      if (!json.success) {
+        setError(json.error);
+        setExecuting(false);
+        return;
+      }
+      setResult(json.data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "決済実行に失敗しました");
+    } finally {
+      setExecuting(false);
+    }
   }
 
   const matchedCount = preview
@@ -87,7 +125,7 @@ export default function ProviderUploadPage() {
         </Card>
       )}
 
-      {preview && (
+      {preview && !result && !executing && (
         <>
           <Card className="mb-4">
             <CardHeader>
@@ -152,6 +190,11 @@ export default function ProviderUploadPage() {
             </CardContent>
           </Card>
 
+          {error && (
+            <p className="text-sm mb-2 text-right" style={{ color: "#DC2626" }}>
+              {error}
+            </p>
+          )}
           <div className="flex gap-2 justify-end">
             <button
               className="qolc-btn px-4 py-2 rounded border"
@@ -165,15 +208,75 @@ export default function ProviderUploadPage() {
               style={{ backgroundColor: "var(--qolc-primary)" }}
               disabled={matchedCount === 0}
               title={matchedCount === 0 ? "決済可能な明細がありません" : undefined}
+              onClick={() => setConfirming(true)}
             >
               決済を実行（{matchedCount}名）
             </button>
           </div>
           <p className="text-xs mt-2" style={{ color: "var(--qolc-muted)" }}>
-            ※ 決済実行は USEN テスト環境の設定確認後に有効化します（バッチID: {preview.batchId.slice(0, 8)}…）
+            バッチID: {preview.batchId.slice(0, 8)}…
           </p>
         </>
       )}
+
+      {executing && (
+        <Card>
+          <CardContent className="py-8 flex justify-center">
+            <LoadingSpinner size="lg" label="決済を実行中..." />
+          </CardContent>
+        </Card>
+      )}
+
+      {result && (
+        <Card>
+          <CardHeader>
+            <CardTitle>決済を実行しました</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <ResultStat label="対象" value={result.total} />
+              <ResultStat label="完了" value={result.success} color="#1B5E20" />
+              <ResultStat label="保留" value={result.pending} color="#B45309" />
+              <ResultStat label="失敗" value={result.failed} color="#991B1B" />
+            </div>
+            {result.pending > 0 && (
+              <p className="text-sm p-3 rounded mb-4" style={{ backgroundColor: "#FFF7E6", color: "#B45309" }}>
+                保留分はカード未登録の入居者です。カード登録後に再処理されます。
+              </p>
+            )}
+            <button
+              className="qolc-btn px-4 py-2 rounded text-white"
+              style={{ backgroundColor: "var(--qolc-primary)" }}
+              onClick={reset}
+            >
+              続けてアップロード
+            </button>
+          </CardContent>
+        </Card>
+      )}
+
+      <ConfirmDialog
+        open={confirming}
+        title="決済を実行しますか？"
+        description="マッチした入居者の明細に対して決済処理を行います。カード登録済みの入居者は与信・売上計上され、未登録の入居者は保留となります。"
+        confirmLabel="実行する"
+        cancelLabel="やめる"
+        onConfirm={executePayment}
+        onCancel={() => setConfirming(false)}
+      />
     </PortalLayout>
+  );
+}
+
+function ResultStat({ label, value, color }: { label: string; value: number; color?: string }) {
+  return (
+    <div className="border rounded-md p-3 text-center" style={{ borderColor: "var(--qolc-border)" }}>
+      <div className="text-2xl font-bold" style={{ color: color ?? "var(--qolc-text)" }}>
+        {value}
+      </div>
+      <div className="text-xs" style={{ color: "var(--qolc-muted)" }}>
+        {label}
+      </div>
+    </div>
   );
 }

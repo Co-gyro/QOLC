@@ -8,6 +8,8 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { StatCard } from "@/components/shared/stat-card";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
 import { EmptyState } from "@/components/shared/empty-state";
+import { Button } from "@/components/ui/button";
+import { CancelPaymentDialog, type CancelPaymentTarget } from "@/components/forms/cancel-payment-dialog";
 import {
   fetchPayments,
   summarizePayments,
@@ -29,6 +31,7 @@ export default function AdminPaymentsPage() {
   const [rows, setRows] = useState<PaymentListRow[] | null>(null);
   const [filter, setFilter] = useState<PaymentStatus | "all">("all");
   const [error, setError] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<CancelPaymentTarget | null>(null);
 
   const load = useCallback(async () => {
     setRows(null);
@@ -117,10 +120,42 @@ export default function AdminPaymentsPage() {
               header: "受注コード",
               render: (r) => r.jutyuCd ?? "—",
             },
+            {
+              key: "actions",
+              header: "操作",
+              render: (r) =>
+                (r.status === "authorized" || r.status === "captured") && r.jutyuCd ? (
+                  <Button
+                    variant="outline"
+                    className="h-8 px-2 text-xs"
+                    style={{ borderColor: "#DC2626", color: "#DC2626" }}
+                    onClick={() =>
+                      setCancelTarget({
+                        id: r.id,
+                        residentName: r.residentName,
+                        merchantName: r.merchantName,
+                        amount: r.amount,
+                        status: r.status,
+                        jutyuCd: r.jutyuCd,
+                      })
+                    }
+                  >
+                    取消/返金
+                  </Button>
+                ) : (
+                  <span style={{ color: "var(--qolc-muted)" }}>—</span>
+                ),
+            },
           ]}
           data={rows}
         />
       )}
+
+      <CancelPaymentDialog
+        target={cancelTarget}
+        onClose={() => setCancelTarget(null)}
+        onDone={() => void load()}
+      />
     </PortalLayout>
   );
 }

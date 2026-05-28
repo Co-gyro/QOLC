@@ -16,8 +16,23 @@ import { UsenApiError } from "./errors";
 
 const ALGO = "sha256" as const;
 
-/** トークン式チェックコードに使う鍵種別（env で切替、既定 mall） */
+/**
+ * group_id を環境変数から取得（未設定なら undefined）。
+ * 設定されている場合は、配下モール宛の決済リクエストをサイト鍵で署名できる
+ * （USEN推奨方式。会員ID決済APIにも隠しパラメータとして指定可能）。
+ */
+function groupId(): string | undefined {
+  const v = process.env.USEN_GROUP_ID;
+  return v && v.length > 0 ? v : undefined;
+}
+
+/**
+ * トークン式チェックコードに使う鍵種別。
+ * - USEN_GROUP_ID 設定時: group_id 配下モールはサイト鍵で署名する仕様のため強制 site
+ * - 未設定時: USEN_TOKEN_CHECK_KEY_TYPE で切替（既定 mall、後方互換）
+ */
 function checkKeyType(): UsenKeyType {
+  if (groupId()) return "site";
   const v = process.env.USEN_TOKEN_CHECK_KEY_TYPE;
   return v === "site" ? "site" : "mall";
 }
@@ -75,6 +90,7 @@ export async function tokenInit(
   fetchImpl?: typeof fetch
 ): Promise<TokenInitResponse> {
   const check_cd = generateCheckCode(ALGO, checkKeyType(), [params.jutyu_cd, params.sum_price]);
+  const gid = groupId();
   const body = {
     jutyu_cd: params.jutyu_cd,
     sum_price: params.sum_price,
@@ -84,6 +100,7 @@ export async function tokenInit(
     card_limit_mm: params.card_limit_mm,
     cardholder_name: params.cardholder_name,
     check_cd,
+    ...(gid ? { group_id: gid } : {}),
     ...(params.member_id ? { member_id: params.member_id } : {}),
     ...(params.option ? { option: params.option } : {}),
     ...(params.pay_method ? { pay_method: params.pay_method } : {}),
@@ -112,9 +129,15 @@ export async function pay(
   args: { jutyu_cd: string; token: string; check_cd: string },
   fetchImpl?: typeof fetch
 ): Promise<PayResponse> {
+  const gid = groupId();
   return requestJson<PayResponse>({
     url: joinUrl(ecBaseUrl(), "/i/pay"),
-    body: { jutyu_cd: args.jutyu_cd, token: args.token, check_cd: args.check_cd },
+    body: {
+      jutyu_cd: args.jutyu_cd,
+      token: args.token,
+      check_cd: args.check_cd,
+      ...(gid ? { group_id: gid } : {}),
+    },
     fetchImpl,
   });
 }

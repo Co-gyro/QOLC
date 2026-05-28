@@ -23,7 +23,10 @@ import {
   searchTrade,
   formatUsenDate,
 } from "../../src/lib/payment/member-api";
-import { resetHmacKeyCache } from "../../src/lib/payment/hmac";
+import {
+  resetHmacKeyCache,
+  generateCheckCodeWithKey,
+} from "../../src/lib/payment/hmac";
 import { UsenApiError } from "../../src/lib/payment/errors";
 
 const TEST_KEY = Buffer.from(Array.from({ length: 64 }, (_, i) => i));
@@ -62,6 +65,7 @@ describe("member-api", () => {
     process.env.USEN_MALL_HMAC_KEY_PATH = mallKeyPath;
     process.env.USEN_SITE_CD = "TSJL";
     process.env.USEN_MEMBER_API_BASE_URL = "https://test.example/payment";
+    delete process.env.USEN_GROUP_ID; // 既存テストは後方互換モード
   });
 
   afterEach(() => {
@@ -158,6 +162,46 @@ describe("member-api", () => {
       expect(calls[0].url).toBe("https://test.example/payment/search/trade");
       expect(parseBody(calls[0].body).jutyu_cd).toBe("TSJM-0000001");
       expect(res.result).toBe("ok");
+    });
+  });
+
+  describe("USEN_GROUP_ID 設定時（USEN推奨方式）", () => {
+    const MALL_KEY = Buffer.from(Array.from({ length: 64 }, (_, i) => 63 - i));
+
+    beforeEach(() => {
+      process.env.USEN_GROUP_ID = "GRP-TEST-001";
+    });
+
+    it("authByMemberId: 与信系も group_id 付与 + サイト鍵署名に切替わる", async () => {
+      const okXml = `<response><jutyu_cd>TSJM-0000001</jutyu_cd><result>ok</result></response>`;
+      const { fetchImpl, calls } = makeFetch(okXml);
+      await authByMemberId(
+        { jutyuCd: "TSJM-0000001", amount: 100, memberId: "M1", jutyuDay: "2026/05/28" },
+        { fetchImpl }
+      );
+      const body = parseBody(calls[0].body);
+      expect(body.group_id).toBe("GRP-TEST-001");
+      // サイト鍵で生成された check_cd と一致し、モール鍵では一致しない
+      expect(body.check_cd).toBe(generateCheckCodeWithKey("md5", TEST_KEY, ["TSJM-0000001", 100]));
+      expect(body.check_cd).not.toBe(generateCheckCodeWithKey("md5", MALL_KEY, ["TSJM-0000001", 100]));
+    });
+
+    it("salesAdd: 売上計上も group_id 付与 + サイト鍵署名", async () => {
+      const { fetchImpl, calls } = makeFetch(`<response><result>ok</result></response>`);
+      await salesAdd({ jutyuCd: "TSJM-0000001", amount: 500 }, { fetchImpl });
+      const body = parseBody(calls[0].body);
+      expect(body.group_id).toBe("GRP-TEST-001");
+      expect(body.check_cd).toBe(generateCheckCodeWithKey("md5", TEST_KEY, ["TSJM-0000001", 500]));
+    });
+
+    it("memberEntryByJutyuCd: 会員登録系（元々サイト鍵）も group_id が付与される", async () => {
+      const { fetchImpl, calls } = makeFetch(
+        `<response><result>ok</result></response>`
+      );
+      await memberEntryByJutyuCd({ memberId: "M1", jutyuCd: "TSJL-0000001" }, { fetchImpl });
+      const body = parseBody(calls[0].body);
+      expect(body.group_id).toBe("GRP-TEST-001");
+      expect(body.check_cd).toBe(generateCheckCodeWithKey("md5", TEST_KEY, ["TSJL", "M1"]));
     });
   });
 });

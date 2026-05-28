@@ -2,7 +2,10 @@
  * USEN PSP 会員ID決済API クライアント（IF仕様書 1.1.0 準拠）
  *
  * - 認証: チェックコード = "HM" + HMAC-MD5(指定フィールドを "," 連結, HMACキー)
- * - キー: 会員登録系=サイト鍵 / 与信・売上・取消系=モール鍵
+ * - キー切替:
+ *   - USEN_GROUP_ID 設定時（推奨）: 全API共通でサイト鍵で署名し、リクエストに
+ *     group_id を隠しパラメータとして付与する（USEN推奨方式、配下複数モールに対応）。
+ *   - 未設定時（後方互換）: 会員登録系=サイト鍵 / 与信・売上・取消系=モール鍵。
  * - レスポンス: XML（<response><result>ok|ng</result>...）
  * - jutyu_cd の上位4桁がモールコード（mall_cd 単独パラメータは無い）
  */
@@ -39,6 +42,23 @@ function siteCd(): string {
   return v;
 }
 
+/**
+ * group_id を環境変数から取得（未設定なら undefined）。
+ * 設定時は全APIに隠しパラメータとして付与し、サイト鍵で署名する。
+ */
+function groupId(): string | undefined {
+  const v = process.env.USEN_GROUP_ID;
+  return v && v.length > 0 ? v : undefined;
+}
+
+/**
+ * 実行時に使うHMACキー種別を決定する。
+ * group_id 設定時はサイト鍵に統一、未設定時は引数 fallback を使う。
+ */
+function resolveKeyType(fallback: UsenKeyType): UsenKeyType {
+  return groupId() ? "site" : fallback;
+}
+
 /** Date を yyyy/mm/dd 形式に整形（USEN仕様の日付形式） */
 export function formatUsenDate(d: Date = new Date()): string {
   const y = d.getFullYear();
@@ -57,6 +77,9 @@ interface CallContext {
 /**
  * 会員ID決済APIを呼び出す共通処理。
  * check_cd を生成して付与し、XMLをパースし、監査ログを記録する。
+ *
+ * @param opts.keyType - フォールバック鍵種別（group_id 未設定時に使用）。
+ *   group_id 設定時はサイト鍵に強制統一される。
  */
 async function callMemberApi(opts: {
   path: string;
@@ -66,9 +89,12 @@ async function callMemberApi(opts: {
   checkFields: Array<string | number>;
   ctx: CallContext;
 }): Promise<MemberApiResult> {
-  const check_cd = generateCheckCode(ALGO, opts.keyType, opts.checkFields);
+  const effectiveKeyType = resolveKeyType(opts.keyType);
+  const check_cd = generateCheckCode(ALGO, effectiveKeyType, opts.checkFields);
   const url = joinUrl(memberBaseUrl(), opts.path);
-  const sendParams = { ...opts.params, check_cd };
+  const gid = groupId();
+  // group_id は全APIに隠しパラメータとして付与可能（仕様書記載なしだが古賀さん確認済み）
+  const sendParams = { ...opts.params, ...(gid ? { group_id: gid } : {}), check_cd };
 
   let result: MemberApiResult = {};
   let errorThrown: unknown = null;
@@ -79,10 +105,13 @@ async function callMemberApi(opts: {
     errorThrown = e;
   }
 
+  // 監査ログには送信内容のうち check_cd（秘匿）を除いた形を記録する。
+  // group_id は鍵ではないが署名根拠の一部のため、リクエスト記録に含める。
+  const auditRequest = { ...opts.params, ...(gid ? { group_id: gid } : {}) };
   await logPaymentAudit({
     paymentId: opts.ctx.paymentId ?? null,
     action: opts.action,
-    request: opts.params, // check_cd 自体は秘匿のため記録しない
+    request: auditRequest,
     response: errorThrown
       ? { error: errorThrown instanceof Error ? errorThrown.message : String(errorThrown) }
       : result,

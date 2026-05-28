@@ -27,19 +27,26 @@ function makeFetch(json: unknown) {
 
 describe("token-ec-api", () => {
   let mallKeyPath: string;
+  let siteKeyPath: string;
+  const SITE_KEY = Buffer.from(Array.from({ length: 64 }, (_, i) => 200 - i));
   const ORIG = { ...process.env };
 
   beforeEach(() => {
     resetHmacKeyCache();
     mallKeyPath = join(tmpdir(), `qolc-tk-mall-${Date.now()}.NMK`);
+    siteKeyPath = join(tmpdir(), `qolc-tk-site-${Date.now()}.NMK`);
     writeFileSync(mallKeyPath, TEST_KEY);
+    writeFileSync(siteKeyPath, SITE_KEY);
     process.env.USEN_MALL_HMAC_KEY_PATH = mallKeyPath;
+    process.env.USEN_SITE_HMAC_KEY_PATH = siteKeyPath;
     process.env.USEN_TOKEN_CHECK_KEY_TYPE = "mall";
     process.env.USEN_TOKEN_EC_API_BASE_URL = "https://test.example/ec-payment-uhup";
+    delete process.env.USEN_GROUP_ID; // 既存テストは後方互換モード
   });
   afterEach(() => {
     resetHmacKeyCache();
     try { unlinkSync(mallKeyPath); } catch { /* ignore */ }
+    try { unlinkSync(siteKeyPath); } catch { /* ignore */ }
     process.env = { ...ORIG };
   });
 
@@ -78,5 +85,46 @@ describe("token-ec-api", () => {
     const body = calls[0].body as Record<string, unknown>;
     expect(body).toEqual({ jutyu_cd: "TSJM-0000001", token: "TOK", check_cd: "HMfromListener" });
     expect(res.member_id).toBe("Mabc");
+  });
+
+  describe("USEN_GROUP_ID 設定時（USEN推奨方式）", () => {
+    beforeEach(() => {
+      process.env.USEN_GROUP_ID = "GRP-TEST-001";
+      process.env.USEN_TOKEN_CHECK_KEY_TYPE = "mall"; // 設定があってもサイト鍵に強制
+    });
+
+    it("tokenInit: body に group_id が付与され、check_cd はサイト鍵で生成される", async () => {
+      const { fetchImpl, calls } = makeFetch({ result: "ok", code: "01" });
+      await tokenInit(
+        {
+          jutyu_cd: "TSJM-0000001",
+          sum_price: 1,
+          jutyu_day: "2026/05/28",
+          token: "T",
+          card_limit_yyyy: "2030",
+          card_limit_mm: "12",
+          cardholder_name: "TEST",
+          three_ds_cardholder_info: { email: "a@b.test" },
+        },
+        fetchImpl
+      );
+      const body = calls[0].body as Record<string, unknown>;
+      expect(body.group_id).toBe("GRP-TEST-001");
+      // モール鍵では一致せず、サイト鍵で一致することを検証
+      expect(body.check_cd).toBe(generateCheckCodeWithKey("sha256", SITE_KEY, ["TSJM-0000001", 1]));
+      expect(body.check_cd).not.toBe(generateCheckCodeWithKey("sha256", TEST_KEY, ["TSJM-0000001", 1]));
+    });
+
+    it("pay: body に group_id が付与される（check_cd は透過）", async () => {
+      const { fetchImpl, calls } = makeFetch({ result: "ok", code: "01" });
+      await pay({ jutyu_cd: "TSJM-0000001", token: "TOK", check_cd: "HMfromListener" }, fetchImpl);
+      const body = calls[0].body as Record<string, unknown>;
+      expect(body).toEqual({
+        jutyu_cd: "TSJM-0000001",
+        token: "TOK",
+        check_cd: "HMfromListener",
+        group_id: "GRP-TEST-001",
+      });
+    });
   });
 });

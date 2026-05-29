@@ -100,6 +100,10 @@ function CardRegisterInner() {
       setPhase("error");
       return;
     }
+    // 二重初期化ガード（Strict Modeでの useEffect 2回実行 / 親リレンダ対策）
+    if (adapterRef.current) {
+      return;
+    }
     try {
       // 1. 準備（jutyu_cd / member_id / merchantApiBaseUrl 取得）
       const res = await fetch("/api/payment/card/prepare", {
@@ -144,7 +148,9 @@ function CardRegisterInner() {
         setPhase("error");
       });
 
-      // 3. カード入力iframe生成
+      // 3. カード入力iframe生成（既存の子要素をクリアしてから挿入）
+      const cardContainer = document.getElementById("qolc-card-input");
+      if (cardContainer) cardContainer.innerHTML = "";
       adapter.generateCardInputIframe(
         { cardInputForm: { display: "flex", flexDirection: "column", gap: "12px" } },
         { cardNumLabel: "カード番号", cvvLabel: "セキュリティコード" },
@@ -248,25 +254,67 @@ function CardRegisterInner() {
               </p>
             )}
 
-            <form onSubmit={handleSubmit} className={phase === "loading" || phase === "error" ? "hidden" : "space-y-4"}>
-              {/* カード番号・CVV は USEN の iframe */}
+            <form
+              onSubmit={handleSubmit}
+              className={phase === "loading" || phase === "error" ? "hidden" : "space-y-4"}
+              autoComplete="off"
+            >
+              {/* カード番号・CVV は USEN の iframe（同フォーム外 origin のため、ここから入力欄を別途生成しない） */}
               <div>
                 <Label>カード番号・セキュリティコード</Label>
-                <div id="qolc-card-input" className="border rounded p-3 mt-1" style={{ borderColor: "var(--qolc-border)", minHeight: 80 }} />
+                <div
+                  id="qolc-card-input"
+                  className="border rounded p-3 mt-1"
+                  style={{ borderColor: "var(--qolc-border)", minHeight: 80 }}
+                />
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label htmlFor="cy">有効期限（年）</Label>
-                  <Input id="cy" inputMode="numeric" placeholder="2030" maxLength={4} value={cardLimitYyyy} onChange={(e) => setCardLimitYyyy(e.target.value)} style={{ minHeight: 48 }} />
+                  <Label htmlFor="cm">有効期限（月）</Label>
+                  <Input
+                    id="cm"
+                    name="exp-month-qolc"
+                    inputMode="numeric"
+                    placeholder="08"
+                    maxLength={2}
+                    value={cardLimitMm}
+                    onChange={(e) => setCardLimitMm(e.target.value)}
+                    style={{ minHeight: 48 }}
+                    autoComplete="off"
+                    data-lpignore="true"
+                  />
                 </div>
                 <div>
-                  <Label htmlFor="cm">月</Label>
-                  <Input id="cm" inputMode="numeric" placeholder="12" maxLength={2} value={cardLimitMm} onChange={(e) => setCardLimitMm(e.target.value)} style={{ minHeight: 48 }} />
+                  <Label htmlFor="cy">年</Label>
+                  <Input
+                    id="cy"
+                    name="exp-year-qolc"
+                    inputMode="numeric"
+                    placeholder="2027"
+                    maxLength={4}
+                    value={cardLimitYyyy}
+                    onChange={(e) => setCardLimitYyyy(e.target.value)}
+                    style={{ minHeight: 48 }}
+                    autoComplete="off"
+                    data-lpignore="true"
+                  />
                 </div>
               </div>
               <div>
                 <Label htmlFor="cn">カード名義（半角英字）</Label>
-                <Input id="cn" placeholder="TARO YAMADA" value={cardholderName} onChange={(e) => setCardholderName(e.target.value)} style={{ minHeight: 48 }} />
+                <Input
+                  id="cn"
+                  name="cardholder-qolc"
+                  placeholder="TESTCARD"
+                  value={cardholderName}
+                  onChange={(e) => setCardholderName(e.target.value)}
+                  style={{ minHeight: 48 }}
+                  autoComplete="off"
+                  data-lpignore="true"
+                />
+                <p className="text-xs mt-1" style={{ color: "var(--qolc-muted)" }}>
+                  仕様: 半角英数2～45桁。テスト時は <code>TESTCARD</code>（スペース無し）/ 有効期限 <code>08/2027</code> をご使用ください。
+                </p>
               </div>
               <Button type="submit" disabled={phase === "processing" || phase === "challenge"} className="w-full" style={{ backgroundColor: "var(--qolc-primary)", color: "white", minHeight: 48, fontSize: 18 }}>
                 {phase === "processing" ? "処理中..." : phase === "challenge" ? "認証中..." : "登録する"}

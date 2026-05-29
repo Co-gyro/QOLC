@@ -15,6 +15,8 @@ export interface PaymentListRow {
   amount: number;
   status: PaymentStatus;
   jutyuCd: string | null;
+  /** 売上計上日時 (ISO)。取消/返金ダイアログで推奨操作の判定に使用 */
+  capturedAt: string | null;
 }
 
 interface RawPaymentRow {
@@ -23,6 +25,7 @@ interface RawPaymentRow {
   payment_status: PaymentStatus;
   usen_jutyu_cd: string | null;
   created_at: string;
+  captured_at: string | null;
   residents: { name_last: string | null; name_first: string | null } | null;
   merchants: { name: string | null } | null;
 }
@@ -40,7 +43,7 @@ export async function fetchPayments(
   let query = supabase
     .from("payments")
     .select(
-      "id, total_amount, payment_status, usen_jutyu_cd, created_at, residents(name_last, name_first), merchants(name)"
+      "id, total_amount, payment_status, usen_jutyu_cd, created_at, captured_at, residents(name_last, name_first), merchants(name)"
     )
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -62,6 +65,7 @@ export async function fetchPayments(
     amount: r.total_amount ?? 0,
     status: r.payment_status,
     jutyuCd: r.usen_jutyu_cd,
+    capturedAt: r.captured_at,
   }));
 }
 

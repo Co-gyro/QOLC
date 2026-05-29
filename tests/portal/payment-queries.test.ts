@@ -35,9 +35,9 @@ import {
 
 describe("summarizePayments", () => {
   const rows: PaymentListRow[] = [
-    { id: "1", date: "2026-05-27", residentName: "A", merchantName: "M", amount: 5000, status: "pending", jutyuCd: null },
-    { id: "2", date: "2026-05-27", residentName: "B", merchantName: "M", amount: 3000, status: "pending", jutyuCd: null },
-    { id: "3", date: "2026-05-27", residentName: "C", merchantName: "M", amount: 8000, status: "captured", jutyuCd: "TSJM-0000001" },
+    { id: "1", date: "2026-05-27", residentName: "A", merchantName: "M", amount: 5000, status: "pending", jutyuCd: null, capturedAt: null },
+    { id: "2", date: "2026-05-27", residentName: "B", merchantName: "M", amount: 3000, status: "pending", jutyuCd: null, capturedAt: null },
+    { id: "3", date: "2026-05-27", residentName: "C", merchantName: "M", amount: 8000, status: "captured", jutyuCd: "TSJM-0000001", capturedAt: "2026-05-27T01:00:00Z" },
   ];
 
   it("件数・合計・ステータス別を集計", () => {

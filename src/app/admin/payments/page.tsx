@@ -137,6 +137,7 @@ export default function AdminPaymentsPage() {
                         amount: r.amount,
                         status: r.status,
                         jutyuCd: r.jutyuCd,
+                        capturedAt: r.capturedAt,
                       })
                     }
                   >

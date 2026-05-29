@@ -12,6 +12,8 @@ export interface CancelPaymentTarget {
   amount: number;
   status: PaymentStatus;
   jutyuCd: string | null;
+  /** 売上計上日時 (ISO)。当月/前月以前の判定で推奨操作を切り替える */
+  capturedAt: string | null;
 }
 
 export interface CancelPaymentDialogProps {
@@ -27,6 +29,22 @@ type Action = "void" | "cancel" | "return";
 const yen = (n: number) => `¥${n.toLocaleString("ja-JP")}`;
 
 /**
+ * captured_at と現在日時を比較し、salescancel（同一締め内＝当月）と
+ * salesreturn（締日後＝前月以前）のどちらが適切か判定する。
+ * USEN仕様: salescancel は売上締日前、salesreturn は売上締日後でのみ動作する。
+ * 多くのカード会社の締日は月末のため、ここでは「同月＝salescancel」とみなす。
+ */
+function recommendedCapturedAction(capturedAtIso: string | null): "cancel" | "return" {
+  if (!capturedAtIso) return "cancel";
+  const captured = new Date(capturedAtIso);
+  const now = new Date();
+  const sameMonth =
+    captured.getFullYear() === now.getFullYear() &&
+    captured.getMonth() === now.getMonth();
+  return sameMonth ? "cancel" : "return";
+}
+
+/**
  * 決済の取消/返金ダイアログ。
  * 決済ステータスに応じて実行可能な操作を提示する。
  *   - authorized → 与信取消（void）
@@ -38,7 +56,7 @@ export function CancelPaymentDialog({ target, onClose, onDone }: CancelPaymentDi
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 対象が変わるたびに既定操作・状態を初期化
+  // 対象が変わるたびに既定操作・状態を初期化（captured時は当月/前月以前で推奨を切替）
   useEffect(() => {
     setSubmitting(false);
     setError(null);
@@ -47,7 +65,7 @@ export function CancelPaymentDialog({ target, onClose, onDone }: CancelPaymentDi
     } else if (target.status === "authorized") {
       setAction("void");
     } else if (target.status === "captured") {
-      setAction("cancel");
+      setAction(recommendedCapturedAction(target.capturedAt));
     } else {
       setAction(null);
     }
@@ -154,8 +172,10 @@ export function CancelPaymentDialog({ target, onClose, onDone }: CancelPaymentDi
                 </span>
               </label>
             )}
-            {target.status === "captured" && (
-              <>
+            {target.status === "captured" && (() => {
+              const recommended = recommendedCapturedAction(target.capturedAt);
+              return (
+                <>
                 <label className="flex items-start gap-2 p-2 rounded cursor-pointer">
                   <input
                     type="radio"
@@ -166,9 +186,17 @@ export function CancelPaymentDialog({ target, onClose, onDone }: CancelPaymentDi
                   />
                   <span className="text-sm">
                     <span className="font-medium">売上取消</span>
+                    {recommended === "cancel" && (
+                      <span
+                        className="ml-2 px-2 py-0.5 text-xs rounded"
+                        style={{ backgroundColor: "#E8F5E9", color: "#1B5E20" }}
+                      >
+                        推奨
+                      </span>
+                    )}
                     <br />
                     <span style={{ color: "var(--qolc-muted)" }}>
-                      同一締め期間内の取消。相殺され実際の入金は発生しません。
+                      同一締め期間内（当月内の決済）の取消。相殺され実際の入金は発生しません。
                     </span>
                   </span>
                 </label>
@@ -182,14 +210,23 @@ export function CancelPaymentDialog({ target, onClose, onDone }: CancelPaymentDi
                   />
                   <span className="text-sm">
                     <span className="font-medium">返金</span>
+                    {recommended === "return" && (
+                      <span
+                        className="ml-2 px-2 py-0.5 text-xs rounded"
+                        style={{ backgroundColor: "#E8F5E9", color: "#1B5E20" }}
+                      >
+                        推奨
+                      </span>
+                    )}
                     <br />
                     <span style={{ color: "var(--qolc-muted)" }}>
-                      締め期間経過後の返金。カードへ返金処理されます。
+                      締め期間経過後（前月以前の決済）の返金。カードへ返金処理されます。
                     </span>
                   </span>
                 </label>
-              </>
-            )}
+                </>
+              );
+            })()}
           </fieldset>
         )}
 

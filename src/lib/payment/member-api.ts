@@ -199,12 +199,20 @@ export async function salesAdd(
   return res;
 }
 
-/** /sales/salescancel: 売上取消 */
+/**
+ * /sales/salescancel: 売上取消（売上締日前用）
+ * sales_day は仕様上必須かつ「元決済の売上計上日と一致」必須。呼び出し側で
+ * 元の payments.captured_at から日付を抽出して渡す。
+ */
 export async function salesCancel(
-  args: { jutyuCd: string; amount: number },
+  args: { jutyuCd: string; amount: number; salesDay: string },
   ctx: CallContext = {}
 ): Promise<MemberApiResult> {
-  const params: SalesCancelParams = { jutyu_cd: args.jutyuCd, amount: args.amount };
+  const params: SalesCancelParams = {
+    jutyu_cd: args.jutyuCd,
+    amount: args.amount,
+    sales_day: args.salesDay,
+  };
   return callMemberApi({
     path: "/sales/salescancel",
     keyType: "mall",
@@ -215,16 +223,24 @@ export async function salesCancel(
   });
 }
 
-/** /sales/salesreturn: 売上返品 */
+/**
+ * /sales/salesreturn: 売上返品（売上締日後用）
+ * sales_day は仕様上必須かつ「元決済の売上計上日と一致」必須。
+ */
 export async function salesReturn(
-  args: { jutyuCd: string; amount: number },
+  args: { jutyuCd: string; amount: number; salesDay: string },
   ctx: CallContext = {}
 ): Promise<MemberApiResult> {
+  const params: SalesCancelParams = {
+    jutyu_cd: args.jutyuCd,
+    amount: args.amount,
+    sales_day: args.salesDay,
+  };
   return callMemberApi({
     path: "/sales/salesreturn",
     keyType: "mall",
     action: "sales_return",
-    params: { jutyu_cd: args.jutyuCd, amount: args.amount },
+    params: params as unknown as Record<string, string | number | undefined>,
     checkFields: [args.jutyuCd, args.amount],
     ctx,
   });

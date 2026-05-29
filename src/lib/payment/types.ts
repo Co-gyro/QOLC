@@ -51,6 +51,8 @@ export interface SalesAddParams {
 export interface SalesCancelParams {
   jutyu_cd: string;
   amount: number;
+  /** 売上計上日 yyyy/mm/dd（元決済の sales_day と一致が必須） */
+  sales_day: string;
 }
 
 /** 与信取消（/auth/void）リクエスト */

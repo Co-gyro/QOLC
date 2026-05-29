@@ -19,6 +19,13 @@ import type { UserRole } from "@/types";
 
 const bodySchema = z.object({ action: z.enum(["void", "cancel", "return"]) });
 
+/** ISO日時(captured_at等) を USEN仕様の yyyy/MM/dd に変換 */
+function toUsenDate(iso: string): string {
+  // 文字列の先頭10文字 (yyyy-mm-dd) をスラッシュ区切りに置換するだけ。
+  // タイムゾーン依存を避け、DBに保存されている日付をそのまま使う。
+  return iso.slice(0, 10).replace(/-/g, "/");
+}
+
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient();
   const {
@@ -50,7 +57,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const admin = getSupabaseAdminClient();
   const { data: payment } = await admin
     .from("payments")
-    .select("id, merchant_id, resident_id, total_amount, payment_status, usen_jutyu_cd")
+    .select("id, merchant_id, resident_id, total_amount, payment_status, usen_jutyu_cd, captured_at, authorized_at")
     .eq("id", params.id)
     .maybeSingle();
   if (!payment) {
@@ -100,6 +107,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const jutyuCd = payment.usen_jutyu_cd as string;
   const amount = payment.total_amount as number;
 
+  // salescancel/salesreturn は元決済の売上計上日(captured_at)と一致する sales_day が必須
+  const salesDay = payment.captured_at
+    ? toUsenDate(payment.captured_at as string)
+    : null;
+
   try {
     let res;
     let newStatus: string;
@@ -109,11 +121,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       newStatus = "cancelled";
       stampCol = "cancelled_at";
     } else if (action === "cancel") {
-      res = await salesCancel({ jutyuCd, amount }, ctx);
+      if (!salesDay) {
+        return NextResponse.json(apiError("売上計上日が記録されていません", "NO_CAPTURED_AT"), { status: 409 });
+      }
+      res = await salesCancel({ jutyuCd, amount, salesDay }, ctx);
       newStatus = "cancelled";
       stampCol = "cancelled_at";
     } else {
-      res = await salesReturn({ jutyuCd, amount }, ctx);
+      if (!salesDay) {
+        return NextResponse.json(apiError("売上計上日が記録されていません", "NO_CAPTURED_AT"), { status: 409 });
+      }
+      res = await salesReturn({ jutyuCd, amount, salesDay }, ctx);
       newStatus = "refunded";
       stampCol = "refunded_at";
     }

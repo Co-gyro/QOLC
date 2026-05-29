@@ -106,11 +106,20 @@ export async function tokenInit(
     ...(params.pay_method ? { pay_method: params.pay_method } : {}),
     three_ds_cardholder_info: params.three_ds_cardholder_info,
   };
-  return requestJson<TokenInitResponse>({
+  // 開発時のみ送信パラメータをログ出力（token と check_cd は秘匿）
+  if (process.env.NODE_ENV !== "production") {
+    const { token: _t, check_cd: _c, ...safe } = body;
+    console.error("[USEN /i/token/init] req:", JSON.stringify(safe), "checkKeyType:", checkKeyType());
+  }
+  const res = await requestJson<TokenInitResponse>({
     url: joinUrl(ecBaseUrl(), "/i/token/init"),
     body,
     fetchImpl,
   });
+  if (process.env.NODE_ENV !== "production") {
+    console.error("[USEN /i/token/init] res:", JSON.stringify(res));
+  }
+  return res;
 }
 
 export interface PayResponse {

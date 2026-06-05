@@ -13,7 +13,18 @@ export interface ResidentRow {
   nameFirst: string;
   nameLastKana: string | null;
   nameFirstKana: string | null;
-  insuranceNumber: string;
+  /** 介護保険被保険者番号（任意、要介護認定後に追加） */
+  insuranceNumber: string | null;
+  /** 介護保険者番号 */
+  kaigoHokenshaBangou: string | null;
+  /** 医療保険者番号 */
+  iryouHokenshaBangou: string | null;
+  /** 医療保険記号 */
+  iryouHihokenshaKigou: string | null;
+  /** 医療被保険者番号（マッチング主キー） */
+  iryouHihokenshaBangou: string | null;
+  /** 医療被保険者番号 枝番 */
+  iryouHihokenshaEdaban: string | null;
   /** カード登録済み（usen_member_id を持つ resident_account がある） */
   cardRegistered: boolean;
   /** 家族/本人アカウント数 */
@@ -26,7 +37,12 @@ interface RawResident {
   name_first: string;
   name_last_kana: string | null;
   name_first_kana: string | null;
-  insurance_number: string;
+  insurance_number: string | null;
+  kaigo_hokensha_bangou: string | null;
+  iryou_hokensha_bangou: string | null;
+  iryou_hihokensha_kigou: string | null;
+  iryou_hihokensha_bangou: string | null;
+  iryou_hihokensha_edaban: string | null;
   resident_accounts: { usen_member_id: string | null; deleted_at: string | null }[];
 }
 
@@ -51,7 +67,7 @@ export async function fetchResidents(): Promise<ResidentRow[]> {
   const { data, error } = await supabase
     .from("residents")
     .select(
-      "id, name_last, name_first, name_last_kana, name_first_kana, insurance_number, resident_accounts(usen_member_id, deleted_at)"
+      "id, name_last, name_first, name_last_kana, name_first_kana, insurance_number, kaigo_hokensha_bangou, iryou_hokensha_bangou, iryou_hihokensha_kigou, iryou_hihokensha_bangou, iryou_hihokensha_edaban, resident_accounts(usen_member_id, deleted_at)"
     )
     .is("deleted_at", null)
     .order("name_last_kana", { ascending: true });
@@ -66,6 +82,11 @@ export async function fetchResidents(): Promise<ResidentRow[]> {
       nameLastKana: r.name_last_kana,
       nameFirstKana: r.name_first_kana,
       insuranceNumber: r.insurance_number,
+      kaigoHokenshaBangou: r.kaigo_hokensha_bangou,
+      iryouHokenshaBangou: r.iryou_hokensha_bangou,
+      iryouHihokenshaKigou: r.iryou_hihokensha_kigou,
+      iryouHihokenshaBangou: r.iryou_hihokensha_bangou,
+      iryouHihokenshaEdaban: r.iryou_hihokensha_edaban,
       cardRegistered: accounts.some((a) => !!a.usen_member_id),
       accountCount: accounts.length,
     };
@@ -79,7 +100,12 @@ function toResidentRecord(v: ResidentFormValues, facilityId: string) {
     name_first: v.name_first.trim(),
     name_last_kana: v.name_last_kana?.trim() || null,
     name_first_kana: v.name_first_kana?.trim() || null,
-    insurance_number: v.insurance_number.trim(),
+    insurance_number: v.insurance_number?.trim() || null,
+    kaigo_hokensha_bangou: v.kaigo_hokensha_bangou?.trim() || null,
+    iryou_hokensha_bangou: v.iryou_hokensha_bangou?.trim() || null,
+    iryou_hihokensha_kigou: v.iryou_hihokensha_kigou?.trim() || null,
+    iryou_hihokensha_bangou: v.iryou_hihokensha_bangou?.trim() || null,
+    iryou_hihokensha_edaban: v.iryou_hihokensha_edaban?.trim() || null,
   };
 }
 

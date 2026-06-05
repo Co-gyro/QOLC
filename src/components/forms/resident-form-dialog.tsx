@@ -25,6 +25,11 @@ const EMPTY: ResidentFormValues = {
   name_last_kana: "",
   name_first_kana: "",
   insurance_number: "",
+  kaigo_hokensha_bangou: "",
+  iryou_hokensha_bangou: "",
+  iryou_hihokensha_kigou: "",
+  iryou_hihokensha_bangou: "",
+  iryou_hihokensha_edaban: "",
 };
 
 export function ResidentFormDialog({
@@ -49,7 +54,12 @@ export function ResidentFormDialog({
               name_first: target.nameFirst,
               name_last_kana: target.nameLastKana ?? "",
               name_first_kana: target.nameFirstKana ?? "",
-              insurance_number: target.insuranceNumber,
+              insurance_number: target.insuranceNumber ?? "",
+              kaigo_hokensha_bangou: target.kaigoHokenshaBangou ?? "",
+              iryou_hokensha_bangou: target.iryouHokenshaBangou ?? "",
+              iryou_hihokensha_kigou: target.iryouHihokenshaKigou ?? "",
+              iryou_hihokensha_bangou: target.iryouHihokenshaBangou ?? "",
+              iryou_hihokensha_edaban: target.iryouHihokenshaEdaban ?? "",
             }
           : EMPTY
       );
@@ -109,21 +119,90 @@ export function ResidentFormDialog({
               <Input id="r-firstk" value={values.name_first_kana ?? ""} onChange={(e) => setValues({ ...values, name_first_kana: e.target.value })} style={{ minHeight: 44 }} />
             </div>
           </div>
-          <div>
-            <Label htmlFor="r-ins">被保険者番号 *</Label>
-            <Input
-              id="r-ins"
-              value={values.insurance_number}
-              onChange={(e) => setValues({ ...values, insurance_number: e.target.value })}
-              required
-              inputMode="numeric"
-              placeholder="数字10桁以内"
-              style={{ minHeight: 44 }}
-            />
-            <p className="text-xs mt-1" style={{ color: "var(--qolc-muted)" }}>
-              明細CSVの被保険者番号とこの値で入居者を自動マッチングします。施設内で重複不可。
+          <fieldset className="border rounded p-3" style={{ borderColor: "var(--qolc-border)" }}>
+            <legend className="text-sm font-medium px-2">医療保険</legend>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="r-i-hokensha">保険者番号</Label>
+                <Input
+                  id="r-i-hokensha"
+                  value={values.iryou_hokensha_bangou ?? ""}
+                  onChange={(e) => setValues({ ...values, iryou_hokensha_bangou: e.target.value })}
+                  inputMode="numeric"
+                  placeholder="100016"
+                  maxLength={8}
+                  style={{ minHeight: 44 }}
+                />
+              </div>
+              <div>
+                <Label htmlFor="r-i-kigou">記号</Label>
+                <Input
+                  id="r-i-kigou"
+                  value={values.iryou_hihokensha_kigou ?? ""}
+                  onChange={(e) => setValues({ ...values, iryou_hihokensha_kigou: e.target.value })}
+                  placeholder="（任意）"
+                  style={{ minHeight: 44 }}
+                />
+              </div>
+              <div>
+                <Label htmlFor="r-i-bangou">被保険者番号</Label>
+                <Input
+                  id="r-i-bangou"
+                  value={values.iryou_hihokensha_bangou ?? ""}
+                  onChange={(e) => setValues({ ...values, iryou_hihokensha_bangou: e.target.value })}
+                  placeholder="717-6128"
+                  style={{ minHeight: 44 }}
+                />
+              </div>
+              <div>
+                <Label htmlFor="r-i-edaban">枝番</Label>
+                <Input
+                  id="r-i-edaban"
+                  value={values.iryou_hihokensha_edaban ?? ""}
+                  onChange={(e) => setValues({ ...values, iryou_hihokensha_edaban: e.target.value })}
+                  placeholder="（健保組合等で使用、任意）"
+                  maxLength={10}
+                  style={{ minHeight: 44 }}
+                />
+              </div>
+            </div>
+            <p className="text-xs mt-2" style={{ color: "var(--qolc-muted)" }}>
+              医療保険レセプト（UKE形式）のマッチングに使用。保険者により記号・枝番の有無が異なります。
             </p>
-          </div>
+          </fieldset>
+
+          <fieldset className="border rounded p-3" style={{ borderColor: "var(--qolc-border)" }}>
+            <legend className="text-sm font-medium px-2">介護保険（任意）</legend>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="r-k-hokensha">保険者番号</Label>
+                <Input
+                  id="r-k-hokensha"
+                  value={values.kaigo_hokensha_bangou ?? ""}
+                  onChange={(e) => setValues({ ...values, kaigo_hokensha_bangou: e.target.value })}
+                  inputMode="numeric"
+                  placeholder="102012"
+                  maxLength={6}
+                  style={{ minHeight: 44 }}
+                />
+              </div>
+              <div>
+                <Label htmlFor="r-ins">被保険者番号</Label>
+                <Input
+                  id="r-ins"
+                  value={values.insurance_number ?? ""}
+                  onChange={(e) => setValues({ ...values, insurance_number: e.target.value })}
+                  inputMode="numeric"
+                  placeholder="0001325455"
+                  maxLength={10}
+                  style={{ minHeight: 44 }}
+                />
+              </div>
+            </div>
+            <p className="text-xs mt-2" style={{ color: "var(--qolc-muted)" }}>
+              要介護認定を受けている入居者の場合に入力。介護保険CSVのマッチングに使用。
+            </p>
+          </fieldset>
           {error && <p className="text-sm" style={{ color: "#DC2626" }}>{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={onClose}>

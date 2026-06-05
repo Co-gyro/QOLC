@@ -40,15 +40,57 @@ export const merchantFormSchema = z.object({
 });
 export type MerchantFormValues = z.infer<typeof merchantFormSchema>;
 
-/** 入居者フォーム */
+/**
+ * 入居者フォーム
+ *
+ * 設計方針（2026-06 改訂）:
+ *  - 主キーは医療保険被保険者番号（QOLCは要介護限定でなく、富裕層65歳未満も対象のため）
+ *  - 介護保険番号は任意（要介護認定後に追加）
+ *  - 既存運用との互換性のため、移行期間中はどちらも空を許容（バリデーション緩め）
+ *  - 月またぎの番号変更は former_insurance_numbers (JSONB) で履歴管理
+ */
 export const residentFormSchema = z.object({
   name_last: z.string().trim().min(1, "姓は必須です").max(50),
   name_first: z.string().trim().min(1, "名は必須です").max(50),
   name_last_kana: z.string().trim().max(50).optional().or(z.literal("")),
   name_first_kana: z.string().trim().max(50).optional().or(z.literal("")),
+  // 医療保険（メイン主キー、最終的には iryou_hihokensha_bangou を必須化したい）
+  iryou_hokensha_bangou: z
+    .string()
+    .trim()
+    .max(8, "医療保険者番号は8桁以内")
+    .optional()
+    .or(z.literal("")),
+  iryou_hihokensha_kigou: z
+    .string()
+    .trim()
+    .max(40)
+    .optional()
+    .or(z.literal("")),
+  iryou_hihokensha_bangou: z
+    .string()
+    .trim()
+    .max(40, "医療被保険者番号が長すぎます")
+    .optional()
+    .or(z.literal("")),
+  iryou_hihokensha_edaban: z
+    .string()
+    .trim()
+    .max(10)
+    .optional()
+    .or(z.literal("")),
+  // 介護保険（任意、要介護認定後に追加）
+  kaigo_hokensha_bangou: z
+    .string()
+    .trim()
+    .max(6, "介護保険者番号は6桁以内")
+    .optional()
+    .or(z.literal("")),
   insurance_number: z
     .string()
     .trim()
-    .regex(/^[0-9]{1,10}$/, "被保険者番号は数字10桁以内"),
+    .regex(/^([0-9]{1,10})?$/, "介護保険被保険者番号は数字10桁以内")
+    .optional()
+    .or(z.literal("")),
 });
 export type ResidentFormValues = z.infer<typeof residentFormSchema>;

@@ -14,7 +14,10 @@ import { formatUsenDate } from "@/lib/payment/member-api";
 import { logPaymentAudit } from "@/lib/payment/audit-log";
 import { apiError } from "@/types/api";
 
-const REGISTER_SUM_PRICE = 1; // カード登録は1円与信
+// カード登録時の与信額。仕様上1円でも可だが、JCB等のカード会社で最低与信額未満として
+// code=02(カード利用不可)で拒否されるケースがあるため、安全側で100円に設定。
+// 当日中に売上未計上のまま与信失効する（=実課金されない）。
+const REGISTER_SUM_PRICE = 100;
 
 const bodySchema = z.object({
   jutyu_cd: z.string().min(1),

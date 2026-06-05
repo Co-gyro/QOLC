@@ -127,7 +127,16 @@ function CardRegisterInner() {
         challengeIframeContainerId: "qolc-challenge",
         apiBaseUrl: testApiBase || null,
       });
-      adapter.setOnChallengeStart(() => setPhase("challenge"));
+      // DEBUG: 入力検知ロガー (CVV/カード番号の入力長を確認、本番リリース時に削除可)
+      adapter.setOnChange((cardLen, cvvLen) => {
+        // eslint-disable-next-line no-console
+        console.log(`[USEN SDK Input] cardLen=${cardLen}, cvvLen=${cvvLen}`);
+      });
+      adapter.setOnChallengeStart(() => {
+        // eslint-disable-next-line no-console
+        console.log("[USEN SDK] OnChallengeStart - 3DSチャレンジ画面開始");
+        setPhase("challenge");
+      });
       adapter.setOnPaymentStart(async (jutyuCd, checkCd, token) => {
         setPhase("processing");
         const payRes = await fetch(`/api/payment/reg/${json.data.memberId}/pay`, {
@@ -206,6 +215,16 @@ function CardRegisterInner() {
     setPhase("processing");
     try {
       const tk = await adapter.generateToken();
+      // DEBUG: トークン生成結果のログ（CVV検証エラーの切り分け用、token値は秘匿）
+      // eslint-disable-next-line no-console
+      console.log("[USEN generateToken]", {
+        result: tk.result,
+        code: tk.code,
+        maskedCardNumber: tk.maskedCardNumber,
+        maskedCvv: (tk as unknown as { maskedCvv?: string }).maskedCvv,
+        itemCode: (tk as unknown as { itemCode?: string }).itemCode,
+        message: tk.message,
+      });
       if (tk.result !== "ok") {
         setError(`カード情報エラー: ${tk.message ?? tk.code}`);
         setPhase("ready");

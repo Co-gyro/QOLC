@@ -130,8 +130,14 @@ export async function requestJson<T>(opts: PostJsonOptions): Promise<T> {
   }
 
   const text = await res.text();
+  // DEBUG: 開発時のみ全リクエスト結果をログ（HTTP status + body サンプル）
+  if (process.env.NODE_ENV !== "production") {
+    const snippet = text.length > 500 ? text.slice(0, 500) + "...(truncated)" : text;
+    // eslint-disable-next-line no-console
+    console.error(`[USEN HTTP] ${opts.url} → status=${res.status} body=${snippet}`);
+  }
   if (!res.ok) {
-    throw new UsenApiError(`USEN API がエラーを返しました (HTTP ${res.status})`, {
+    throw new UsenApiError(`USEN API がエラーを返しました (HTTP ${res.status}): ${text.slice(0, 200)}`, {
       httpStatus: res.status,
       responseBody: text,
     });
@@ -139,7 +145,7 @@ export async function requestJson<T>(opts: PostJsonOptions): Promise<T> {
   try {
     return JSON.parse(text) as T;
   } catch {
-    throw new UsenApiError("USEN API レスポンスのJSONパースに失敗しました", {
+    throw new UsenApiError(`USEN API レスポンスのJSONパースに失敗しました (body先頭: ${text.slice(0, 200)})`, {
       responseBody: text,
     });
   }

@@ -14,10 +14,11 @@ import { formatUsenDate } from "@/lib/payment/member-api";
 import { logPaymentAudit } from "@/lib/payment/audit-log";
 import { apiError } from "@/types/api";
 
-// カード登録時の与信額。仕様上1円でも可だが、JCB等のカード会社で最低与信額未満として
-// code=02(カード利用不可)で拒否されるケースがあるため、安全側で100円に設定。
+// カード登録時の与信額。業界慣習(Amazon/楽天/Stripe等)に倣い1円とする。
+// 6/5に発生した JCB code=02(G42=暗証番号エラー) は JCB側の PIN必須フラグ設定の問題で
+// あり、金額(1円vs100円)は無関係であることが 6/11 に判明・解消済み。
 // 当日中に売上未計上のまま与信失効する（=実課金されない）。
-const REGISTER_SUM_PRICE = 100;
+const REGISTER_SUM_PRICE = 1;
 
 const bodySchema = z.object({
   jutyu_cd: z.string().min(1),

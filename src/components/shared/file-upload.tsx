@@ -71,6 +71,9 @@ export function FileUpload({
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) handleFile(file);
+            // 同じファイル名を再選択しても onChange が発火するよう value をリセット
+            // （input[type=file] の仕様で、前回と同じファイル名だと onChange が発火しないため）
+            e.target.value = "";
           }}
         />
       </div>

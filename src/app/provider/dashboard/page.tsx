@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { PortalLayout } from "@/components/layout/portal-layout";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
+import { PortalWelcome, PORTAL_FEATURES } from "@/components/layout/portal-welcome";
 import { StatCard } from "@/components/shared/stat-card";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
 import { fetchProviderStats, type ProviderStats } from "@/lib/portal/dashboard-queries";
@@ -20,7 +21,8 @@ export default function ProviderDashboardPage() {
   return (
     <PortalLayout portal="provider">
       <Breadcrumb items={[{ label: "ダッシュボード" }]} />
-      <h1 className="text-2xl font-bold mb-6">提供者ダッシュボード</h1>
+      <PortalWelcome portal="provider" features={PORTAL_FEATURES.provider} />
+      <h2 className="text-xl font-bold mb-4">📊 今月の状況</h2>
 
       {error && <p className="text-sm mb-3" style={{ color: "#DC2626" }}>{error}</p>}
 

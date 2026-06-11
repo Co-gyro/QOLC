@@ -40,8 +40,16 @@ export const PORTAL_MENUS: Record<PortalType, MenuItem[]> = {
 };
 
 export const PORTAL_LABELS: Record<PortalType, string> = {
-  admin: "QOLC 運営者管理",
-  facility: "QOLC 施設ポータル",
-  provider: "QOLC 提供者ポータル",
-  user: "QOLC マイページ",
+  admin: "運営センター",
+  facility: "施設ステーション",
+  provider: "サービスステーション",
+  user: "マイページ",
+};
+
+/** ポータル別のキャッチコピー（ダッシュボードのウェルカム見出し用） */
+export const PORTAL_TAGLINES: Record<PortalType, string> = {
+  admin: "全体の状況把握とマスタ管理ができます",
+  facility: "入居者さまの管理と決済状況の確認ができます",
+  provider: "サービス利用明細のアップロードと決済ができます",
+  user: "ご利用明細・領収書の確認とカード管理ができます",
 };

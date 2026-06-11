@@ -1,10 +1,11 @@
 import { PortalLayout } from "@/components/layout/portal-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PortalWelcome, PORTAL_FEATURES } from "@/components/layout/portal-welcome";
 
 export default function UserHomePage() {
   return (
     <PortalLayout portal="user">
-      <h1 className="text-3xl font-bold mb-6">こんにちは、田中花子さん</h1>
+      <PortalWelcome portal="user" features={PORTAL_FEATURES.user} />
 
       <Card className="mb-6" style={{ borderColor: "var(--qolc-accent)", borderWidth: 2 }}>
         <CardHeader>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { PortalLayout } from "@/components/layout/portal-layout";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
+import { PortalWelcome, PORTAL_FEATURES } from "@/components/layout/portal-welcome";
 import { StatCard } from "@/components/shared/stat-card";
 import { DataTable } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -24,7 +25,8 @@ export default function AdminDashboardPage() {
   return (
     <PortalLayout portal="admin">
       <Breadcrumb items={[{ label: "ダッシュボード" }]} />
-      <h1 className="text-2xl font-bold mb-6">運営者ダッシュボード</h1>
+      <PortalWelcome portal="admin" features={PORTAL_FEATURES.admin} />
+      <h2 className="text-xl font-bold mb-4">📊 全体の状況</h2>
 
       {error && <p className="text-sm mb-3" style={{ color: "#DC2626" }}>{error}</p>}
 

@@ -73,6 +73,19 @@ export async function POST(req: NextRequest, { params }: { params: { memberId: s
     return NextResponse.json(apiError("メールアドレスが必要です", "NO_EMAIL"), { status: 422 });
   }
 
+  // 既存会員かどうか判定（過去にUSEN会員登録した実績があるか）
+  // ある場合は option=member-modify を付与してカード情報を上書き更新する。
+  // 仕様(トークン式EC決済API仕様書 8.1): 既存 member_id で新規登録扱いの呼び出しを
+  // すると会員レコードに反映されない不整合が起きるため。
+  const { data: hasPrevRegistration } = await admin
+    .from("payment_audit_logs")
+    .select("id")
+    .eq("action", "ec_checkout")
+    .like("request_body->>member_id", memberId)
+    .limit(1)
+    .maybeSingle();
+  const optionMemberModify = hasPrevRegistration ? "member-modify" : undefined;
+
   try {
     const res = await tokenInit({
       jutyu_cd: parsed.data.jutyu_cd,
@@ -83,6 +96,7 @@ export async function POST(req: NextRequest, { params }: { params: { memberId: s
       card_limit_mm: parsed.data.card_limit_mm,
       cardholder_name: parsed.data.cardholder_name,
       member_id: memberId,
+      option: optionMemberModify,
       pay_method: parsed.data.pay_method ?? undefined,
       three_ds_cardholder_info: { email },
     });

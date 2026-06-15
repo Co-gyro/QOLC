@@ -23,12 +23,25 @@ import {
   getActiveFacilityIdsForMerchant,
 } from "@/lib/upload/matcher";
 import { groupForPreview, type PreviewLine } from "@/lib/upload/preview";
+import {
+  detectReceiptKind,
+  loadResidentsForMatching,
+  buildKaigoPreview,
+  buildIryouPreview,
+} from "@/lib/upload/receipt-flow";
 import { apiError, apiOk } from "@/types/api";
 import type { UserRole } from "@/types";
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 const MAX_ROWS = 10_000;
-const ALLOWED_MIME = new Set(["text/csv", "application/octet-stream", "text/plain"]);
+// CSV/XLSX/UKE を受け付け（レセプトはxlsx形式で来るため拡張）
+const ALLOWED_MIME = new Set([
+  "text/csv",
+  "application/octet-stream",
+  "text/plain",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+]);
 
 const querySchema = z.object({
   // provider は自分の merchant に固定するため任意。admin/facility_staff は指定可。
@@ -129,7 +142,39 @@ export async function POST(req: NextRequest) {
     );
   }
   const fileName = (file as File).name ?? "upload.csv";
-  const text = await file.text();
+
+  // レセプトファイル(.xlsx/.uke or 介護保険CSV) を先頭バイトと拡張子で判定し、
+  // 該当する場合は別フロー(receipt-flow) に振り分ける。
+  const fileBuffer = Buffer.from(await file.arrayBuffer());
+  const head = fileBuffer.slice(0, 256).toString("utf8");
+  const receiptKind = detectReceiptKind(fileName, head);
+  if (receiptKind) {
+    // レセプトフロー: statement_lines には保存せず、オンメモリでプレビューを返す。
+    // (既存独自CSV と structural に異なるため、移行期間は読み取り専用)
+    try {
+      const residentsAll = await loadResidentsForMatching(admin);
+      const allFacilities = await admin.from("facilities").select("id, name").is("deleted_at", null);
+      const facilityNames = new Map<string, string>();
+      for (const f of (allFacilities.data as Array<{ id: string; name: string }> | null) ?? []) {
+        facilityNames.set(f.id, f.name);
+      }
+
+      // 暫定 batchId（UUID生成、DBには保存しない）
+      const batchId = `receipt-${Date.now()}`;
+      const preview =
+        receiptKind === "kaigo-csv"
+          ? await buildKaigoPreview(fileBuffer, residentsAll, facilityNames, batchId)
+          : await buildIryouPreview(fileBuffer, residentsAll, facilityNames, batchId);
+      return NextResponse.json(apiOk(preview));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "unknown";
+      return NextResponse.json(apiError(`レセプトファイルの処理に失敗しました: ${msg}`, "RECEIPT_PARSE"), {
+        status: 400,
+      });
+    }
+  }
+
+  const text = fileBuffer.toString("utf8");
 
   // 行数チェック
   const totalLines = text.split(/\r?\n/).filter((l) => l.length > 0).length;

@@ -110,7 +110,7 @@ export default function ProviderUploadPage() {
           <CardContent>
             <FileUpload
               onFile={handleFile}
-              helperText="被保険者番号を含む明細CSVをアップロードしてください（ヘッダー行必須、最大10MB）。"
+              helperText="独自CSV（被保険者番号＋金額のヘッダ付き）、または介護保険CSV／医療保険UKE（.xlsx）に対応。最大10MB。"
             />
             {error && (
               <p className="text-sm mt-3" style={{ color: "#DC2626" }}>

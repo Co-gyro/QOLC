@@ -16,10 +16,10 @@ export interface FileUploadProps {
  */
 export function FileUpload({
   onFile,
-  accept = ".csv,text/csv,application/octet-stream",
+  accept = ".csv,.xlsx,.uke,text/csv,application/octet-stream,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   maxSizeBytes = 10 * 1024 * 1024,
-  label = "CSVファイルを選択またはドロップ",
-  helperText = "最大10MBまで",
+  label = "ファイルを選択またはドロップ",
+  helperText = "CSV / XLSX / UKE 形式に対応（最大10MB）",
 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);

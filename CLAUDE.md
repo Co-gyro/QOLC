@@ -74,6 +74,14 @@ supabase/
 src/
 ├── app/
 │   ├── (auth)/              ← 認証関連ページ（ログイン等）【新規】
+│   ├── (marketing)/         ← QOLCプロモーションサイト（公開）【新規】
+│   │   ├── page.tsx         ← トップページ
+│   │   ├── service/         ← サービス紹介
+│   │   ├── pricing/         ← 料金プラン
+│   │   ├── apply/           ← 加盟店申請フォーム（公開・ログイン不要）★
+│   │   └── contact/         ← お問い合わせ
+│   ├── (jcb)/               ← JCB総合窓口LP（公開）【新規】
+│   │   └── lp/jcb/          ← LP・フォーム・完了画面
 │   ├── admin/
 │   │   ├── dashboard/       ← 管理ダッシュボード【page.tsxを発展】
 │   │   ├── facilities/      ← 施設管理【新規】
@@ -99,6 +107,7 @@ src/
 │   └── api/                 ← API Routes【新規】
 │       ├── payment/         ← USEN PSP連携
 │       ├── upload/          ← 明細アップロード
+│       ├── merchant-application/ ← 加盟店申請受付API（公開）★
 │       ├── auth/            ← 認証関連
 │       └── webhook/         ← 外部Webhook
 ├── lib/

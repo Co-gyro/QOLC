@@ -370,6 +370,24 @@ export function validateApplication(app: JcbEcApplication): ValidationIssue[] {
   checkKana(app.tenantNameKana, "tenantNameKana", "店舗名（カナ）");
   checkAddrKana(app.tenantAddrKana, "tenantAddrKana", "店舗住所（カナ）");
 
+  // 住所は都道府県名から開始する必要がある（JCB審査要件）
+  const addrPrefKanji = (v: string, field: keyof JcbEcApplication, label: string) => {
+    if (v && !startsWithPrefectureKanji(v)) {
+      issues.push({ field, level: "error", message: `${label} は都道府県名（例: 東京都）から入力してください。` });
+    }
+  };
+  const addrPrefKana = (v: string, field: keyof JcbEcApplication, label: string) => {
+    if (v && !startsWithPrefectureKana(v)) {
+      issues.push({ field, level: "error", message: `${label} は都道府県名（例: ﾄｳｷﾖｳﾄ）から入力してください。` });
+    }
+  };
+  addrPrefKanji(app.tenantAddrKanji, "tenantAddrKanji", "店舗住所（漢字）");
+  addrPrefKana(app.tenantAddrKana, "tenantAddrKana", "店舗住所（カナ）");
+  if (isCorporation) {
+    addrPrefKanji(app.companyAddrKanji, "companyAddrKanji", "会社住所（漢字）");
+    addrPrefKana(app.companyAddrKana, "companyAddrKana", "会社住所（カナ）");
+  }
+
   // アルファベット (大文字のみ、記号不可)
   if (app.tenantNameLatin && !/^[A-Z0-9 ]*$/.test(app.tenantNameLatin)) {
     issues.push({
@@ -454,7 +472,8 @@ export function buildExcelFilename(tenantName: string, date = new Date()): strin
   const yyyy = date.getFullYear();
   const mm = String(date.getMonth() + 1).padStart(2, "0");
   const dd = String(date.getDate()).padStart(2, "0");
-  const safe = (tenantName || "新規申請").replace(/[\\/:*?"<>|]/g, "_").slice(0, 30);
+  // JCBはファイル名に空白（半角・全角スペース）を許可しないため "_" に置換する。
+  const safe = (tenantName || "新規申請").replace(/[\\/:*?"<>|\s　]/g, "_").slice(0, 30);
   return `JCB_EC_申請_${safe}_${yyyy}${mm}${dd}.xlsx`;
 }
 
@@ -466,21 +485,169 @@ export const SALES_STYLES: Array<{ value: SalesStyle; label: string }> = [
 ];
 
 /**
- * QOLCのサービス提供者に該当するJCB業態コード（基本合意書 別紙3「業態コード一覧」より抜粋）。
- * 業態コードは手数料率・取扱条件に直結するため、手入力ではなくこのマスタから選択させる。
- * code=5桁業態コード（bizCatCode）, label=ドロップダウン表示名, note=別紙3の備考（取扱条件等）。
- * QOLCで業種が増えた場合はここに追記する。
+ * EC(非対面)で設定可能なJCB業態コード（JCB提供「Accel設定可能業態コード(EC).xlsx」全118件）。
+ * ★店頭(Accel)専用コード（介護サービス60801・歯科60202・タクシー80302・調剤薬局20504等）はECでは
+ *   不正値となり申請が差戻される。EC申請ではこのマスタ以外を選べないようドロップダウンを構成する。
+ * QOLCのサービス提供者は直接対応コードが無いものが多いため、JCB確認の上で近い区分を選ぶ
+ *   （例: 訪問診療・クリニック=60207単科病院 / 60201総合病院 / 60299医療(その他)）。
+ * code=5桁業態コード（bizCatCode）, label=ドロップダウン表示名。
  */
-export const BIZ_CATEGORIES: ReadonlyArray<{ code: string; label: string; note: string }> = [
-  { code: "60207", label: "訪問診療・医療クリニック（単科病院）", note: "保険診療メイン。自由診療メインは別コード(60206 美容形成)" },
-  { code: "60202", label: "歯科", note: "" },
-  { code: "60203", label: "人間ドック", note: "支払区分は1回払いのみ" },
-  { code: "20504", label: "調剤薬局（ドラッグストア含む）", note: "" },
-  { code: "60801", label: "介護サービス", note: "" },
-  { code: "60210", label: "接骨・整骨（鍼灸・カイロ含む）", note: "" },
-  { code: "60204", label: "マッサージ（リラクゼーション含む）", note: "" },
-  { code: "80302", label: "タクシー", note: "" },
+export const BIZ_CATEGORIES: ReadonlyArray<{ code: string; label: string }> = [
+  { code: "00101", label: "百貨店" },
+  { code: "00199", label: "百貨店（その他）" },
+  { code: "00201", label: "スーパー" },
+  { code: "00299", label: "スーパー（その他）" },
+  { code: "00301", label: "ショッピングセンター" },
+  { code: "00399", label: "ショッピングセンター（その他）" },
+  { code: "10101", label: "総合衣料" },
+  { code: "10201", label: "紳士用品" },
+  { code: "10301", label: "婦人用品" },
+  { code: "10401", label: "子供用品" },
+  { code: "10599", label: "洋装雑貨" },
+  { code: "10601", label: "呉服" },
+  { code: "19999", label: "物品販売業（身装用品）その他" },
+  { code: "20101", label: "家具" },
+  { code: "20203", label: "総合インテリア" },
+  { code: "20401", label: "家電" },
+  { code: "20599", label: "医薬品（その他）" },
+  { code: "20601", label: "化粧品" },
+  { code: "20799", label: "家庭雑貨（その他）" },
+  { code: "29999", label: "物品販売業（家庭用品・その他）" },
+  { code: "30101", label: "貴金属" },
+  { code: "30202", label: "文具" },
+  { code: "30204", label: "書籍" },
+  { code: "30209", label: "新聞購読料" },
+  { code: "30301", label: "スポーツ用品" },
+  { code: "30501", label: "美術品" },
+  { code: "30401", label: "楽器・音響" },
+  { code: "30601", label: "日曜大工" },
+  { code: "30701", label: "園芸" },
+  { code: "30802", label: "ペット" },
+  { code: "30901", label: "玩具・ホビー" },
+  { code: "31004", label: "カー用品" },
+  { code: "31099", label: "車両（その他）" },
+  { code: "39999", label: "物品販売業（趣味・娯楽，その他）" },
+  { code: "40201", label: "食品（食料品）" },
+  { code: "40203", label: "酒屋" },
+  { code: "40210", label: "健康食品" },
+  { code: "40301", label: "郷土品（土産品）" },
+  { code: "40504", label: "質屋" },
+  { code: "40799", label: "印刷（その他）" },
+  { code: "40800", label: "電話" },
+  { code: "40899", label: "電話（その他）" },
+  { code: "49999", label: "物品販売業（その他）" },
+  { code: "60201", label: "総合病院" },
+  { code: "60207", label: "単科病院" },
+  { code: "60299", label: "医療（その他）" },
+  { code: "60399", label: "学校（その他）" },
+  { code: "60499", label: "各種修理（その他）" },
+  { code: "60599", label: "コンサルティング（その他）" },
+  { code: "60601", label: "生命保険（保険）" },
+  { code: "60699", label: "保険（その他）" },
+  { code: "69999", label: "サービス業（人的・その他）" },
+  { code: "70206", label: "ホテル" },
+  { code: "70299", label: "宿泊施設（その他）" },
+  { code: "70307", label: "総合スポーツ" },
+  { code: "70699", label: "結婚・葬儀（その他）" },
+  { code: "79999", label: "サービス業（施設・その他）" },
+  { code: "80101", label: "一般旅行業（第１種）" },
+  { code: "80102", label: "国内旅行業（第２種）" },
+  { code: "80104", label: "旅行代理店業（第３種）" },
+  { code: "80199", label: "旅行斡旋（その他）" },
+  { code: "80201", label: "エアーライン" },
+  { code: "80499", label: "運輸（貨物・その他）" },
+  { code: "80599", label: "レンタリース（その他）" },
+  { code: "80699", label: "プレイガイド（その他）" },
+  { code: "89999", label: "サービス業（その他）" },
+  { code: "90101", label: "総合小売業" },
+  { code: "90204", label: "各種会費" },
+  { code: "90207", label: "インターネット接続サービス（プロバイダー）" },
+  { code: "90211", label: "通販一般" },
+  { code: "90212", label: "定期購読・頒布会" },
+  { code: "90213", label: "教育" },
+  { code: "90218", label: "放送サービス" },
+  { code: "90219", label: "携帯・ＰＨＳ（通話料）" },
+  { code: "90220", label: "双方向デジタル放送サービス" },
+  { code: "90221", label: "不動産（月次不動産賃料）" },
+  { code: "90224", label: "ケーブルＴＶ利用料" },
+  { code: "90225", label: "ガソリンスタンド宅配" },
+  { code: "90226", label: "燃料店宅配" },
+  { code: "90228", label: "月極駐車場" },
+  { code: "90231", label: "ＩＰ電話" },
+  { code: "90233", label: "モバイルコマース" },
+  { code: "90234", label: "国際クレジット通話" },
+  { code: "90901", label: "企業間取引（包括）" },
+  { code: "90903", label: "企業間取引（一般）" },
+  { code: "90904", label: "Ｐカード専用（共通）" },
+  { code: "90905", label: "Ｐカード専用（ＪＣＢ社内経費）" },
+  { code: "91002", label: "地方税" },
+  { code: "91099", label: "税・公的費用（その他）" },
+  { code: "91101", label: "電力" },
+  { code: "91102", label: "都市ガス" },
+  { code: "91103", label: "その他ガス" },
+  { code: "91104", label: "水道" },
+  { code: "91199", label: "公共料金（その他）" },
+  { code: "92005", label: "ブランド品" },
+  { code: "92207", label: "パソコン関連（ハード）" },
+  { code: "92208", label: "パソコン関連（ソフト）" },
+  { code: "92312", label: "ＡＶソフト" },
+  { code: "92313", label: "ゲーム" },
+  { code: "92407", label: "デジタルコンテンツ" },
+  { code: "92506", label: "証券" },
+  { code: "92507", label: "情報サービス" },
+  { code: "92508", label: "個人輸入代行" },
+  { code: "92509", label: "ｅラーニング" },
+  { code: "92702", label: "運輸（空）" },
+  { code: "92703", label: "運輸（陸）" },
+  { code: "92707", label: "募金" },
+  { code: "92708", label: "オークション" },
+  { code: "92709", label: "デジタルマネー" },
+  { code: "92710", label: "金券" },
+  { code: "92711", label: "運輸（海）" },
+  { code: "92801", label: "ＡＳＰ" },
+  { code: "92802", label: "各種年会費" },
+  { code: "92803", label: "通信・ＩＳＰ系各種費用" },
+  { code: "92804", label: "レンタルサーバー" },
+  { code: "92901", label: "アダルト" },
+  { code: "92902", label: "出会い" },
+  { code: "99999", label: "その他" },
 ];
+
+/** 都道府県名（漢字）。住所先頭が都道府県で始まることの検証に使う。 */
+export const PREFECTURES_KANJI: readonly string[] = [
+  "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県", "茨城県", "栃木県", "群馬県",
+  "埼玉県", "千葉県", "東京都", "神奈川県", "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県",
+  "岐阜県", "静岡県", "愛知県", "三重県", "滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県",
+  "鳥取県", "島根県", "岡山県", "広島県", "山口県", "徳島県", "香川県", "愛媛県", "高知県", "福岡県",
+  "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県",
+];
+
+/** 都道府県名（半角カナ・拗音/促音は大書きに正規化済み）。カナ住所の先頭検証に使う。 */
+export const PREFECTURES_KANA: readonly string[] = [
+  "ﾎﾂｶｲﾄﾞｳ", "ｱｵﾓﾘｹﾝ", "ｲﾜﾃｹﾝ", "ﾐﾔｷﾞｹﾝ", "ｱｷﾀｹﾝ", "ﾔﾏｶﾞﾀｹﾝ", "ﾌｸｼﾏｹﾝ", "ｲﾊﾞﾗｷｹﾝ", "ﾄﾁｷﾞｹﾝ", "ｸﾞﾝﾏｹﾝ",
+  "ｻｲﾀﾏｹﾝ", "ﾁﾊﾞｹﾝ", "ﾄｳｷﾖｳﾄ", "ｶﾅｶﾞﾜｹﾝ", "ﾆｲｶﾞﾀｹﾝ", "ﾄﾔﾏｹﾝ", "ｲｼｶﾜｹﾝ", "ﾌｸｲｹﾝ", "ﾔﾏﾅｼｹﾝ", "ﾅｶﾞﾉｹﾝ",
+  "ｷﾞﾌｹﾝ", "ｼｽﾞｵｶｹﾝ", "ｱｲﾁｹﾝ", "ﾐｴｹﾝ", "ｼｶﾞｹﾝ", "ｷﾖｳﾄﾌ", "ｵｵｻｶﾌ", "ﾋﾖｳｺﾞｹﾝ", "ﾅﾗｹﾝ", "ﾜｶﾔﾏｹﾝ",
+  "ﾄﾂﾄﾘｹﾝ", "ｼﾏﾈｹﾝ", "ｵｶﾔﾏｹﾝ", "ﾋﾛｼﾏｹﾝ", "ﾔﾏｸﾞﾁｹﾝ", "ﾄｸｼﾏｹﾝ", "ｶｶﾞﾜｹﾝ", "ｴﾋﾒｹﾝ", "ｺｳﾁｹﾝ", "ﾌｸｵｶｹﾝ",
+  "ｻｶﾞｹﾝ", "ﾅｶﾞｻｷｹﾝ", "ｸﾏﾓﾄｹﾝ", "ｵｵｲﾀｹﾝ", "ﾐﾔｻﾞｷｹﾝ", "ｶｺﾞｼﾏｹﾝ", "ｵｷﾅﾜｹﾝ",
+];
+
+/** 半角カナの拗音・促音(ｧｨｩｪｫｬｭｮｯ)を大書き(ｱｲｳｴｵﾔﾕﾖﾂ)に正規化する（住所カナの都道府県照合用）。 */
+export function normalizeHalfKana(value: string): string {
+  return value
+    .replace(/ｧ/g, "ｱ").replace(/ｨ/g, "ｲ").replace(/ｩ/g, "ｳ").replace(/ｪ/g, "ｴ").replace(/ｫ/g, "ｵ")
+    .replace(/ｬ/g, "ﾔ").replace(/ｭ/g, "ﾕ").replace(/ｮ/g, "ﾖ").replace(/ｯ/g, "ﾂ");
+}
+
+/** 漢字住所が都道府県名で始まるか。 */
+export function startsWithPrefectureKanji(addr: string): boolean {
+  return PREFECTURES_KANJI.some((p) => addr.startsWith(p));
+}
+
+/** カナ住所が都道府県名（半角カナ）で始まるか（拗音/促音は正規化して照合）。 */
+export function startsWithPrefectureKana(addr: string): boolean {
+  const n = normalizeHalfKana(addr);
+  return PREFECTURES_KANA.some((p) => n.startsWith(p));
+}
 
 export const CORP_INDIV_OPTIONS: Array<{ value: CorpIndiv; label: string }> = [
   { value: "1", label: "法人 (法人番号有)" },

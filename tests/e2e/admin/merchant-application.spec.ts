@@ -11,14 +11,13 @@ test("業態コードがドロップダウンで選択でき、5桁コードが�
   const select = page.locator("select#bizCatCode");
   await expect(select).toBeVisible();
 
-  // QOLC主要業種が選択肢に並ぶ
-  await expect(select.locator("option")).toContainText(["選択してください", "60801: 介護サービス"]);
+  // EC設定可能業態コードが選択肢に並ぶ
+  await expect(select.locator("option")).toContainText(["選択してください", "60207: 単科病院"]);
 
-  // 介護サービスを選ぶと値が 60801 になる
-  await select.selectOption("60801");
-  await expect(select).toHaveValue("60801");
-
-  // 訪問診療を選ぶと 60207
+  // 訪問診療(単科病院)を選ぶと値が 60207 になる
   await select.selectOption("60207");
   await expect(select).toHaveValue("60207");
+
+  // 店頭専用コード(介護60801)は選択肢に存在しない
+  await expect(select.locator('option[value="60801"]')).toHaveCount(0);
 });

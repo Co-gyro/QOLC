@@ -498,8 +498,7 @@ export function JcbEcForm() {
                 ))}
               </select>
               <p className="text-xs text-muted-foreground">
-                {BIZ_CATEGORIES.find((b) => b.code === app.bizCatCode)?.note ||
-                  "サービス提供者の業種を選択（基本合意書 別紙3）"}
+                EC設定可能業態コードのみ表示。訪問診療・クリニックは「60207 単科病院」等、近い区分をJCB確認の上で選択。
               </p>
             </div>
             <div className="space-y-1.5">

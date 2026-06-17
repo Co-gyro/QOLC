@@ -335,7 +335,8 @@ export function buildStoreExcelFilename(tenantName: string, date = new Date()): 
   const yyyy = date.getFullYear();
   const mm = String(date.getMonth() + 1).padStart(2, "0");
   const dd = String(date.getDate()).padStart(2, "0");
-  const safe = (tenantName || "新規申請").replace(/[\\/:*?"<>|]/g, "_").slice(0, 30);
+  // JCBはファイル名に空白（半角・全角スペース）を許可しないため "_" に置換する。
+  const safe = (tenantName || "新規申請").replace(/[\\/:*?"<>|\s　]/g, "_").slice(0, 30);
   return `JCB_店頭_申請_${safe}_${yyyy}${mm}${dd}.xlsx`;
 }
 

@@ -216,9 +216,16 @@ describe("BIZ_CATEGORIES (業態コードマスタ)", () => {
     expect(new Set(codes).size).toBe(codes.length);
   });
 
-  it("QOLC主要業種(介護/訪問診療/薬局/タクシー)を含む", () => {
+  it("EC設定可能コード(60207単科病院等)を含む", () => {
     const codes = BIZ_CATEGORIES.map((b) => b.code);
-    expect(codes).toEqual(expect.arrayContaining(["60801", "60207", "20504", "80302"]));
+    expect(codes).toEqual(expect.arrayContaining(["60201", "60207", "60299"]));
+  });
+
+  it("店頭専用コード(介護60801/歯科60202/薬局20504/タクシー80302)は含まない", () => {
+    const codes = BIZ_CATEGORIES.map((b) => b.code);
+    for (const storeOnly of ["60801", "60202", "20504", "80302"]) {
+      expect(codes).not.toContain(storeOnly);
+    }
   });
 
   it("各コードは業態コードのバリデーションを通過する", () => {
@@ -226,5 +233,35 @@ describe("BIZ_CATEGORIES (業態コードマスタ)", () => {
       const issues = validateApplication({ ...validSample, bizCatCode: b.code });
       expect(issues.find((i) => i.field === "bizCatCode" && i.level === "error")).toBeUndefined();
     }
+  });
+});
+
+describe("住所の都道府県チェック", () => {
+  it("都道府県名なしの漢字住所はエラー", () => {
+    const issues = validateApplication({ ...validSample, tenantAddrKanji: "港区南青山5-1-22" });
+    expect(issues.find((i) => i.field === "tenantAddrKanji" && i.level === "error")).toBeDefined();
+  });
+
+  it("都道府県名なしのカナ住所はエラー", () => {
+    const issues = validateApplication({ ...validSample, tenantAddrKana: "ﾐﾅﾄｸﾐﾅﾐｱｵﾔﾏ5-1-22" });
+    expect(issues.find((i) => i.field === "tenantAddrKana" && i.level === "error")).toBeDefined();
+  });
+
+  it("都道府県名で始まればエラーなし", () => {
+    const issues = validateApplication({
+      ...validSample,
+      tenantAddrKanji: "大阪府大阪市北区1-1",
+      tenantAddrKana: "ｵｵｻｶﾌｵｵｻｶｼｷﾀｸ1-1",
+    });
+    expect(issues.find((i) => i.field === "tenantAddrKanji" && i.level === "error")).toBeUndefined();
+    expect(issues.find((i) => i.field === "tenantAddrKana" && i.level === "error")).toBeUndefined();
+  });
+});
+
+describe("buildExcelFilename (スペース除去)", () => {
+  it("店舗名のスペースは _ に置換される", () => {
+    const name = buildExcelFilename("テスト 介護　施設", new Date("2026-06-17T00:00:00"));
+    expect(name).not.toMatch(/[\s　]/);
+    expect(name).toBe("JCB_EC_申請_テスト_介護_施設_20260617.xlsx");
   });
 });

@@ -3,6 +3,7 @@ import ExcelJS from "exceljs";
 
 import {
   AUTO_VALUES,
+  BIZ_CATEGORIES,
   applicationToRow,
   buildExcelFilename,
   generateJcbEcExcel,
@@ -200,5 +201,30 @@ describe("AUTO_VALUES (固定値)", () => {
     expect(AUTO_VALUES.jSecure2).toBe("1");
     expect(AUTO_VALUES.cardInfoRetainStatus).toBe("2");
     expect(AUTO_VALUES.pcidssComplStatus).toBe("1");
+  });
+});
+
+describe("BIZ_CATEGORIES (業態コードマスタ)", () => {
+  it("全コードが5桁数字", () => {
+    for (const b of BIZ_CATEGORIES) {
+      expect(b.code).toMatch(/^\d{5}$/);
+    }
+  });
+
+  it("コードが重複しない", () => {
+    const codes = BIZ_CATEGORIES.map((b) => b.code);
+    expect(new Set(codes).size).toBe(codes.length);
+  });
+
+  it("QOLC主要業種(介護/訪問診療/薬局/タクシー)を含む", () => {
+    const codes = BIZ_CATEGORIES.map((b) => b.code);
+    expect(codes).toEqual(expect.arrayContaining(["60801", "60207", "20504", "80302"]));
+  });
+
+  it("各コードは業態コードのバリデーションを通過する", () => {
+    for (const b of BIZ_CATEGORIES) {
+      const issues = validateApplication({ ...validSample, bizCatCode: b.code });
+      expect(issues.find((i) => i.field === "bizCatCode" && i.level === "error")).toBeUndefined();
+    }
   });
 });

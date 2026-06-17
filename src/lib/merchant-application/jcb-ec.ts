@@ -465,6 +465,23 @@ export const SALES_STYLES: Array<{ value: SalesStyle; label: string }> = [
   { value: "11", label: "11: 登録型 (都度オーソリあり)" },
 ];
 
+/**
+ * QOLCのサービス提供者に該当するJCB業態コード（基本合意書 別紙3「業態コード一覧」より抜粋）。
+ * 業態コードは手数料率・取扱条件に直結するため、手入力ではなくこのマスタから選択させる。
+ * code=5桁業態コード（bizCatCode）, label=ドロップダウン表示名, note=別紙3の備考（取扱条件等）。
+ * QOLCで業種が増えた場合はここに追記する。
+ */
+export const BIZ_CATEGORIES: ReadonlyArray<{ code: string; label: string; note: string }> = [
+  { code: "60207", label: "訪問診療・医療クリニック（単科病院）", note: "保険診療メイン。自由診療メインは別コード(60206 美容形成)" },
+  { code: "60202", label: "歯科", note: "" },
+  { code: "60203", label: "人間ドック", note: "支払区分は1回払いのみ" },
+  { code: "20504", label: "調剤薬局（ドラッグストア含む）", note: "" },
+  { code: "60801", label: "介護サービス", note: "" },
+  { code: "60210", label: "接骨・整骨（鍼灸・カイロ含む）", note: "" },
+  { code: "60204", label: "マッサージ（リラクゼーション含む）", note: "" },
+  { code: "80302", label: "タクシー", note: "" },
+];
+
 export const CORP_INDIV_OPTIONS: Array<{ value: CorpIndiv; label: string }> = [
   { value: "1", label: "法人 (法人番号有)" },
   { value: "2", label: "法人 (法人番号無)" },

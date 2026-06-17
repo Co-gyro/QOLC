@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   AUTO_VALUES,
+  BIZ_CATEGORIES,
   CORP_INDIV_OPTIONS,
   SALES_STYLES,
   buildExcelFilename,
@@ -481,12 +482,26 @@ export function JcbEcForm() {
               errors={errorsToShow}
               className="sm:col-span-2"
             />
-            <FieldRow
-              label="業態コード" name="bizCatCode" required
-              value={app.bizCatCode} onChange={set("bizCatCode")}
-              maxLength={5} placeholder="例: 12345"
-              hint="5桁数字 (JCBが定義)" errors={errorsToShow}
-            />
+            <div className="space-y-1.5">
+              <Label htmlFor="bizCatCode" className="text-xs">
+                業態コード <span className="text-destructive">*</span>
+              </Label>
+              <select
+                id="bizCatCode"
+                value={app.bizCatCode}
+                onChange={(e) => set("bizCatCode")(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="">選択してください</option>
+                {BIZ_CATEGORIES.map((b) => (
+                  <option key={b.code} value={b.code}>{`${b.code}: ${b.label}`}</option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                {BIZ_CATEGORIES.find((b) => b.code === app.bizCatCode)?.note ||
+                  "サービス提供者の業種を選択（基本合意書 別紙3）"}
+              </p>
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="salesStyle" className="text-xs">
                 販売形態区分 <span className="text-destructive">*</span>

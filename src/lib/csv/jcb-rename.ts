@@ -9,17 +9,40 @@ export interface JcbDetectionResult {
 
 const HEADER_SCAN_BYTES = 64 * 1024;
 
-export async function readJcbHeaderLine(file: File): Promise<string> {
-  const slice = file.slice(0, Math.min(file.size, HEADER_SCAN_BYTES));
-  const buffer = await slice.arrayBuffer();
+/**
+ * JCB CSVバッファをデコードする。文字コード自動判別:
+ * UTF-8 BOM(EF BB BF)があればUTF-8、無ければShift-JIS（BOMは除去）。
+ * 実JCB Linkエクスポートは UTF-8(BOM付き)、ダミーは Shift-JIS。
+ */
+function decodeJcbBuffer(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
-  // 文字コード自動判別: UTF-8 BOM(EF BB BF)があればUTF-8、無ければShift-JIS。
-  // 実JCB Linkエクスポートは UTF-8(BOM付き)、ダミーは Shift-JIS。
   const hasBom = bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
   const decoded = (hasBom ? new TextDecoder("utf-8") : new TextDecoder("shift-jis")).decode(buffer);
-  const stripped = decoded.replace(/^﻿/, "");
-  const newlineIndex = stripped.search(/\r\n|\n|\r/);
-  return newlineIndex === -1 ? stripped : stripped.slice(0, newlineIndex);
+  return decoded.replace(/^﻿/, "");
+}
+
+export async function readJcbHeaderLine(file: File): Promise<string> {
+  const slice = file.slice(0, Math.min(file.size, HEADER_SCAN_BYTES));
+  const text = decodeJcbBuffer(await slice.arrayBuffer());
+  const newlineIndex = text.search(/\r\n|\n|\r/);
+  return newlineIndex === -1 ? text : text.slice(0, newlineIndex);
+}
+
+/**
+ * 先頭データ行から振込年月日(yyyy/mm/dd)を読み取り、ISO形式(yyyy-mm-dd)で返す。
+ * 振込年月日列が無い／データ行が無い場合は null。
+ */
+export async function readJcbTransferDate(file: File): Promise<string | null> {
+  const slice = file.slice(0, Math.min(file.size, HEADER_SCAN_BYTES));
+  const lines = decodeJcbBuffer(await slice.arrayBuffer())
+    .split(/\r\n|\n|\r/)
+    .filter((l) => l.trim().length > 0);
+  if (lines.length < 2) return null;
+  const idx = parseHeaderLine(lines[0]).indexOf("振込年月日");
+  if (idx === -1) return null;
+  const raw = (lines[1].split(",")[idx] ?? "").trim();
+  const m = raw.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  return m ? `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}` : null;
 }
 
 export function parseHeaderLine(line: string): string[] {

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
   detectJcbFromFile,
+  readJcbTransferDate,
   type JcbDetectionResult,
 } from "@/lib/csv/jcb-rename";
 import {
@@ -57,10 +58,13 @@ function dataTypeLabel(type: DataType | null | undefined) {
   }
 }
 
+/** JCBの支払先番号（EC一本化のため当面固定。店頭156745176はEC側におまとめ）。 */
+const DEFAULT_JCB_PAYEE = "156742401";
+
 export function JcbRenameTool() {
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [closingDate, setClosingDate] = useState("");
-  const [payeeNumber, setPayeeNumber] = useState("");
+  const [payeeNumber, setPayeeNumber] = useState(DEFAULT_JCB_PAYEE);
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -77,6 +81,13 @@ export function JcbRenameTool() {
     }));
 
     setEntries((prev) => [...prev, ...newEntries]);
+
+    // 締日(振込年月日)をファイルから自動補完（空欄のときのみ）。
+    readJcbTransferDate(accepted[0])
+      .then((d) => {
+        if (d) setClosingDate((prev) => prev || d);
+      })
+      .catch(() => {});
 
     newEntries.forEach((entry) => {
       detectJcbFromFile(entry.file)
@@ -240,7 +251,7 @@ export function JcbRenameTool() {
         <CardContent className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="closing-date">締日</Label>
+              <Label htmlFor="closing-date">締日（振込年月日・ファイルから自動）</Label>
               <Input
                 id="closing-date"
                 type="date"
@@ -249,7 +260,7 @@ export function JcbRenameTool() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="payee-number">支払先番号（9桁）</Label>
+              <Label htmlFor="payee-number">支払先番号（固定: 156742401）</Label>
               <Input
                 id="payee-number"
                 type="text"
@@ -263,7 +274,9 @@ export function JcbRenameTool() {
               />
               {payeeNumber.length > 0 && !isValidPayeeNumber(payeeNumber) ? (
                 <p className="text-xs text-destructive">9桁の数字で入力してください。</p>
-              ) : null}
+              ) : (
+                <p className="text-xs text-muted-foreground">EC一本化のため固定。通常は変更不要です。</p>
+              )}
             </div>
           </div>
 

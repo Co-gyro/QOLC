@@ -17,17 +17,17 @@ test("JCBダミー3点を変換しセルフィッシュ命名規則で出力で�
   await login(page, "admin");
   await page.goto("/admin/csv-tools");
 
-  // 締日・支払先番号を入力
-  await page.getByLabel("締日").fill("2026-03-31");
-  await page.getByLabel(/支払先番号/).fill("156742401");
-
-  // 隠しファイル input に3ファイルを投入
+  // 隠しファイル input に3ファイルを投入（締日・支払先番号は手入力しない）
   await page.locator('input[type="file"]').setInputFiles(FILES);
 
   // 種別が UR/FI/FM と自動判別される
   await expect(page.getByText("売上明細 (UR)")).toBeVisible();
   await expect(page.getByText("振込情報 (FI)")).toBeVisible();
   await expect(page.getByText("振込明細 (FM)")).toBeVisible();
+
+  // 支払先番号は156742401で固定・締日(振込年月日)はファイルから自動補完
+  await expect(page.locator("#payee-number")).toHaveValue("156742401");
+  await expect(page.locator("#closing-date")).toHaveValue("2026-03-31");
 
   // リネーム後ファイル名が表示される
   await expect(page.getByText("JCB_UR_20260331_156742401.csv")).toBeVisible();

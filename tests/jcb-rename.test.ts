@@ -64,6 +64,15 @@ describe("JCB Link 実エクスポート様式の判定", () => {
     expect(header.startsWith("売上年月日")).toBe(true); // BOMが除去され文字化けしない
     expect(detectJcbDataType(parseHeaderLine(header)).dataType).toBe("UR");
   });
+
+  it("振込年月日を先頭データ行からISO形式で抽出（UTF-8 BOM）", async () => {
+    // UR_REALの17列目が振込年月日。値2026/06/30を入れる。
+    const dataRow = "2026/06/11,24111748400001,加盟店,表示名,01001,JCB,10,1回,100,358443******6834,2C73D6,,0479929,,,156742401,2026/06/30,確定";
+    const csv = "﻿" + UR_REAL + "\r\n" + dataRow + "\r\n";
+    const file = new File([new TextEncoder().encode(csv)], "sales_details.csv");
+    const { readJcbTransferDate } = await import("@/lib/csv/jcb-rename");
+    expect(await readJcbTransferDate(file)).toBe("2026-06-30");
+  });
 });
 
 describe("JCB 命名規則 JCB_{種別}_{締日}_{支払先番号}.csv", () => {

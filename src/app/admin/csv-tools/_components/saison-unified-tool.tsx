@@ -18,7 +18,7 @@ import {
 } from "@/lib/csv/saison-fm";
 import { parseSaisonPdfFromFile, type SaisonPdfData } from "@/lib/pdf/saison-pdf";
 import { crossPdfCsvToFi, renderFiCsvBytes, type FiFile } from "@/lib/csv/saison-fi";
-import { buildCsvFilename, isValidPayeeNumber } from "@/lib/csv/naming";
+import { buildCsvFilename, isValidSaisonPayeeNumber } from "@/lib/csv/naming";
 
 interface CsvEntry {
   id: string;
@@ -129,6 +129,20 @@ export function SaisonUnifiedTool() {
     [pdfEntries],
   );
 
+  // セゾンの支払先番号 = 売上データCSVの加盟店No.（最頻値）。手入力せず自動補完する。
+  const csvMerchantNo = useMemo(() => {
+    const nos = csvRowsAll.map((r) => r.加盟店No).filter(Boolean);
+    if (nos.length === 0) return "";
+    const count = new Map<string, number>();
+    for (const n of nos) count.set(n, (count.get(n) ?? 0) + 1);
+    return Array.from(count.entries()).sort((a, b) => b[1] - a[1])[0][0];
+  }, [csvRowsAll]);
+
+  // 加盟店No.を支払先番号に自動補完（空欄のときのみ。手入力は上書きしない）。
+  useEffect(() => {
+    if (csvMerchantNo && !payeeNumber) setPayeeNumber(csvMerchantNo);
+  }, [csvMerchantNo, payeeNumber]);
+
   // PDFがあれば振込年月日・手数料率を自動補完（空欄のときのみ。手入力は上書きしない）。
   useEffect(() => {
     if (pdfDataAll.length === 0) return;
@@ -143,7 +157,7 @@ export function SaisonUnifiedTool() {
   }, [pdfDataAll, transferDate, feeRate]);
 
   const loadingAny = csvEntries.some((e) => e.loading) || pdfEntries.some((e) => e.loading);
-  const payeeOk = isValidPayeeNumber(payeeNumber);
+  const payeeOk = isValidSaisonPayeeNumber(payeeNumber);
   const canGenerate = payeeOk && csvRowsAll.length > 0 && !loadingAny;
 
   const handleGenerate = useCallback(() => {
@@ -274,17 +288,17 @@ export function SaisonUnifiedTool() {
         <CardContent className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
-              <Label htmlFor="saison-payee">支払先番号（9桁）</Label>
+              <Label htmlFor="saison-payee">支払先番号（加盟店No.・CSVから自動）</Label>
               <Input
                 id="saison-payee"
                 inputMode="numeric"
-                maxLength={9}
-                placeholder="例: 156742401"
+                maxLength={10}
+                placeholder="CSVから自動（例: 2077247）"
                 value={payeeNumber}
-                onChange={(e) => setPayeeNumber(e.target.value.replace(/\D/g, "").slice(0, 9))}
+                onChange={(e) => setPayeeNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
               />
               {payeeNumber.length > 0 && !payeeOk ? (
-                <p className="text-xs text-destructive">9桁の数字で入力してください。</p>
+                <p className="text-xs text-destructive">数字4〜10桁で入力してください。</p>
               ) : null}
             </div>
             <div className="space-y-2">
@@ -410,7 +424,7 @@ export function SaisonUnifiedTool() {
           <div className="flex items-center gap-3">
             <Button onClick={handleGenerate} disabled={!canGenerate}>変換を生成</Button>
             {!canGenerate ? (
-              <p className="text-xs text-muted-foreground">支払先番号（9桁）と売上データCSVが必要です。FMは振込年月日・手数料率、FIはPDFも必要。</p>
+              <p className="text-xs text-muted-foreground">支払先番号（加盟店No.）と売上データCSVが必要です。FMは振込年月日・手数料率、FIはPDFも必要。</p>
             ) : null}
           </div>
           {genError ? <p className="text-sm text-destructive">{genError}</p> : null}

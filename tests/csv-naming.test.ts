@@ -5,6 +5,7 @@ import {
   formatClosingDate,
   isValidClosingDate,
   isValidPayeeNumber,
+  isValidSaisonPayeeNumber,
   isoToSlashed,
   yyyymmddToSlashed,
 } from "@/lib/csv/naming";
@@ -80,6 +81,24 @@ describe("isValidPayeeNumber", () => {
     ["with hyphens", "156-74-2401"],
   ])("rejects %s", (_label, value) => {
     expect(isValidPayeeNumber(value)).toBe(false);
+  });
+});
+
+describe("isValidSaisonPayeeNumber", () => {
+  it("accepts セゾン加盟店No.（7桁）", () => {
+    expect(isValidSaisonPayeeNumber("2077247")).toBe(true);
+    expect(isValidSaisonPayeeNumber("1234567")).toBe(true);
+  });
+  it("accepts 9桁（JCB値も許容）", () => {
+    expect(isValidSaisonPayeeNumber("156742401")).toBe(true);
+  });
+  it.each([
+    ["3 digits", "123"],
+    ["11 digits", "12345678901"],
+    ["letters", "20772a7"],
+    ["empty", ""],
+  ])("rejects %s", (_label, value) => {
+    expect(isValidSaisonPayeeNumber(value)).toBe(false);
   });
 });
 

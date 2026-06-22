@@ -16,13 +16,15 @@ test("CSV+PDFを1回アップして UR/FM/FI をまとめて生成できる", as
   // セゾンタブへ
   await page.getByRole("tab", { name: "セゾン" }).click();
 
-  await page.locator("#saison-payee").fill("123456789");
   await page.locator('input[accept*="csv"]').setInputFiles(CSV);
   await page.locator('input[accept*="pdf"]').setInputFiles(PDF);
 
   // CSVパース完了（行数表示）とPDF解析完了（締:表示）を待つ
   await expect(page.getByText(/\d+行/).first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/締: /).first()).toBeVisible({ timeout: 30_000 });
+
+  // 支払先番号は加盟店No.(1234567)がCSVから自動補完される
+  await expect(page.locator("#saison-payee")).toHaveValue("1234567");
 
   await page.getByRole("button", { name: "変換を生成" }).click();
 

@@ -27,6 +27,7 @@ describe("parseSaisonCsv", () => {
     expect(rows.length).toBe(16);
     expect(rows[0]).toMatchObject({
       締年月日: "20260315",
+      加盟店No: "1234567",
       加盟店店舗No: "0000001",
       加盟店名: expect.stringContaining("A"),
       支払方法: "1回払い",

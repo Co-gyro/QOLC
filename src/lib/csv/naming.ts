@@ -22,6 +22,15 @@ export function isValidPayeeNumber(value: string): boolean {
   return /^\d{9}$/.test(value);
 }
 
+/**
+ * セゾンの支払先番号バリデーション。
+ * セゾンは加盟店No.（通常7桁）を支払先番号として使うため、JCBの9桁固定とは別に
+ * 4〜10桁の数字を許容する（セルフィッシュとの合意: 加盟店No.7桁）。
+ */
+export function isValidSaisonPayeeNumber(value: string): boolean {
+  return /^\d{4,10}$/.test(value);
+}
+
 export function isValidClosingDate(iso: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(iso);
 }

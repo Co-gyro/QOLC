@@ -4,6 +4,8 @@ import { yyyymmddToSlashed } from "./naming";
 
 export interface SaisonSalesRow {
   締年月日: string;
+  /** 加盟店No.（7桁）。セゾンの支払先番号として使う。 */
+  加盟店No: string;
   加盟店店舗No: string;
   加盟店名: string;
   支払方法: string;
@@ -68,6 +70,8 @@ export function parseSaisonCsv(text: string): SaisonSalesRow[] {
   for (const required of REQUIRED_COLUMNS) indexOf(required);
 
   const idxClosing = indexOf("締年月日");
+  // 加盟店No.（支払先番号に使う）。無いCSVも許容するため throw しない indexOf を使う。
+  const idxMerchantNo = header.indexOf("加盟店No.");
   const idxStoreNo = indexOf("加盟店店舗No.");
   const idxMerchant = indexOf("加盟店名");
   const idxPayment = indexOf("支払方法");
@@ -88,6 +92,7 @@ export function parseSaisonCsv(text: string): SaisonSalesRow[] {
     }
     rows.push({
       締年月日: closing,
+      加盟店No: idxMerchantNo >= 0 ? (cols[idxMerchantNo] ?? "").trim() : "",
       加盟店店舗No: storeNo,
       加盟店名: merchant,
       支払方法: payment,

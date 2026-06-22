@@ -12,9 +12,14 @@ const HEADER_SCAN_BYTES = 64 * 1024;
 export async function readJcbHeaderLine(file: File): Promise<string> {
   const slice = file.slice(0, Math.min(file.size, HEADER_SCAN_BYTES));
   const buffer = await slice.arrayBuffer();
-  const decoded = new TextDecoder("shift-jis").decode(buffer);
-  const newlineIndex = decoded.search(/\r\n|\n|\r/);
-  return newlineIndex === -1 ? decoded : decoded.slice(0, newlineIndex);
+  const bytes = new Uint8Array(buffer);
+  // 文字コード自動判別: UTF-8 BOM(EF BB BF)があればUTF-8、無ければShift-JIS。
+  // 実JCB Linkエクスポートは UTF-8(BOM付き)、ダミーは Shift-JIS。
+  const hasBom = bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
+  const decoded = (hasBom ? new TextDecoder("utf-8") : new TextDecoder("shift-jis")).decode(buffer);
+  const stripped = decoded.replace(/^﻿/, "");
+  const newlineIndex = stripped.search(/\r\n|\n|\r/);
+  return newlineIndex === -1 ? stripped : stripped.slice(0, newlineIndex);
 }
 
 export function parseHeaderLine(line: string): string[] {
@@ -25,16 +30,19 @@ export function detectJcbDataType(columns: string[]): JcbDetectionResult {
   const set = new Set(columns);
   const has = (name: string) => set.has(name);
 
-  if (has("集計日") && has("加盟店番号") && has("加盟店名")) {
+  // UR(売上明細): 取引明細レベル。カード番号/利用明細書表示名/承認番号 のいずれか。
+  // 実URは加盟店番号+加盟店名+振込年月日も持つため、FM判定より先に評価する。
+  if (has("カード番号") || has("利用明細書表示名") || has("承認番号")) {
     return {
-      dataType: "FM",
+      dataType: "UR",
       columns,
       columnCount: columns.length,
-      reason: "振込明細(FM): 「集計日」「加盟店番号」「加盟店名」を検出",
+      reason: "売上明細(UR): 「カード番号」または「利用明細書表示名」「承認番号」を検出",
     };
   }
 
-  if (has("手数料率") && has("振込金額") && has("売上件数") && !has("集計日")) {
+  // FI(振込情報): 手数料率・振込金額を持つ振込サマリ。
+  if (has("手数料率") && has("振込金額") && has("売上件数")) {
     return {
       dataType: "FI",
       columns,
@@ -43,12 +51,14 @@ export function detectJcbDataType(columns: string[]): JcbDetectionResult {
     };
   }
 
-  if (has("カード番号") || has("利用明細書表示名") || has("承認番号")) {
+  // FM(振込明細): 加盟店別の集計。加盟店番号+加盟店名 と、集計日 or 振込年月日。
+  // ダミーは「集計日」あり、実JCB Link(transfer_detail_totalization)は集計日が無く「振込年月日」を持つ。
+  if (has("加盟店番号") && has("加盟店名") && (has("集計日") || has("振込年月日"))) {
     return {
-      dataType: "UR",
+      dataType: "FM",
       columns,
       columnCount: columns.length,
-      reason: "売上明細(UR): 「カード番号」または「利用明細書表示名」「承認番号」を検出",
+      reason: "振込明細(FM): 「加盟店番号」「加盟店名」と「集計日/振込年月日」を検出",
     };
   }
 

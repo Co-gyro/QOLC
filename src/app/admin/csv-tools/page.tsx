@@ -2,9 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PortalLayout } from "@/components/layout/portal-layout";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { JcbRenameTool } from "./_components/jcb-rename-tool";
-import { SaisonRenameTool } from "./_components/saison-rename-tool";
-import { SaisonFmTool } from "./_components/saison-fm-tool";
-import { SaisonFiTool } from "./_components/saison-fi-tool";
+import { SaisonUnifiedTool } from "./_components/saison-unified-tool";
 
 export default function CsvToolsPage() {
   return (
@@ -28,25 +26,7 @@ export default function CsvToolsPage() {
         </TabsContent>
 
         <TabsContent value="saison" className="mt-6">
-          <Tabs defaultValue="ur" className="w-full">
-            <TabsList className="grid w-full max-w-xl grid-cols-3">
-              <TabsTrigger value="ur">売上明細 (UR)</TabsTrigger>
-              <TabsTrigger value="fm">振込明細 (FM)</TabsTrigger>
-              <TabsTrigger value="fi">振込情報 (FI)</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="ur" className="mt-6">
-              <SaisonRenameTool />
-            </TabsContent>
-
-            <TabsContent value="fm" className="mt-6">
-              <SaisonFmTool />
-            </TabsContent>
-
-            <TabsContent value="fi" className="mt-6">
-              <SaisonFiTool />
-            </TabsContent>
-          </Tabs>
+          <SaisonUnifiedTool />
         </TabsContent>
       </Tabs>
     </PortalLayout>

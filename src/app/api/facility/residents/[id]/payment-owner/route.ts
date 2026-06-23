@@ -10,6 +10,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { logActivity } from "@/lib/audit/activity-log";
 import { apiError, apiOk } from "@/types/api";
 import type { UserRole } from "@/types";
 
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // 入居者と所属検証
   const { data: resident } = await admin
     .from("residents")
-    .select("id, facility_id")
+    .select("id, facility_id, name_last, name_first")
     .eq("id", params.id)
     .is("deleted_at", null)
     .maybeSingle();
@@ -94,6 +95,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (e2) {
     return NextResponse.json(apiError(`設定に失敗しました: ${e2.message}`, "DB"), { status: 500 });
   }
+
+  await logActivity({
+    actorId: user.id,
+    action: "payment_owner_set",
+    facilityId: resident.facility_id,
+    targetType: "resident",
+    targetId: resident.id,
+    targetLabel: `${resident.name_last} ${resident.name_first}`,
+    metadata: { accountId: parsed.data.accountId },
+  });
 
   return NextResponse.json(apiOk({ accountId: parsed.data.accountId }));
 }

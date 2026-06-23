@@ -9,6 +9,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { logActivity } from "@/lib/audit/activity-log";
 import { apiError, apiOk } from "@/types/api";
 import type { UserRole } from "@/types";
 
@@ -97,6 +98,15 @@ export async function POST(req: NextRequest) {
     }
     terminalId = data as string;
   }
+
+  await logActivity({
+    actorId: user.id,
+    action: "merchant_create",
+    targetType: "merchant",
+    targetId: merchantId,
+    targetLabel: v.name.trim(),
+    metadata: { mallCode, terminalId },
+  });
 
   return NextResponse.json(apiOk({ id: merchantId, mallCode, terminalId }));
 }

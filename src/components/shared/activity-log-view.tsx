@@ -14,14 +14,10 @@ interface LogEntry {
   id: string;
   action: string;
   actionLabel: string;
-  verb: string;
   kind: "success" | "warn" | "info";
-  actorName: string;
-  residentName: string | null;
-  amount: number | null;
-  status: string | null;
+  summary: string;
   createdAt: string;
-  detail: { request: unknown; response: unknown } | null;
+  detail: unknown | null;
 }
 
 const ACTION_OPTIONS: { value: string; label: string }[] = [
@@ -31,6 +27,13 @@ const ACTION_OPTIONS: { value: string; label: string }[] = [
   { value: "sales_return", label: "返金" },
   { value: "auth_void", label: "与信取消" },
   { value: "ec_checkout", label: "カード登録" },
+  { value: "resident_create", label: "入居者追加" },
+  { value: "resident_update", label: "入居者編集" },
+  { value: "invite_create", label: "アカウント招待" },
+  { value: "invite_accept", label: "アカウント参加" },
+  { value: "upload", label: "明細アップロード" },
+  { value: "merchant_create", label: "加盟店登録" },
+  { value: "payment_owner_set", label: "決済オーナー設定" },
 ];
 
 const KIND_DOT: Record<LogEntry["kind"], string> = {
@@ -45,18 +48,6 @@ function formatWhen(iso: string): string {
   return `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, "0")}:${String(
     d.getMinutes(),
   ).padStart(2, "0")}`;
-}
-
-/** 1行を自然文に。 */
-function sentence(e: LogEntry): string {
-  const amount = e.amount != null ? `¥${e.amount.toLocaleString("ja-JP")}` : "";
-  if (e.residentName && e.amount != null) {
-    return `${e.actorName} が ${e.residentName}さんの決済 ${amount} を${e.verb}しました`;
-  }
-  if (e.action === "ec_checkout") {
-    return `${e.actorName} がカードを登録しました`;
-  }
-  return `${e.actorName} が ${e.actionLabel}を行いました`;
 }
 
 export function ActivityLogView() {
@@ -136,7 +127,7 @@ export function ActivityLogView() {
                   <div className="flex items-start gap-3">
                     <span className={cn("mt-1.5 h-2.5 w-2.5 flex-shrink-0 rounded-full", KIND_DOT[e.kind])} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm">{sentence(e)}</p>
+                      <p className="text-sm">{e.summary}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         {formatWhen(e.createdAt)}
                         {e.detail ? (

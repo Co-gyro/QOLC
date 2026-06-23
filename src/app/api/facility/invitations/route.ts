@@ -11,6 +11,7 @@ import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { logActivity } from "@/lib/audit/activity-log";
 import { apiError, apiOk } from "@/types/api";
 import type { UserRole } from "@/types";
 
@@ -113,6 +114,16 @@ export async function POST(req: NextRequest) {
       status: 500,
     });
   }
+
+  await logActivity({
+    actorId: user.id,
+    action: "invite_create",
+    facilityId: resident.facility_id,
+    targetType: "account",
+    targetId: resident.id,
+    targetLabel: parsed.data.email || (parsed.data.accountType === "family" ? "ご家族" : "ご本人"),
+    metadata: { accountType: parsed.data.accountType, isPaymentOwner: parsed.data.isPaymentOwner },
+  });
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const url = `${baseUrl}/invite/${token}`;

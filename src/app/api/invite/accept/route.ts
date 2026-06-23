@@ -10,6 +10,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { logActivity } from "@/lib/audit/activity-log";
 import { apiError, apiOk } from "@/types/api";
 
 const bodySchema = z.object({
@@ -107,6 +108,22 @@ export async function POST(req: NextRequest) {
 
   // 招待を使用済みに
   await admin.from("invitations").update({ used_at: new Date().toISOString() }).eq("id", inv.id);
+
+  const { data: res } = await admin
+    .from("residents")
+    .select("facility_id")
+    .eq("id", inv.resident_id)
+    .single();
+  await logActivity({
+    actorId: userId,
+    actorName: displayName || email,
+    actorRole: "family",
+    action: "invite_accept",
+    facilityId: (res?.facility_id as string | null) ?? null,
+    targetType: "account",
+    targetId: inv.resident_id,
+    targetLabel: displayName || email,
+  });
 
   return NextResponse.json(apiOk({ email }));
 }

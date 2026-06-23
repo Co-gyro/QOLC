@@ -17,6 +17,7 @@ export const PORTAL_MENUS: Record<PortalType, MenuItem[]> = {
     { href: "/admin/merchants", label: "加盟店管理", icon: "Store" },
     { href: "/admin/payments", label: "決済管理", icon: "CreditCard" },
     { href: "/admin/csv-tools", label: "データ変換", icon: "FileSpreadsheet" },
+    { href: "/admin/logs", label: "操作ログ", icon: "History" },
     { href: "/admin/master", label: "マスタ管理", icon: "Database" },
   ],
   facility: [
@@ -25,6 +26,7 @@ export const PORTAL_MENUS: Record<PortalType, MenuItem[]> = {
     { href: "/facility/statements", label: "明細管理", icon: "FileText" },
     { href: "/facility/payments", label: "決済状況", icon: "CreditCard" },
     { href: "/facility/providers", label: "サービス提供者", icon: "Stethoscope" },
+    { href: "/facility/logs", label: "操作ログ", icon: "History" },
   ],
   provider: [
     { href: "/provider/dashboard", label: "ダッシュボード", icon: "LayoutDashboard" },

@@ -22,6 +22,7 @@ import {
   Upload,
   Home,
   Receipt,
+  History,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,7 @@ const ICONS: Record<string, LucideIcon> = {
   Upload,
   Home,
   Receipt,
+  History,
 };
 
 export function Sidebar({ portal }: SidebarProps) {

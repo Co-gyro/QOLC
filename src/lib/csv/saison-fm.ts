@@ -9,6 +9,8 @@ export interface SaisonSalesRow {
   加盟店店舗No: string;
   加盟店名: string;
   支払方法: string;
+  /** 受付日（yyyymmdd）。共通フォーマットFMの集計日（売上日）として使う。 */
+  受付日: string;
   売上合計: number;
 }
 
@@ -75,6 +77,8 @@ export function parseSaisonCsv(text: string): SaisonSalesRow[] {
   const idxStoreNo = indexOf("加盟店店舗No.");
   const idxMerchant = indexOf("加盟店名");
   const idxPayment = indexOf("支払方法");
+  // 受付日（集計日に使う）。無いCSVも許容するため throw しない indexOf を使う。
+  const idxAccept = header.indexOf("受付日");
   const idxTotal = indexOf("売上合計");
 
   const rows: SaisonSalesRow[] = [];
@@ -96,6 +100,7 @@ export function parseSaisonCsv(text: string): SaisonSalesRow[] {
       加盟店店舗No: storeNo,
       加盟店名: merchant,
       支払方法: payment,
+      受付日: idxAccept >= 0 ? (cols[idxAccept] ?? "").trim() : "",
       売上合計: total,
     });
   }

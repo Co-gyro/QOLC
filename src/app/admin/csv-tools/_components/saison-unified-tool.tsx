@@ -8,16 +8,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
-  aggregateFm,
   encodeShiftJis,
   parseSaisonCsv,
   readSaisonCsvText,
-  renderFmCsv,
-  type FmPerClosingFile,
   type SaisonSalesRow,
 } from "@/lib/csv/saison-fm";
 import { parseSaisonPdfFromFile, type SaisonPdfData } from "@/lib/pdf/saison-pdf";
-import { crossPdfCsvToFi, renderFiCsvBytes, type FiFile } from "@/lib/csv/saison-fi";
+import {
+  buildSaisonFi,
+  buildSaisonFm,
+  renderCommonFi,
+  renderCommonFm,
+} from "@/lib/csv/selfish-common";
 import { buildCsvFilename, isValidSaisonPayeeNumber } from "@/lib/csv/naming";
 
 interface CsvEntry {
@@ -75,8 +77,6 @@ export function SaisonUnifiedTool() {
   const [csvEntries, setCsvEntries] = useState<CsvEntry[]>([]);
   const [pdfEntries, setPdfEntries] = useState<PdfEntry[]>([]);
   const [payeeNumber, setPayeeNumber] = useState("");
-  const [transferDate, setTransferDate] = useState(""); // yyyy-mm-dd
-  const [feeRate, setFeeRate] = useState(""); // %
   const [outputs, setOutputs] = useState<OutputFile[] | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
   const [isZipping, setIsZipping] = useState(false);
@@ -143,19 +143,6 @@ export function SaisonUnifiedTool() {
     if (csvMerchantNo && !payeeNumber) setPayeeNumber(csvMerchantNo);
   }, [csvMerchantNo, payeeNumber]);
 
-  // PDFがあれば振込年月日・手数料率を自動補完（空欄のときのみ。手入力は上書きしない）。
-  useEffect(() => {
-    if (pdfDataAll.length === 0) return;
-    if (!transferDate && pdfDataAll[0].transferDate) {
-      setTransferDate(pdfDataAll[0].transferDate.replace(/\//g, "-"));
-    }
-    if (!feeRate) {
-      const sumFee = pdfDataAll.reduce((s, p) => s + p.totalFee, 0);
-      const sumAmt = pdfDataAll.reduce((s, p) => s + p.totalAmount, 0);
-      if (sumAmt > 0) setFeeRate(String(Math.round((sumFee / sumAmt) * 100 * 100) / 100));
-    }
-  }, [pdfDataAll, transferDate, feeRate]);
-
   const loadingAny = csvEntries.some((e) => e.loading) || pdfEntries.some((e) => e.loading);
   const payeeOk = isValidSaisonPayeeNumber(payeeNumber);
   const canGenerate = payeeOk && csvRowsAll.length > 0 && !loadingAny;
@@ -177,38 +164,24 @@ export function SaisonUnifiedTool() {
         });
       }
 
-      // FM: 締日ごとに集計
-      const rate = Number(feeRate);
-      if (transferDate && Number.isFinite(rate) && feeRate !== "") {
-        const fmFiles: FmPerClosingFile[] = aggregateFm(csvRowsAll, {
-          transferDate: transferDate.replace(/-/g, "/"),
-          payeeNumber,
-          feeRatePercent: rate,
-        });
-        for (const f of fmFiles) {
-          out.push({
-            kind: "FM",
-            filename: buildCsvFilename({ issuer: "SAISON", dataType: "FM", closingDate: f.closingYyyymmdd, payeeNumber }),
-            bytes: encodeShiftJis(renderFmCsv(f)),
-            note: `締日 ${f.closingYyyymmdd} / ${f.totals.件数}件 / 売上¥${numberFormat(f.totals.売上金額)} / 手数料¥${numberFormat(f.totals.手数料)}`,
-          });
-        }
-      }
-
-      // FI: PDFがあれば突合生成
+      // FI/FM: 共通フォーマット（JCB/SAISON共通）。振込日・手数料はPDFから取得するためPDF必須。
       if (pdfDataAll.length > 0) {
-        const fiFiles: FiFile[] = crossPdfCsvToFi(pdfDataAll, csvRowsAll, { payeeNumber });
-        for (const f of fiFiles) {
-          const empty = f.rows.length === 0;
-          out.push({
-            kind: "FI",
-            filename: buildCsvFilename({ issuer: "SAISON", dataType: "FI", closingDate: f.closingYyyymmdd, payeeNumber }),
-            bytes: renderFiCsvBytes(f),
-            note: empty
-              ? `⚠ ${f.merchantName || f.merchantStoreNo}: 締日/店舗Noで突合するCSV行なし`
-              : `締日 ${f.pdf.closingDate} / 振込日 ${f.pdf.transferDate} / 手数料¥${numberFormat(f.pdf.totalFee)} / 振込¥${numberFormat(f.pdf.totalTransfer)}`,
-          });
-        }
+        const pdf = pdfDataAll[0];
+        const closing = dominantClosing(csvRowsAll);
+        const fiRows = buildSaisonFi(csvRowsAll, pdf, payeeNumber);
+        out.push({
+          kind: "FI",
+          filename: buildCsvFilename({ issuer: "SAISON", dataType: "FI", closingDate: closing, payeeNumber }),
+          bytes: encodeShiftJis(renderCommonFi(fiRows)),
+          note: `共通FI ${fiRows.length}行 / 振込日 ${pdf.transferDate} / 手数料¥${numberFormat(pdf.totalFee)}`,
+        });
+        const fmRows = buildSaisonFm(csvRowsAll, pdf, payeeNumber);
+        out.push({
+          kind: "FM",
+          filename: buildCsvFilename({ issuer: "SAISON", dataType: "FM", closingDate: closing, payeeNumber }),
+          bytes: encodeShiftJis(renderCommonFm(fmRows)),
+          note: `共通FM ${fmRows.length}行 / 集計日(売上日)単位`,
+        });
       }
 
       if (out.length === 0) {
@@ -221,7 +194,7 @@ export function SaisonUnifiedTool() {
       setGenError(err instanceof Error ? err.message : "生成に失敗しました。");
       setOutputs(null);
     }
-  }, [csvEntries, csvRowsAll, pdfDataAll, payeeNumber, transferDate, feeRate]);
+  }, [csvEntries, csvRowsAll, pdfDataAll, payeeNumber]);
 
   const downloadOne = useCallback(async (o: OutputFile) => {
     const blob = o.srcFile ?? new Blob([o.bytes], { type: "text/csv" });
@@ -280,13 +253,13 @@ export function SaisonUnifiedTool() {
           <CardTitle>セゾン CSV変換（UR / FM / FI 一括）</CardTitle>
           <CardDescription>
             売上データCSVと支払計算書PDFを<span className="font-medium">1回アップロード</span>すると、
-            セルフィッシュ用の <span className="font-medium">UR（リネーム）・FM（振込明細集計）・FI（振込情報）</span>
-            をまとめて生成します。PDFがあれば<span className="font-medium">振込年月日・手数料率を自動補完</span>します。
+            <span className="font-medium">UR（生データのリネーム）・FI/FM（JCB/SAISON共通フォーマット）</span>
+            をまとめて生成します。振込日・手数料率はPDFから取得（FI/FMはPDF必須）。締日は15日締めで算出。
             （Shift-JIS / CRLF）
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:max-w-md">
             <div className="space-y-2">
               <Label htmlFor="saison-payee">支払先番号（加盟店No.・CSVから自動）</Label>
               <Input
@@ -300,14 +273,7 @@ export function SaisonUnifiedTool() {
               {payeeNumber.length > 0 && !payeeOk ? (
                 <p className="text-xs text-destructive">数字4〜10桁で入力してください。</p>
               ) : null}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="saison-transfer">振込年月日（FM用 / PDFから自動）</Label>
-              <Input id="saison-transfer" type="date" value={transferDate} onChange={(e) => setTransferDate(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="saison-fee">手数料率 %（FM用 / PDFから自動）</Label>
-              <Input id="saison-fee" inputMode="decimal" placeholder="例: 2.59" value={feeRate} onChange={(e) => setFeeRate(e.target.value)} />
+              <p className="text-xs text-muted-foreground">振込日・手数料は支払計算書PDFから自動取得します（FI/FMはPDF必須）。</p>
             </div>
           </div>
 
@@ -424,7 +390,7 @@ export function SaisonUnifiedTool() {
           <div className="flex items-center gap-3">
             <Button onClick={handleGenerate} disabled={!canGenerate}>変換を生成</Button>
             {!canGenerate ? (
-              <p className="text-xs text-muted-foreground">支払先番号（加盟店No.）と売上データCSVが必要です。FMは振込年月日・手数料率、FIはPDFも必要。</p>
+              <p className="text-xs text-muted-foreground">支払先番号（加盟店No.）と売上データCSVが必要です。共通フォーマットのFI/FMは支払計算書PDFも必須です。</p>
             ) : null}
           </div>
           {genError ? <p className="text-sm text-destructive">{genError}</p> : null}

@@ -8,217 +8,192 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
-  detectJcbFromFile,
-  readJcbTransferDate,
-  type JcbDetectionResult,
+  detectJcbDataType,
+  parseHeaderLine,
+  readJcbCsvText,
 } from "@/lib/csv/jcb-rename";
 import {
-  buildCsvFilename,
-  formatClosingDate,
-  isValidClosingDate,
-  isValidPayeeNumber,
-  type DataType,
-} from "@/lib/csv/naming";
+  buildJcbFi,
+  buildJcbFm,
+  parseJcbTransferCsv,
+  parseJcbUrCsv,
+  renderCommonFi,
+  renderCommonFm,
+  deriveShimebiFromSaleDate,
+  deriveShimebiFromTransferDate,
+  type JcbTransferRow,
+  type JcbUrRow,
+} from "@/lib/csv/selfish-common";
+import { encodeShiftJis } from "@/lib/csv/saison-fm";
+import { buildCsvFilename, isValidPayeeNumber } from "@/lib/csv/naming";
 
-interface FileEntry {
+/** JCBの支払先番号（EC一本化のため当面固定。店頭156745176はEC側におまとめ）。 */
+const DEFAULT_JCB_PAYEE = "156742401";
+
+type JcbKind = "UR" | "FI" | "FM_OLD" | "UNKNOWN";
+
+interface Entry {
   id: string;
   file: File;
-  detection: JcbDetectionResult | null;
+  kind: JcbKind | null;
+  urRows: JcbUrRow[] | null;
+  fiRows: JcbTransferRow[] | null;
+  note: string;
   error: string | null;
   loading: boolean;
+}
+
+interface OutputFile {
+  kind: "UR" | "FI" | "FM";
+  filename: string;
+  bytes: Uint8Array<ArrayBuffer>;
+  note: string;
+  srcFile?: File;
 }
 
 function createId() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
-
-function dataTypeBadgeClass(type: DataType | null | undefined) {
-  switch (type) {
-    case "UR":
-      return "bg-blue-100 text-blue-700";
-    case "FI":
-      return "bg-green-100 text-green-700";
-    case "FM":
-      return "bg-amber-100 text-amber-700";
-    default:
-      return "bg-muted text-muted-foreground";
-  }
+function dropClass(isDragging: boolean) {
+  return cn(
+    "flex min-h-[140px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition-colors",
+    isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:bg-muted/50",
+  );
 }
-
-function dataTypeLabel(type: DataType | null | undefined) {
-  switch (type) {
-    case "UR":
-      return "売上明細 (UR)";
-    case "FI":
-      return "振込情報 (FI)";
-    case "FM":
-      return "振込明細 (FM)";
-    default:
-      return "判別不可";
-  }
+/** yyyy/mm/dd → yyyymmdd（命名規則用）。 */
+function toYyyymmdd(slashed: string): string {
+  return slashed.replace(/\//g, "");
 }
-
-/** JCBの支払先番号（EC一本化のため当面固定。店頭156745176はEC側におまとめ）。 */
-const DEFAULT_JCB_PAYEE = "156742401";
 
 export function JcbRenameTool() {
-  const [entries, setEntries] = useState<FileEntry[]>([]);
-  const [closingDate, setClosingDate] = useState("");
+  const [entries, setEntries] = useState<Entry[]>([]);
   const [payeeNumber, setPayeeNumber] = useState(DEFAULT_JCB_PAYEE);
+  const [outputs, setOutputs] = useState<OutputFile[] | null>(null);
+  const [genError, setGenError] = useState<string | null>(null);
+  const [isZipping, setIsZipping] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const addFiles = useCallback((files: File[]) => {
     const accepted = files.filter((f) => /\.csv$/i.test(f.name));
     if (accepted.length === 0) return;
-
-    const newEntries: FileEntry[] = accepted.map((file) => ({
-      id: createId(),
-      file,
-      detection: null,
-      error: null,
-      loading: true,
+    const next: Entry[] = accepted.map((file) => ({
+      id: createId(), file, kind: null, urRows: null, fiRows: null, note: "", error: null, loading: true,
     }));
-
-    setEntries((prev) => [...prev, ...newEntries]);
-
-    // 締日(振込年月日)をファイルから自動補完（空欄のときのみ）。
-    readJcbTransferDate(accepted[0])
-      .then((d) => {
-        if (d) setClosingDate((prev) => prev || d);
-      })
-      .catch(() => {});
-
-    newEntries.forEach((entry) => {
-      detectJcbFromFile(entry.file)
-        .then((result) => {
+    setEntries((prev) => [...prev, ...next]);
+    for (const entry of next) {
+      (async () => {
+        try {
+          const text = await readJcbCsvText(entry.file);
+          const header = text.split(/\r\n|\n|\r/)[0] ?? "";
+          const det = detectJcbDataType(parseHeaderLine(header));
+          let patch: Partial<Entry>;
+          if (det.dataType === "UR") {
+            patch = { kind: "UR", urRows: parseJcbUrCsv(text), note: "売上明細(UR)→ UR(リネーム)＋FM(共通)を生成" };
+          } else if (det.dataType === "FI") {
+            patch = { kind: "FI", fiRows: parseJcbTransferCsv(text), note: "振込情報(FI)→ FI(共通)を生成" };
+          } else if (det.dataType === "FM") {
+            patch = { kind: "FM_OLD", note: "振込明細(集計日なし)→ FMは売上明細から生成するため未使用" };
+          } else {
+            patch = { kind: "UNKNOWN", note: "判別不可（売上明細レポート等は不要）" };
+          }
+          setEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, ...patch, loading: false } : e)));
+        } catch (err) {
           setEntries((prev) =>
-            prev.map((e) =>
-              e.id === entry.id
-                ? { ...e, detection: result, loading: false }
-                : e,
-            ),
+            prev.map((e) => (e.id === entry.id ? { ...e, loading: false, error: err instanceof Error ? err.message : "読込失敗" } : e)),
           );
-        })
-        .catch((err: unknown) => {
-          setEntries((prev) =>
-            prev.map((e) =>
-              e.id === entry.id
-                ? {
-                    ...e,
-                    loading: false,
-                    error:
-                      err instanceof Error ? err.message : "読み込み失敗",
-                  }
-                : e,
-            ),
-          );
-        });
-    });
-  }, []);
-
-  const handleFileInput = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(e.target.files ?? []);
-      addFiles(files);
-      e.target.value = "";
-    },
-    [addFiles],
-  );
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      setIsDragging(false);
-      const files = Array.from(e.dataTransfer.files);
-      addFiles(files);
-    },
-    [addFiles],
-  );
-
-  const handleRemove = useCallback((id: string) => {
-    setEntries((prev) => prev.filter((e) => e.id !== id));
-  }, []);
-
-  const handleClear = useCallback(() => {
-    setEntries([]);
-  }, []);
-
-  const canDownload = useMemo(
-    () =>
-      isValidClosingDate(closingDate) &&
-      isValidPayeeNumber(payeeNumber) &&
-      entries.some((e) => e.detection?.dataType),
-    [closingDate, payeeNumber, entries],
-  );
-
-  const handleDownload = useCallback(
-    async (entry: FileEntry) => {
-      if (!entry.detection?.dataType) return;
-      if (!isValidClosingDate(closingDate) || !isValidPayeeNumber(payeeNumber)) return;
-
-      const filename = buildCsvFilename({
-        issuer: "JCB",
-        dataType: entry.detection.dataType,
-        closingDate,
-        payeeNumber,
-      });
-
-      const url = URL.createObjectURL(entry.file);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    },
-    [closingDate, payeeNumber],
-  );
-
-  const handleDownloadAll = useCallback(async () => {
-    for (const entry of entries) {
-      if (!entry.detection?.dataType) continue;
-      await handleDownload(entry);
-      await new Promise((r) => setTimeout(r, 150));
+        }
+      })();
     }
-  }, [entries, handleDownload]);
+  }, []);
 
-  const [isZipping, setIsZipping] = useState(false);
+  const urEntries = useMemo(() => entries.filter((e) => e.kind === "UR" && e.urRows), [entries]);
+  const fiEntries = useMemo(() => entries.filter((e) => e.kind === "FI" && e.fiRows), [entries]);
+  const loadingAny = entries.some((e) => e.loading);
+  const payeeOk = isValidPayeeNumber(payeeNumber);
+  const canGenerate = payeeOk && !loadingAny && (urEntries.length > 0 || fiEntries.length > 0);
 
-  const handleDownloadZip = useCallback(async () => {
-    if (!isValidClosingDate(closingDate) || !isValidPayeeNumber(payeeNumber)) return;
-    const targets = entries.filter((e) => e.detection?.dataType);
-    if (targets.length === 0) return;
+  const handleGenerate = useCallback(() => {
+    setGenError(null);
+    const out: OutputFile[] = [];
+    try {
+      // 締日: 売上明細の売上年月日 → 振込情報の振込年月日 の順で算出
+      let closing = "";
+      const ur0 = urEntries[0]?.urRows?.[0];
+      const fi0 = fiEntries[0]?.fiRows?.[0];
+      if (ur0) closing = toYyyymmdd(deriveShimebiFromSaleDate(ur0.売上年月日));
+      else if (fi0) closing = toYyyymmdd(deriveShimebiFromTransferDate(fi0.振込年月日));
 
+      for (const e of urEntries) {
+        // UR: 生データのリネーム（無加工）
+        out.push({
+          kind: "UR",
+          filename: buildCsvFilename({ issuer: "JCB", dataType: "UR", closingDate: closing, payeeNumber }),
+          bytes: new Uint8Array(0),
+          note: `${e.file.name}（原本リネーム）`,
+          srcFile: e.file,
+        });
+        // FM: 売上明細を集計 → 共通フォーマット
+        const fmRows = buildJcbFm(e.urRows!);
+        out.push({
+          kind: "FM",
+          filename: buildCsvFilename({ issuer: "JCB", dataType: "FM", closingDate: closing, payeeNumber }),
+          bytes: encodeShiftJis(renderCommonFm(fmRows)),
+          note: `共通FM ${fmRows.length}行 / 集計日(売上日)単位`,
+        });
+      }
+      for (const e of fiEntries) {
+        const fiRows = buildJcbFi(e.fiRows!);
+        out.push({
+          kind: "FI",
+          filename: buildCsvFilename({ issuer: "JCB", dataType: "FI", closingDate: closing, payeeNumber }),
+          bytes: encodeShiftJis(renderCommonFi(fiRows)),
+          note: `共通FI ${fiRows.length}行`,
+        });
+      }
+      if (out.length === 0) {
+        setGenError("生成できる出力がありません。売上明細(sales_details)や振込情報(transfer)を投入してください。");
+        setOutputs(null);
+        return;
+      }
+      setOutputs(out);
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : "生成に失敗しました。");
+      setOutputs(null);
+    }
+  }, [urEntries, fiEntries, payeeNumber]);
+
+  const downloadOne = useCallback(async (o: OutputFile) => {
+    const blob = o.srcFile ?? new Blob([o.bytes], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = o.filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const downloadZip = useCallback(async () => {
+    if (!outputs || outputs.length === 0) return;
     setIsZipping(true);
     try {
       const { default: JSZip } = await import("jszip");
       const zip = new JSZip();
-      const usedNames = new Map<string, number>();
-
-      for (const entry of targets) {
-        const dataType = entry.detection!.dataType!;
-        const baseName = buildCsvFilename({
-          issuer: "JCB",
-          dataType,
-          closingDate,
-          payeeNumber,
-        });
-        const seen = usedNames.get(baseName) ?? 0;
-        usedNames.set(baseName, seen + 1);
-        const finalName =
-          seen === 0 ? baseName : baseName.replace(/\.csv$/i, `_(${seen + 1}).csv`);
-        const buffer = await entry.file.arrayBuffer();
-        zip.file(finalName, buffer);
+      const used = new Map<string, number>();
+      for (const o of outputs) {
+        const data = o.srcFile ? new Uint8Array(await o.srcFile.arrayBuffer()) : o.bytes;
+        const n = used.get(o.filename) ?? 0;
+        used.set(o.filename, n + 1);
+        const name = n === 0 ? o.filename : o.filename.replace(/\.csv$/i, `_(${n + 1}).csv`);
+        zip.file(name, data);
       }
-
       const blob = await zip.generateAsync({ type: "blob" });
-      const zipName = `JCB_${formatClosingDate(closingDate)}.zip`;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = zipName;
+      a.download = "JCB_変換結果.zip";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -226,7 +201,7 @@ export function JcbRenameTool() {
     } finally {
       setIsZipping(false);
     }
-  }, [entries, closingDate, payeeNumber]);
+  }, [outputs]);
 
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
@@ -241,163 +216,97 @@ export function JcbRenameTool() {
     <div className="grid gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>JCB CSVリネーム</CardTitle>
+          <CardTitle>JCB CSV変換（UR / FI / FM）</CardTitle>
           <CardDescription>
-            JCB Linkからダウンロードした振込情報・振込明細・売上明細のCSVを、
-            セルフィッシュ命名規則 (JCB_種別_締日_支払先番号.csv) にリネームします。
-            CSVの中身・文字コード (Shift-JIS) は一切変更しません。
+            JCB Linkからダウンロードした <span className="font-medium">売上明細(sales_details)・振込情報(transfer)</span> を投入すると、
+            <span className="font-medium">UR（生データのリネーム）・FI/FM（JCB/SAISON共通フォーマット）</span>を生成します。
+            締日は15日締めで算出、支払先番号は固定。FMは売上明細から集計日(売上日)単位で生成します。（共通FI/FMはShift-JIS / CRLF）
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:max-w-md">
             <div className="space-y-2">
-              <Label htmlFor="closing-date">締日（振込年月日・ファイルから自動）</Label>
+              <Label htmlFor="jcb-payee">支払先番号（固定: 156742401）</Label>
               <Input
-                id="closing-date"
-                type="date"
-                value={closingDate}
-                onChange={(e) => setClosingDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="payee-number">支払先番号（固定: 156742401）</Label>
-              <Input
-                id="payee-number"
-                type="text"
+                id="jcb-payee"
                 inputMode="numeric"
                 maxLength={9}
-                placeholder="例: 156742401"
                 value={payeeNumber}
-                onChange={(e) =>
-                  setPayeeNumber(e.target.value.replace(/\D/g, "").slice(0, 9))
-                }
+                onChange={(e) => setPayeeNumber(e.target.value.replace(/\D/g, "").slice(0, 9))}
               />
-              {payeeNumber.length > 0 && !isValidPayeeNumber(payeeNumber) ? (
+              {payeeNumber.length > 0 && !payeeOk ? (
                 <p className="text-xs text-destructive">9桁の数字で入力してください。</p>
               ) : (
-                <p className="text-xs text-muted-foreground">EC一本化のため固定。通常は変更不要です。</p>
+                <p className="text-xs text-muted-foreground">EC一本化のため固定。締日はファイルから自動算出します。</p>
               )}
             </div>
           </div>
 
           <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDragging(true);
-            }}
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
-            onDrop={handleDrop}
+            onDrop={(e) => { e.preventDefault(); setIsDragging(false); addFiles(Array.from(e.dataTransfer.files)); }}
             onClick={() => inputRef.current?.click()}
-            className={cn(
-              "flex min-h-[140px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition-colors",
-              isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:bg-muted/50",
-            )}
+            className={dropClass(isDragging)}
           >
-            <p className="text-sm font-medium">CSVファイルをドラッグ＆ドロップ</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              またはクリックしてファイルを選択（複数可）
-            </p>
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".csv,text/csv"
-              multiple
-              className="hidden"
-              onChange={handleFileInput}
-            />
+            <p className="text-sm font-medium">JCB CSVをドラッグ＆ドロップ</p>
+            <p className="mt-1 text-xs text-muted-foreground">またはクリックして選択（複数可）</p>
+            <input ref={inputRef} type="file" accept=".csv,text/csv" multiple className="hidden"
+              onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
           </div>
+
+          {entries.length > 0 ? (
+            <ul className="divide-y rounded-md border text-sm">
+              {entries.map((e) => (
+                <li key={e.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm" title={e.file.name}>{e.file.name}</p>
+                    {e.loading ? <p className="text-xs text-muted-foreground">判別中…</p>
+                      : e.error ? <p className="text-xs text-destructive">{e.error}</p>
+                      : <p className="text-xs text-muted-foreground">{e.note}</p>}
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setEntries((prev) => prev.filter((x) => x.id !== e.id))}>削除</Button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          <div className="flex items-center gap-3">
+            <Button onClick={handleGenerate} disabled={!canGenerate}>変換を生成</Button>
+            {!canGenerate ? (
+              <p className="text-xs text-muted-foreground">支払先番号と、売上明細(sales_details)または振込情報(transfer)が必要です。</p>
+            ) : null}
+          </div>
+          {genError ? <p className="text-sm text-destructive">{genError}</p> : null}
         </CardContent>
       </Card>
 
-      {entries.length > 0 ? (
+      {outputs && outputs.length > 0 ? (
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <div>
-              <CardTitle className="text-xl">ファイル一覧 ({entries.length})</CardTitle>
-              <CardDescription>
-                データ種別はヘッダー列から自動判別しています。
-              </CardDescription>
+              <CardTitle className="text-xl">生成結果（{outputs.length}ファイル）</CardTitle>
+              <CardDescription>UR（生データ）/ FI・FM（共通フォーマット）。個別 or ZIPでDL。</CardDescription>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={handleClear}>
-                クリア
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleDownloadAll}
-                disabled={!canDownload || isZipping}
-              >
-                全て個別ダウンロード
-              </Button>
-              <Button
-                onClick={handleDownloadZip}
-                disabled={!canDownload || isZipping}
-              >
-                {isZipping ? "ZIP作成中…" : "まとめてZIPダウンロード"}
-              </Button>
-            </div>
+            <Button onClick={downloadZip} disabled={isZipping}>{isZipping ? "ZIP作成中…" : "まとめてZIPダウンロード"}</Button>
           </CardHeader>
           <CardContent>
             <ul className="divide-y">
-              {entries.map((entry) => {
-                const dataType = entry.detection?.dataType ?? null;
-                const newName = dataType && isValidClosingDate(closingDate) && isValidPayeeNumber(payeeNumber)
-                  ? buildCsvFilename({
-                      issuer: "JCB",
-                      dataType,
-                      closingDate,
-                      payeeNumber,
-                    })
-                  : null;
-
-                return (
-                  <li key={entry.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={cn(
-                            "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                            dataTypeBadgeClass(dataType),
-                          )}
-                        >
-                          {entry.loading ? "判別中…" : dataTypeLabel(dataType)}
-                        </span>
-                        <span className="truncate text-sm font-medium" title={entry.file.name}>
-                          {entry.file.name}
-                        </span>
-                        {entry.detection ? (
-                          <span className="text-xs text-muted-foreground">
-                            {entry.detection.columnCount}列
-                          </span>
-                        ) : null}
-                      </div>
-                      {entry.detection?.reason ? (
-                        <p className="text-xs text-muted-foreground">{entry.detection.reason}</p>
-                      ) : null}
-                      {entry.error ? (
-                        <p className="text-xs text-destructive">{entry.error}</p>
-                      ) : null}
-                      {newName ? (
-                        <p className="truncate font-mono text-xs text-emerald-700" title={newName}>
-                          → {newName}
-                        </p>
-                      ) : null}
+              {outputs.map((o, i) => (
+                <li key={`${o.filename}_${i}`} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className={cn(
+                        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                        o.kind === "UR" ? "bg-blue-100 text-blue-700" : o.kind === "FM" ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700",
+                      )}>{o.kind}</span>
+                      <span className="truncate font-mono text-xs text-emerald-700" title={o.filename}>{o.filename}</span>
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => handleDownload(entry)}
-                        disabled={!dataType || !isValidClosingDate(closingDate) || !isValidPayeeNumber(payeeNumber)}
-                      >
-                        ダウンロード
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleRemove(entry.id)}>
-                        削除
-                      </Button>
-                    </div>
-                  </li>
-                );
-              })}
+                    <p className="text-xs text-muted-foreground">{o.note}</p>
+                  </div>
+                  <Button size="sm" onClick={() => downloadOne(o)}>ダウンロード</Button>
+                </li>
+              ))}
             </ul>
           </CardContent>
         </Card>

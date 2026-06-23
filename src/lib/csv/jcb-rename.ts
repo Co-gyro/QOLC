@@ -28,6 +28,11 @@ export async function readJcbHeaderLine(file: File): Promise<string> {
   return newlineIndex === -1 ? text : text.slice(0, newlineIndex);
 }
 
+/** JCB CSVファイル全文をデコードして返す（UTF-8 BOM / Shift-JIS 自動判別）。 */
+export async function readJcbCsvText(file: File): Promise<string> {
+  return decodeJcbBuffer(await file.arrayBuffer());
+}
+
 /**
  * 先頭データ行から振込年月日(yyyy/mm/dd)を読み取り、ISO形式(yyyy-mm-dd)で返す。
  * 振込年月日列が無い／データ行が無い場合は null。

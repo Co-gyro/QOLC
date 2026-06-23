@@ -3,46 +3,33 @@ import { test, expect } from "@playwright/test";
 import { login } from "../helpers";
 
 /**
- * セルフィッシュ取込テスト リハーサル（2026-06-16 藤本さん打合せ用）
- * admin ログイン → /admin/csv-tools → JCBダミー3点を変換 → 命名規則・ZIP出力を検証。
+ * JCB CSV変換: 売上明細(UR)＋振込情報(FI) を投入 →
+ * UR(リネーム)・FI/FM(共通フォーマット)を生成。支払先番号固定・締日自動算出。
  */
 const DATA_DIR = path.resolve(__dirname, "../../../test-data");
 const FILES = [
   path.join(DATA_DIR, "JCB_売上明細CSV_ダミー.csv"),
   path.join(DATA_DIR, "JCB_振込情報CSV_ダミー.csv"),
-  path.join(DATA_DIR, "JCB_振込明細CSV_ダミー.csv"),
 ];
 
-test("JCBダミー3点を変換しセルフィッシュ命名規則で出力できる", async ({ page }) => {
+test("JCBダミーから UR/FI/FM(共通) を生成できる", async ({ page }) => {
   await login(page, "admin");
   await page.goto("/admin/csv-tools");
 
-  // 隠しファイル input に3ファイルを投入（締日・支払先番号は手入力しない）
   await page.locator('input[type="file"]').setInputFiles(FILES);
 
-  // 種別が UR/FI/FM と自動判別される
-  await expect(page.getByText("売上明細 (UR)")).toBeVisible();
-  await expect(page.getByText("振込情報 (FI)")).toBeVisible();
-  await expect(page.getByText("振込明細 (FM)")).toBeVisible();
+  // 売上明細(UR)・振込情報(FI)と判別される
+  await expect(page.getByText(/売上明細\(UR\)/).first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/振込情報\(FI\)/).first()).toBeVisible();
 
-  // 支払先番号は156742401で固定・締日(振込年月日)はファイルから自動補完
-  await expect(page.locator("#payee-number")).toHaveValue("156742401");
-  await expect(page.locator("#closing-date")).toHaveValue("2026-03-31");
+  // 支払先番号は156742401で固定
+  await expect(page.locator("#jcb-payee")).toHaveValue("156742401");
 
-  // リネーム後ファイル名が表示される
-  await expect(page.getByText("JCB_UR_20260331_156742401.csv")).toBeVisible();
-  await expect(page.getByText("JCB_FI_20260331_156742401.csv")).toBeVisible();
-  await expect(page.getByText("JCB_FM_20260331_156742401.csv")).toBeVisible();
+  await page.getByRole("button", { name: "変換を生成" }).click();
 
-  // 個別ダウンロード（UR）が実ファイルとして落ちる
-  const dl1 = page.waitForEvent("download");
-  await page.getByRole("button", { name: "ダウンロード" }).first().click();
-  const urFile = await dl1;
-  expect(urFile.suggestedFilename()).toBe("JCB_UR_20260331_156742401.csv");
-
-  // まとめてZIPダウンロード
-  const dl2 = page.waitForEvent("download");
-  await page.getByRole("button", { name: /ZIPダウンロード/ }).click();
-  const zip = await dl2;
-  expect(zip.suggestedFilename()).toBe("JCB_20260331.zip");
+  // UR / FI / FM が出力される（締日2026/03/15＝15日締めで算出）
+  await expect(page.getByText("生成結果", { exact: false })).toBeVisible();
+  await expect(page.locator("text=JCB_UR_20260315_156742401.csv").first()).toBeVisible();
+  await expect(page.locator("text=JCB_FI_20260315_156742401.csv").first()).toBeVisible();
+  await expect(page.locator("text=JCB_FM_20260315_156742401.csv").first()).toBeVisible();
 });

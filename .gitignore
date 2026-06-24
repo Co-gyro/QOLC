@@ -49,3 +49,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code 個人設定(コミットしない)
+.claude/settings.local.json
+
+# env のローカルバックアップ(秘密情報・コミット禁止)
+.env.local.*

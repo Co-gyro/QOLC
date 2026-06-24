@@ -52,10 +52,31 @@ export async function POST(req: NextRequest) {
       now
     );
     lineUserId = claims.sub;
-  } catch {
-    return NextResponse.json(apiError("LINE認証の検証に失敗しました", "VERIFY_FAILED"), {
-      status: 401,
-    });
+  } catch (e) {
+    // 一時診断: 失敗理由を特定するため、非機密クレーム(alg/iss/aud/exp)を返す。
+    // ※ 原因特定後にこのブロックは通常のエラー応答へ戻す。
+    let debug: Record<string, unknown> = { verifyError: (e as Error).message };
+    try {
+      const [h, p] = parsed.data.idToken.split(".");
+      const header = JSON.parse(Buffer.from(h, "base64").toString("utf8"));
+      const payload = JSON.parse(Buffer.from(p, "base64").toString("utf8"));
+      debug = {
+        verifyError: (e as Error).message,
+        alg: header.alg,
+        iss: payload.iss,
+        aud: payload.aud,
+        audExpected: config.channelId,
+        audMatch: payload.aud === config.channelId,
+        expValid: typeof payload.exp === "number" ? payload.exp >= now : null,
+        hasNonce: Boolean(payload.nonce),
+      };
+    } catch {
+      /* デコード自体に失敗 */
+    }
+    return NextResponse.json(
+      { success: false, error: "LINE認証の検証に失敗しました", code: "VERIFY_FAILED", debug },
+      { status: 401 }
+    );
   }
 
   const admin = getSupabaseAdminClient();

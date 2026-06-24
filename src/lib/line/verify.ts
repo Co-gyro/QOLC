@@ -25,7 +25,9 @@ const EXPECTED_ISS = "https://access.line.me";
  * @param idToken LINE トークンエンドポイントが返す id_token（JWT）
  * @param channelId 自 Login チャネルの Channel ID（aud 期待値）
  * @param channelSecret 署名検証鍵
- * @param expectedNonce authorize 時に渡した nonce（リプレイ防止）
+ * @param expectedNonce authorize 時に渡した nonce（リプレイ防止）。
+ *   LIFF のように nonce 往復のないフローでは null を渡して nonce 検証をスキップする
+ *   （その場合も署名検証により当該チャネル宛ての正当な id_token であることは保証される）。
  * @param nowSec 現在時刻（UNIX 秒）。テスト用に注入可能
  * @throws {LineVerificationError} いずれかの検証に失敗した場合
  */
@@ -33,7 +35,7 @@ export function verifyLineIdToken(
   idToken: string,
   channelId: string,
   channelSecret: string,
-  expectedNonce: string,
+  expectedNonce: string | null,
   nowSec: number
 ): LineIdTokenClaims {
   const parts = idToken.split(".");
@@ -81,8 +83,10 @@ export function verifyLineIdToken(
   if (!claims.sub) {
     throw new LineVerificationError("id_token に sub（ユーザーID）が含まれていません");
   }
-  if (!claims.nonce || !safeEqual(claims.nonce, expectedNonce)) {
-    throw new LineVerificationError("id_token の nonce が一致しません（リプレイの可能性）");
+  if (expectedNonce !== null) {
+    if (!claims.nonce || !safeEqual(claims.nonce, expectedNonce)) {
+      throw new LineVerificationError("id_token の nonce が一致しません（リプレイの可能性）");
+    }
   }
 
   return claims;

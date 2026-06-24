@@ -22,6 +22,7 @@ const ROLE_PORTAL_MAP: Record<UserRole, PortalType> = {
 const PUBLIC_PATH_PREFIXES = [
   "/login",
   "/register",
+  "/liff",
   "/api/webhook",
   "/api/health",
   "/_next",

@@ -24,13 +24,15 @@ export function BottomNav({ portal }: BottomNavProps) {
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t flex bg-white"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t flex gap-1 px-2"
       style={{
+        // 薄緑の地色で白基調に変化をつける
+        backgroundColor: "var(--qolc-bg-soft)",
         borderColor: "var(--qolc-border)",
         // LINEアプリ内ブラウザの下部バーに被って切れないよう、safe-area が 0 報告でも
         // 最低限の余白を確保してアイコン・文字を上へ押し上げる。
         paddingBottom: "max(env(safe-area-inset-bottom), 24px)",
-        paddingTop: "4px",
+        paddingTop: "6px",
       }}
       aria-label="メインメニュー"
     >
@@ -42,10 +44,10 @@ export function BottomNav({ portal }: BottomNavProps) {
             key={item.href}
             href={item.href}
             className={cn(
-              "flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 py-2 px-1",
-              active ? "font-semibold" : "text-gray-600"
+              "flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded-xl transition-colors",
+              active ? "font-semibold text-white shadow-sm" : "text-gray-600"
             )}
-            style={active ? { color: "var(--qolc-primary)" } : undefined}
+            style={active ? { backgroundColor: "var(--qolc-primary)" } : undefined}
             aria-current={active ? "page" : undefined}
           >
             {Icon && <Icon size={22} strokeWidth={active ? 2.25 : 1.75} className="shrink-0" />}

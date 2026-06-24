@@ -14,6 +14,7 @@ import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { processBatch } from "@/lib/payment/payment-service";
+import { notifyCapturedPaymentsForBatch } from "@/lib/notifications/payment-notify";
 import { apiError, apiOk } from "@/types/api";
 import type { UserRole } from "@/types";
 
@@ -113,6 +114,14 @@ export async function POST(req: NextRequest) {
       .from("upload_batches")
       .update({ status: "completed" })
       .eq("id", parsed.data.uploadBatchId);
+
+    // 決済完了通知（記録 + LINE push）。失敗しても決済結果には影響させない。
+    try {
+      await notifyCapturedPaymentsForBatch(admin, parsed.data.uploadBatchId);
+    } catch (notifyErr) {
+      console.error("[payment/execute] 完了通知に失敗しました:", notifyErr);
+    }
+
     return NextResponse.json(apiOk(result));
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown";

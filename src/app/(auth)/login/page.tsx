@@ -1,59 +1,24 @@
-"use client";
-
-import { useState } from "react";
+/**
+ * ログインページ（サーバーコンポーネント）。
+ *
+ * - 家族向け: LINE ログイン（環境変数が揃っている場合のみ表示）
+ * - 全ロール: メール+パスワードログイン
+ * - LINE コールバック等からのエラーコード（?error=）を利用者向け文言で表示
+ */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { UserRole } from "@/types";
+import { LineLoginButton } from "@/components/shared/line-login-button";
+import { isLineLoginConfigured } from "@/lib/line/config";
+import { lineErrorMessage } from "@/lib/line/error-messages";
+import { LoginForm } from "./_components/login-form";
 
-/** ロール → ログイン後の遷移先 */
-const ROLE_HOME: Record<UserRole, string> = {
-  admin: "/admin/dashboard",
-  facility_staff: "/facility/dashboard",
-  provider: "/provider/dashboard",
-  family: "/user/home",
-};
-
-export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    try {
-      const supabase = createSupabaseBrowserClient();
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (signInError || !data.user) {
-        setError(signInError?.message ?? "ログインに失敗しました");
-        setLoading(false);
-        return;
-      }
-
-      // ロールを取得（profiles を自己参照、RLSで許可済み）
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .single();
-      const role = (profile?.role as UserRole | undefined) ?? "family";
-
-      // 全画面遷移で middleware に新しいセッションCookieを処理させる
-      window.location.assign(ROLE_HOME[role]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "予期しないエラーが発生しました");
-      setLoading(false);
-    }
-  }
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams: { error?: string; next?: string };
+}) {
+  const lineEnabled = isLineLoginConfigured();
+  const errorMessage = lineErrorMessage(searchParams.error);
+  const next = searchParams.next;
 
   return (
     <div
@@ -67,45 +32,34 @@ export default function LoginPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="email">メールアドレス</Label>
-              <Input
-                id="email"
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={{ minHeight: 44 }}
-              />
-            </div>
-            <div>
-              <Label htmlFor="password">パスワード</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{ minHeight: 44 }}
-              />
-            </div>
-            {error && (
-              <p className="text-sm" style={{ color: "#DC2626" }}>
-                {error}
-              </p>
-            )}
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full"
-              style={{ backgroundColor: "var(--qolc-primary)", color: "white", minHeight: 44 }}
+          {errorMessage && (
+            <p
+              className="mb-4 p-3 rounded text-sm text-center"
+              style={{ backgroundColor: "#FEF2F2", color: "#DC2626" }}
             >
-              {loading ? "ログイン中..." : "ログイン"}
-            </Button>
-          </form>
+              {errorMessage}
+            </p>
+          )}
+
+          {lineEnabled && (
+            <>
+              <div className="mb-2">
+                <LineLoginButton label="LINEでログイン" next={next || "/user/home"} />
+              </div>
+              <p className="text-center text-sm mb-4" style={{ color: "var(--qolc-muted)" }}>
+                ご家族の方はこちら
+              </p>
+              <div className="flex items-center gap-3 mb-4">
+                <span className="flex-1 border-t" style={{ borderColor: "var(--qolc-border)" }} />
+                <span className="text-sm" style={{ color: "var(--qolc-muted)" }}>
+                  または
+                </span>
+                <span className="flex-1 border-t" style={{ borderColor: "var(--qolc-border)" }} />
+              </div>
+            </>
+          )}
+
+          <LoginForm initialError={null} />
         </CardContent>
       </Card>
     </div>

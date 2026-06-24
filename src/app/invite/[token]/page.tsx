@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
+import { LineLoginButton } from "@/components/shared/line-login-button";
 import type { ApiResponse } from "@/types/api";
 
 interface InviteInfo {
@@ -14,6 +15,7 @@ interface InviteInfo {
   facilityName: string;
   accountType: "self" | "family";
   isPaymentOwner: boolean;
+  lineLoginEnabled: boolean;
 }
 
 export default function InviteAcceptPage() {
@@ -110,6 +112,27 @@ export default function InviteAcceptPage() {
                   </p>
                 )}
               </div>
+              {info.lineLoginEnabled && (
+                <>
+                  <div className="mb-2">
+                    <LineLoginButton
+                      label="LINEで登録（かんたん）"
+                      next="/user/home"
+                      inviteToken={token}
+                    />
+                  </div>
+                  <p className="text-center text-sm mb-4" style={{ color: "var(--qolc-muted)" }}>
+                    LINEで通知を受け取れます（おすすめ）
+                  </p>
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="flex-1 border-t" style={{ borderColor: "var(--qolc-border)" }} />
+                    <span className="text-sm" style={{ color: "var(--qolc-muted)" }}>
+                      または メールで登録
+                    </span>
+                    <span className="flex-1 border-t" style={{ borderColor: "var(--qolc-border)" }} />
+                  </div>
+                </>
+              )}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <Label htmlFor="iv-name">お名前</Label>

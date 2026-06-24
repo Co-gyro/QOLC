@@ -6,6 +6,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isLineLoginConfigured } from "@/lib/line/config";
 import { apiError, apiOk } from "@/types/api";
 
 export async function GET(req: NextRequest) {
@@ -41,6 +42,7 @@ export async function GET(req: NextRequest) {
       facilityName: facility?.name ?? "（不明）",
       accountType: inv.account_type,
       isPaymentOwner: inv.is_payment_owner,
+      lineLoginEnabled: isLineLoginConfigured(),
     })
   );
 }

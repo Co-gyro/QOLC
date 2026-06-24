@@ -26,6 +26,8 @@ interface CsvEntry {
   id: string;
   file: File;
   rows: SaisonSalesRow[] | null;
+  /** デコード済みテキスト。URをShift-JISで再出力するため保持。 */
+  rawText: string | null;
   error: string | null;
   loading: boolean;
 }
@@ -88,13 +90,14 @@ export function SaisonUnifiedTool() {
   const addCsv = useCallback((files: File[]) => {
     const accepted = files.filter((f) => /\.csv$/i.test(f.name));
     if (accepted.length === 0) return;
-    const next: CsvEntry[] = accepted.map((file) => ({ id: createId(), file, rows: null, error: null, loading: true }));
+    const next: CsvEntry[] = accepted.map((file) => ({ id: createId(), file, rows: null, rawText: null, error: null, loading: true }));
     setCsvEntries((prev) => [...prev, ...next]);
     for (const entry of next) {
       (async () => {
         try {
-          const rows = parseSaisonCsv(await readSaisonCsvText(entry.file));
-          setCsvEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, rows, loading: false } : e)));
+          const rawText = await readSaisonCsvText(entry.file);
+          const rows = parseSaisonCsv(rawText);
+          setCsvEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, rows, rawText, loading: false } : e)));
         } catch (err) {
           setCsvEntries((prev) =>
             prev.map((e) => (e.id === entry.id ? { ...e, loading: false, error: err instanceof Error ? err.message : "読込失敗" } : e)),
@@ -158,9 +161,8 @@ export function SaisonUnifiedTool() {
         out.push({
           kind: "UR",
           filename: buildCsvFilename({ issuer: "SAISON", dataType: "UR", closingDate: closing, payeeNumber }),
-          bytes: new Uint8Array(0),
-          note: `${e.file.name}（${e.rows.length}行・原本リネーム）`,
-          srcFile: e.file,
+          bytes: encodeShiftJis(e.rawText ?? ""),
+          note: `${e.file.name}（${e.rows.length}行・Shift-JIS・列/行は無加工）`,
         });
       }
 
@@ -255,7 +257,7 @@ export function SaisonUnifiedTool() {
             売上データCSVと支払計算書PDFを<span className="font-medium">1回アップロード</span>すると、
             <span className="font-medium">UR（生データのリネーム）・FI/FM（JCB/SAISON共通フォーマット）</span>
             をまとめて生成します。振込日・手数料率はPDFから取得（FI/FMはPDF必須）。締日は15日締めで算出。
-            （Shift-JIS / CRLF）
+            （全出力 Shift-JIS / CRLF に統一）
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

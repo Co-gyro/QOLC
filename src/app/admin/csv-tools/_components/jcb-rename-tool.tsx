@@ -38,6 +38,8 @@ interface Entry {
   kind: JcbKind | null;
   urRows: JcbUrRow[] | null;
   fiRows: JcbTransferRow[] | null;
+  /** UR(売上明細)のデコード済みテキスト。Shift-JISで再出力するため保持。 */
+  rawText: string | null;
   note: string;
   error: string | null;
   loading: boolean;
@@ -78,7 +80,7 @@ export function JcbRenameTool() {
     const accepted = files.filter((f) => /\.csv$/i.test(f.name));
     if (accepted.length === 0) return;
     const next: Entry[] = accepted.map((file) => ({
-      id: createId(), file, kind: null, urRows: null, fiRows: null, note: "", error: null, loading: true,
+      id: createId(), file, kind: null, urRows: null, fiRows: null, rawText: null, note: "", error: null, loading: true,
     }));
     setEntries((prev) => [...prev, ...next]);
     for (const entry of next) {
@@ -89,7 +91,7 @@ export function JcbRenameTool() {
           const det = detectJcbDataType(parseHeaderLine(header));
           let patch: Partial<Entry>;
           if (det.dataType === "UR") {
-            patch = { kind: "UR", urRows: parseJcbUrCsv(text), note: "売上明細(UR)→ UR(リネーム)＋FM(共通)を生成" };
+            patch = { kind: "UR", urRows: parseJcbUrCsv(text), rawText: text, note: "売上明細(UR)→ UR(Shift-JIS化)＋FM(共通)を生成" };
           } else if (det.dataType === "FI") {
             patch = { kind: "FI", fiRows: parseJcbTransferCsv(text), note: "振込情報(FI)→ FI(共通)を生成" };
           } else if (det.dataType === "FM") {
@@ -125,13 +127,12 @@ export function JcbRenameTool() {
       else if (fi0) closing = toYyyymmdd(deriveShimebiFromTransferDate(fi0.振込年月日));
 
       for (const e of urEntries) {
-        // UR: 生データのリネーム（無加工）
+        // UR: 生データの内容を保持しつつ Shift-JIS で出力（JCB原本はUTF-8のため変換。列・行は無加工）
         out.push({
           kind: "UR",
           filename: buildCsvFilename({ issuer: "JCB", dataType: "UR", closingDate: closing, payeeNumber }),
-          bytes: new Uint8Array(0),
-          note: `${e.file.name}（原本リネーム）`,
-          srcFile: e.file,
+          bytes: encodeShiftJis(e.rawText ?? ""),
+          note: `${e.file.name}（Shift-JIS変換のみ・列/行は無加工）`,
         });
         // FM: 売上明細を集計 → 共通フォーマット
         const fmRows = buildJcbFm(e.urRows!);
@@ -220,7 +221,7 @@ export function JcbRenameTool() {
           <CardDescription>
             JCB Linkからダウンロードした <span className="font-medium">売上明細(sales_details)・振込情報(transfer)</span> を投入すると、
             <span className="font-medium">UR（生データのリネーム）・FI/FM（JCB/SAISON共通フォーマット）</span>を生成します。
-            締日は15日締めで算出、支払先番号は固定。FMは売上明細から集計日(売上日)単位で生成します。（共通FI/FMはShift-JIS / CRLF）
+            締日は15日締めで算出、支払先番号は固定。FMは売上明細から集計日(売上日)単位で生成します。（**全出力 Shift-JIS / CRLF** に統一。JCB原本UTF-8のURも内容そのままShift-JIS化）
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

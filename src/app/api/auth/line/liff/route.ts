@@ -12,7 +12,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getLineLoginConfig, isLiffConfigured } from "@/lib/line/config";
-import { verifyLineIdToken } from "@/lib/line/verify";
+import { verifyLineIdTokenRemote } from "@/lib/line/verify-remote";
 import { findUserByLineId } from "@/lib/line/account";
 import { establishSessionForEmail } from "@/lib/line/session";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -41,42 +41,16 @@ export async function POST(req: NextRequest) {
   }
 
   // id_token 検証（LIFF は nonce 往復がないため nonce 検証は省略。署名で正当性は担保）
-  const now = Math.floor(Date.now() / 1000);
+  // LIFF の id_token は ES256 署名のため、LINE 公式の検証エンドポイントで検証する
+  // （署名方式に依存せず iss/aud/exp も LINE 側で検証される）。
   let lineUserId: string;
   try {
-    const claims = verifyLineIdToken(
-      parsed.data.idToken,
-      config.channelId,
-      config.channelSecret,
-      null,
-      now
-    );
+    const claims = await verifyLineIdTokenRemote(parsed.data.idToken, config.channelId);
     lineUserId = claims.sub;
-  } catch (e) {
-    // 一時診断: 失敗理由を特定するため、非機密クレーム(alg/iss/aud/exp)を返す。
-    // ※ 原因特定後にこのブロックは通常のエラー応答へ戻す。
-    let debug: Record<string, unknown> = { verifyError: (e as Error).message };
-    try {
-      const [h, p] = parsed.data.idToken.split(".");
-      const header = JSON.parse(Buffer.from(h, "base64").toString("utf8"));
-      const payload = JSON.parse(Buffer.from(p, "base64").toString("utf8"));
-      debug = {
-        verifyError: (e as Error).message,
-        alg: header.alg,
-        iss: payload.iss,
-        aud: payload.aud,
-        audExpected: config.channelId,
-        audMatch: payload.aud === config.channelId,
-        expValid: typeof payload.exp === "number" ? payload.exp >= now : null,
-        hasNonce: Boolean(payload.nonce),
-      };
-    } catch {
-      /* デコード自体に失敗 */
-    }
-    return NextResponse.json(
-      { success: false, error: "LINE認証の検証に失敗しました", code: "VERIFY_FAILED", debug },
-      { status: 401 }
-    );
+  } catch {
+    return NextResponse.json(apiError("LINE認証の検証に失敗しました", "VERIFY_FAILED"), {
+      status: 401,
+    });
   }
 
   const admin = getSupabaseAdminClient();

@@ -55,15 +55,11 @@ export default function LiffEntryPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ idToken }),
         });
-        const json = (await res.json()) as ApiResponse<{ redirectTo: string }> & {
-          debug?: Record<string, unknown>;
-        };
+        const json = (await res.json()) as ApiResponse<{ redirectTo: string }>;
         if (!json.success) {
           if (!cancelled) {
             setPhase("error");
-            // 一時診断: debug があれば併記
-            const dbg = json.debug ? `\n\n[診断] ${JSON.stringify(json.debug)}` : "";
-            setMessage(json.error + dbg);
+            setMessage(json.error);
           }
           return;
         }
@@ -100,10 +96,7 @@ export default function LiffEntryPage() {
             </div>
           ) : (
             <div className="text-center space-y-4 py-4">
-              <p
-                className="text-base"
-                style={{ color: "#DC2626", whiteSpace: "pre-wrap", wordBreak: "break-all" }}
-              >
+              <p className="text-base" style={{ color: "#DC2626" }}>
                 {message}
               </p>
               <p className="text-sm" style={{ color: "var(--qolc-muted)" }}>

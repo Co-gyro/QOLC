@@ -74,3 +74,21 @@ export function isLineMessagingConfigured(): boolean {
     process.env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN && process.env.LINE_MESSAGING_CHANNEL_SECRET
   );
 }
+
+/**
+ * LIFF（LINEアプリ内表示）の LIFF ID を取得する。
+ * クライアントから参照するため公開環境変数（NEXT_PUBLIC_LIFF_ID）を使用する。
+ * @returns 未設定なら null
+ */
+export function getLiffId(): string | null {
+  return process.env.NEXT_PUBLIC_LIFF_ID || null;
+}
+
+/**
+ * LIFF が利用可能か（LIFF ID が設定されているか）を判定する。
+ * LIFF は登録時に既存の LINE Login チャネルへ紐付けるため、id_token の検証鍵は
+ * LINE_LOGIN_CHANNEL_* を流用する（aud = Login チャネルID で一致する前提）。
+ */
+export function isLiffConfigured(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_LIFF_ID && isLineLoginConfigured());
+}

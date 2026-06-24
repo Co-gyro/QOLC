@@ -137,6 +137,20 @@ describe("verifyLineIdToken", () => {
       LineVerificationError
     );
   });
+  it("LIFF: expectedNonce=null なら nonce 検証をスキップする", () => {
+    // nonce クレームがなくても通る（LIFF は nonce 往復がない）
+    const { nonce, ...noNonce } = validClaims;
+    void nonce;
+    const token = makeIdToken(noNonce);
+    const claims = verifyLineIdToken(token, CHANNEL_ID, CHANNEL_SECRET, null, NOW + 1);
+    expect(claims.sub).toBe(validClaims.sub);
+  });
+  it("LIFF: nonce=null でも署名・aud・exp の検証は維持する", () => {
+    const token = makeIdToken({ ...validClaims, aud: "9999" });
+    expect(() => verifyLineIdToken(token, CHANNEL_ID, CHANNEL_SECRET, null, NOW)).toThrow(
+      LineVerificationError
+    );
+  });
 });
 
 describe("buildAuthorizeUrl / generateNonce", () => {

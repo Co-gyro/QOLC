@@ -63,8 +63,12 @@ export default function LiffEntryPage() {
           }
           return;
         }
+        // リッチメニュー等からの飛び先指定（?next=/user/...）を許可（内部パスのみ）
+        const next = new URLSearchParams(window.location.search).get("next");
+        const safeNext =
+          next && next.startsWith("/user/") && !next.startsWith("//") ? next : null;
         // 全画面遷移でセッション Cookie を middleware に処理させる
-        window.location.assign(json.data.redirectTo);
+        window.location.assign(safeNext ?? json.data.redirectTo);
       } catch (e) {
         if (!cancelled) {
           setPhase("error");

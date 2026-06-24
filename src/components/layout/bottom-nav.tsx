@@ -27,7 +27,10 @@ export function BottomNav({ portal }: BottomNavProps) {
       className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t flex bg-white"
       style={{
         borderColor: "var(--qolc-border)",
-        paddingBottom: "env(safe-area-inset-bottom)",
+        // LINEアプリ内ブラウザの下部バーに被って切れないよう、safe-area が 0 報告でも
+        // 最低限の余白を確保してアイコン・文字を上へ押し上げる。
+        paddingBottom: "max(env(safe-area-inset-bottom), 24px)",
+        paddingTop: "4px",
       }}
       aria-label="メインメニュー"
     >

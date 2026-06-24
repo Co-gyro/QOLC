@@ -25,7 +25,7 @@ export function PortalLayout({
       <div className="flex-1 flex flex-col min-w-0">
         <Header userName={userName} userRole={userRole} />
         {/* 下部タブバー分の余白を確保（モバイルのみ） */}
-        <main className="flex-1 p-4 md:p-6 pb-24 md:pb-6 bg-white">{children}</main>
+        <main className="flex-1 p-4 md:p-6 pb-32 md:pb-6 bg-white">{children}</main>
       </div>
       {/* モバイル/LIFF 向け下部タブバー（md未満で表示） */}
       <BottomNav portal={portal} />

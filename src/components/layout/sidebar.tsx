@@ -9,46 +9,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Building2,
-  Store,
-  CreditCard,
-  FileSpreadsheet,
-  Database,
-  Users,
-  FileText,
-  Stethoscope,
-  Upload,
-  Home,
-  Receipt,
-  History,
-  type LucideIcon,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PORTAL_MENUS, PORTAL_LABELS } from "@/lib/portal/menu";
+import { MENU_ICONS as ICONS } from "./menu-icons";
 import type { PortalType } from "@/types";
 
 export interface SidebarProps {
   portal: PortalType;
 }
-
-/** menu.ts の icon 名 → Lucide コンポーネント */
-const ICONS: Record<string, LucideIcon> = {
-  LayoutDashboard,
-  Building2,
-  Store,
-  CreditCard,
-  FileSpreadsheet,
-  Database,
-  Users,
-  FileText,
-  Stethoscope,
-  Upload,
-  Home,
-  Receipt,
-  History,
-};
 
 export function Sidebar({ portal }: SidebarProps) {
   const pathname = usePathname();
@@ -56,7 +24,7 @@ export function Sidebar({ portal }: SidebarProps) {
 
   return (
     <aside
-      className="w-64 border-r min-h-screen p-4 flex flex-col gap-1"
+      className="hidden md:flex w-64 border-r min-h-screen p-4 flex-col gap-1"
       style={{ backgroundColor: "var(--qolc-bg-soft)", borderColor: "var(--qolc-border)" }}
     >
       <div className="px-1 py-3 mb-3 flex flex-col items-center">

@@ -146,6 +146,35 @@ describe("buildReceiptModel: 住宅・自費（jihi）", () => {
   });
 });
 
+describe("buildReceiptModel: カード決済表記", () => {
+  it("既定でクレジットカード決済の文言・印紙不要注記を出す（QOLCは全件カード）", () => {
+    const m = buildReceiptModel(kaigoInput());
+    expect(m.receivedStatement).toBe("上記金額をクレジットカードにて領収いたしました");
+    expect(m.paymentLine).toBe("お支払方法：クレジットカード");
+    expect(m.stampDutyNote).toContain("収入印紙は不要");
+    expect(m.invoiceRegistrationNumber).toBeNull();
+  });
+
+  it("ブランド・決済日を指定すると支払方法行に反映", () => {
+    const m = buildReceiptModel(
+      kaigoInput({ payment: { brand: "VISA", settledAt: "令和8年6月3日" } })
+    );
+    expect(m.paymentLine).toBe("お支払方法：クレジットカード（VISA）　決済日：令和8年6月3日");
+  });
+
+  it("showStampDutyNote=false で印紙注記を抑止", () => {
+    const m = buildReceiptModel(kaigoInput({ payment: { showStampDutyNote: false } }));
+    expect(m.stampDutyNote).toBeNull();
+  });
+
+  it("インボイス登録番号を指定すると保持する", () => {
+    const m = buildReceiptModel(
+      kaigoInput({ invoiceRegistrationNumber: "T1234567890123" })
+    );
+    expect(m.invoiceRegistrationNumber).toBe("T1234567890123");
+  });
+});
+
 describe("buildReceiptModel: バリデーション", () => {
   it("userBurden が負だと例外", () => {
     expect(() => buildReceiptModel(kaigoInput({ userBurden: -1 }))).toThrow();

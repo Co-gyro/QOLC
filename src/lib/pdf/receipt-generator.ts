@@ -103,14 +103,17 @@ const styles = StyleSheet.create({
   providerInner: { border: `0.7px solid ${BORDER}`, padding: 6, minHeight: 50 },
   providerLine: { fontSize: 8, marginBottom: 2 },
   providerTel: { fontSize: 8, textAlign: "right" },
-  receivedRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 10 },
+  paymentLine: { fontSize: 8, marginTop: 8, color: "#333" },
+  invoiceLine: { fontSize: 7.5, marginTop: 2, color: "#444" },
+  receivedRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 8 },
   receivedText: { fontSize: 9 },
+  stampNote: { fontSize: 7, color: "#555", marginTop: 3 },
   sealBox: { width: 70, height: 46, border: `0.7px solid ${BORDER}` },
   sealLabel: { fontSize: 7, textAlign: "center", paddingTop: 2, borderBottom: `0.4px solid ${LINE}` },
   footnote: { fontSize: 7, color: "#555", marginTop: 8 },
 });
 
-const EMPTY_ROWS = 4; // 罫線の見た目（サンプルに合わせた空行・2面で1ページに収める）
+const EMPTY_ROWS = 3; // 罫線の見た目（カード決済情報の追記分を見込み2面で1ページに収める）
 
 /** 金額ボックス（請求年月＋領収金額＋税内訳） */
 function amountBox(m: ReceiptModel, amountLabel: string): React.ReactElement {
@@ -213,12 +216,12 @@ function providerBox(m: ReceiptModel): React.ReactElement {
   );
 }
 
-/** 領収印＋受領文（控/領収書面のみ） */
-function receivedRow(): React.ReactElement {
+/** 領収印＋受領文（カード決済なら「クレジットカードにて領収」） */
+function receivedRow(m: ReceiptModel): React.ReactElement {
   return React.createElement(
     View,
     { style: styles.receivedRow },
-    React.createElement(Text, { style: styles.receivedText }, "上記正に受領いたしました"),
+    React.createElement(Text, { style: styles.receivedText }, m.receivedStatement),
     React.createElement(
       View,
       { style: styles.sealBox },
@@ -256,7 +259,12 @@ function panel(
       itemTable(m),
       providerBox(m)
     ),
-    receivedRow(),
+    m.paymentLine ? React.createElement(Text, { style: styles.paymentLine }, m.paymentLine) : null,
+    m.invoiceRegistrationNumber
+      ? React.createElement(Text, { style: styles.invoiceLine }, `登録番号：${m.invoiceRegistrationNumber}`)
+      : null,
+    receivedRow(m),
+    m.stampDutyNote ? React.createElement(Text, { style: styles.stampNote }, m.stampDutyNote) : null,
     m.footnote ? React.createElement(Text, { style: styles.footnote }, `※ ${m.footnote}`) : null
   );
 }

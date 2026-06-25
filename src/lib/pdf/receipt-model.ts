@@ -76,8 +76,33 @@ export interface ReceiptInput {
   /** 提供者情報 */
   provider: ReceiptProvider;
 
+  /**
+   * カード決済情報。QOLCは全件クレジットカード決済のため既定でカード表記になる。
+   * brand/settledAt は任意（あれば表示）。
+   */
+  payment?: ReceiptPayment;
+
+  /**
+   * 適格請求書（インボイス）発行事業者の登録番号（T+13桁）。
+   * 設定時のみ発行者欄に表示。自費の課税分でインボイス対応する場合に使う。
+   */
+  invoiceRegistrationNumber?: string;
+
   /** 脚注を上書き（未指定は医療カテゴリのみ既定の四捨五入注記が入る） */
   footnote?: string;
+}
+
+/** カード決済情報 */
+export interface ReceiptPayment {
+  /** カードブランド（VISA / Mastercard / JCB 等）。任意 */
+  brand?: string;
+  /** 決済日（表示文字列）。任意 */
+  settledAt?: string;
+  /**
+   * 収入印紙不要の注記を出すか。クレジットカード決済は信用取引で金銭の直接受領が
+   * ないため、利用明記により印紙税は非課税（国税庁見解）。既定 true。
+   */
+  showStampDutyNote?: boolean;
 }
 
 /** 明細テーブルの1行（項目名 / 内訳 / 金額） */
@@ -110,6 +135,14 @@ export interface ReceiptModel {
   footnote: string | null;
   /** 軽減税率の注記（☆）を表示するか */
   showReducedTaxNote: boolean;
+  /** 受領文言（カード決済なら「クレジットカードにて領収」） */
+  receivedStatement: string;
+  /** お支払方法の表示（例: クレジットカード（VISA）　決済日：令和8年6月3日）。null は非表示 */
+  paymentLine: string | null;
+  /** 収入印紙不要の注記。null は非表示 */
+  stampDutyNote: string | null;
+  /** インボイス登録番号（T+13桁）。null は非表示 */
+  invoiceRegistrationNumber: string | null;
 }
 
 /** 3桁区切りの数値文字列（単位なし・小数切り捨て）。例: 15,191 */
@@ -206,6 +239,7 @@ export function buildReceiptModel(input: ReceiptInput): ReceiptModel {
 
   const tax10 = input.tax10 ?? ZERO_TAX;
   const tax8 = input.tax8 ?? ZERO_TAX;
+  const card = resolveCardPayment(input.payment);
 
   return {
     category: input.category,
@@ -223,6 +257,35 @@ export function buildReceiptModel(input: ReceiptInput): ReceiptModel {
     provider: input.provider,
     footnote: input.footnote ?? defaults.footnote,
     showReducedTaxNote: true,
+    receivedStatement: card.receivedStatement,
+    paymentLine: card.paymentLine,
+    stampDutyNote: card.stampDutyNote,
+    invoiceRegistrationNumber: input.invoiceRegistrationNumber ?? null,
+  };
+}
+
+/**
+ * カード決済の表示要素を解決する。
+ * QOLCは全件クレジットカード決済のため、payment未指定でもカード表記を既定とする。
+ */
+function resolveCardPayment(payment?: ReceiptPayment): {
+  receivedStatement: string;
+  paymentLine: string;
+  stampDutyNote: string | null;
+} {
+  const methodLabel = payment?.brand
+    ? `クレジットカード（${payment.brand}）`
+    : "クレジットカード";
+  const paymentLine = payment?.settledAt
+    ? `お支払方法：${methodLabel}　決済日：${payment.settledAt}`
+    : `お支払方法：${methodLabel}`;
+  const showStamp = payment?.showStampDutyNote ?? true;
+  return {
+    receivedStatement: "上記金額をクレジットカードにて領収いたしました",
+    paymentLine,
+    stampDutyNote: showStamp
+      ? "クレジットカード決済のため、収入印紙は不要です。"
+      : null,
   };
 }
 

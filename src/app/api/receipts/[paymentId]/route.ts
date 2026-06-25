@@ -17,7 +17,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { generateReceiptPdf } from "@/lib/pdf/receipt-generator";
-import { buildReceiptInputFromPayment } from "@/lib/pdf/receipt-input-builder";
+import { buildReceiptInputFromPayment, buildKaigoDetailLines } from "@/lib/pdf/receipt-input-builder";
 import type { ReceiptCategory } from "@/lib/pdf/receipt-model";
 import { apiError } from "@/types/api";
 import type { UserRole } from "@/types";
@@ -73,7 +73,7 @@ export async function GET(
   const [{ data: lines }, { data: resident }, { data: merchant }] = await Promise.all([
     admin
       .from("statement_lines")
-      .select("amount, self_pay_amount, service_name, quantity")
+      .select("id, amount, self_pay_amount, service_name, quantity")
       .eq("payment_id", payment.id),
     admin
       .from("residents")
@@ -121,6 +121,32 @@ export async function GET(
     invoiceRegistrationNumber: merchant.invoice_registration_number ?? undefined,
     issuedAtIso: new Date().toISOString(),
   });
+
+  // B案: レセプト由来のサービス明細(区分02)があれば、明細書を単位ベースに差し替える。
+  // テーブル未適用や明細無しのときは A案(statement_lines金額ベース)のまま。
+  const lineIds = (lines ?? []).map((l) => (l as { id: string }).id).filter(Boolean);
+  if (lineIds.length > 0) {
+    try {
+      const { data: details } = await admin
+        .from("statement_service_details")
+        .select("statement_line_id, service_type_code, service_item_code, unit_score, count, total_units, sort_order")
+        .in("statement_line_id", lineIds)
+        .order("sort_order", { ascending: true });
+      if (details && details.length > 0) {
+        input.detailLines = buildKaigoDetailLines(
+          (details as Array<Record<string, unknown>>).map((d) => ({
+            serviceTypeCode: (d.service_type_code as string) ?? "",
+            serviceItemCode: (d.service_item_code as string) ?? "",
+            unitScore: (d.unit_score as number) ?? 0,
+            count: (d.count as number) ?? 0,
+            totalUnits: (d.total_units as number) ?? 0,
+          }))
+        );
+      }
+    } catch {
+      // 明細テーブル未適用などは無視（A案のまま）
+    }
+  }
 
   let pdf: Uint8Array;
   try {

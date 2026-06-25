@@ -131,6 +131,123 @@ export async function buildKaigoPreview(
 }
 
 /**
+ * 介護保険給付費請求情報CSVを**永続化**して PreviewResult を返す（B案決済結線）。
+ *
+ * - upload_batch を作成
+ * - 利用者ごとに statement_lines を1行作成（amount=費用総額, self_pay=利用者負担額）
+ * - 区分02のサービス明細を statement_service_details に保存（明細書ページ用）
+ *
+ * これにより既存の「プレビュー→決済実行(processBatch)→領収書」フローに乗る。
+ */
+export async function persistKaigoReceipt(
+  admin: SupabaseClient,
+  opts: {
+    fileBuffer: Buffer;
+    merchantId: string;
+    providerType: "external_provider" | "facility_self";
+    fileName: string;
+    residents: ResidentWithFacility[];
+    facilityNames: Map<string, string>;
+    facilityIdForSelf: string | null;
+  }
+): Promise<PreviewResult> {
+  const parsed = parseKaigoCsv(opts.fileBuffer);
+  const matches = matchKaigoReceipts(parsed.residents, opts.residents);
+
+  const totalAmount = matches.reduce(
+    (s, m) => s + (m.receipt.insuranceClaim + m.receipt.userBurden),
+    0
+  );
+
+  const { data: batch, error: batchErr } = await admin
+    .from("upload_batches")
+    .insert({
+      merchant_id: opts.merchantId,
+      provider_type: opts.providerType,
+      file_name: opts.fileName,
+      total_rows: matches.length,
+      total_amount: totalAmount,
+      status: "processing",
+    })
+    .select("id")
+    .single();
+  if (batchErr || !batch) throw new Error(batchErr?.message ?? "batch insert失敗");
+  const batchId = batch.id as string;
+
+  // statement_lines（利用者1人=1行。費用総額/利用者負担額をそのまま保持）
+  const lineInserts = matches.map((m) => {
+    const r = m.receipt;
+    const resident = m.resident as ResidentWithFacility | null;
+    const matched = m.status === "matched" || m.status === "matched_via_history";
+    return {
+      upload_batch_id: batchId,
+      facility_id: resident?.facilityId ?? opts.facilityIdForSelf ?? null,
+      resident_id: resident?.id ?? null,
+      insurance_number: r.insuranceNumber,
+      service_code: null,
+      service_name: `介護保険 ${r.serviceMonth}`,
+      amount: r.insuranceClaim + r.userBurden,
+      self_pay_amount: r.userBurden,
+      match_status: matched ? "matched" : "unmatched",
+    };
+  });
+
+  const { data: insertedLines, error: insErr } = await admin
+    .from("statement_lines")
+    .insert(lineInserts)
+    .select("id");
+  if (insErr) {
+    await admin.from("upload_batches").update({ status: "error" }).eq("id", batchId);
+    throw new Error(insErr.message);
+  }
+  const lineIds = (insertedLines as Array<{ id: string }> | null) ?? [];
+
+  // 区分02 サービス明細を各 statement_line に紐づけて保存
+  const detailInserts: Array<Record<string, unknown>> = [];
+  matches.forEach((m, i) => {
+    const lineId = lineIds[i]?.id;
+    if (!lineId) return;
+    m.receipt.serviceDetails.forEach((d, j) => {
+      detailInserts.push({
+        statement_line_id: lineId,
+        service_type_code: d.serviceTypeCode,
+        service_item_code: d.serviceItemCode,
+        unit_score: d.unitScore,
+        count: d.count,
+        total_units: d.totalUnits,
+        sort_order: j,
+      });
+    });
+  });
+  if (detailInserts.length > 0) {
+    const { error: dErr } = await admin
+      .from("statement_service_details")
+      .insert(detailInserts);
+    if (dErr) throw new Error(`サービス明細の保存に失敗: ${dErr.message}`);
+  }
+
+  const previewLines: PreviewLine[] = matches.map((m, i) => {
+    const r = m.receipt;
+    const resident = m.resident as ResidentWithFacility | null;
+    return {
+      statementLineId: lineIds[i]?.id ?? "",
+      facilityId: resident?.facilityId ?? null,
+      residentId: resident?.id ?? null,
+      residentName: resident ? `${resident.nameLast} ${resident.nameFirst}` : null,
+      insuranceNumber: r.insuranceNumber,
+      serviceCode: null,
+      serviceName: `介護保険 ${r.serviceMonth}`,
+      amount: r.userBurden,
+      selfPayAmount: r.userBurden,
+      matchStatus:
+        m.status === "matched" || m.status === "matched_via_history" ? "matched" : "unmatched",
+    };
+  });
+
+  return groupByFacility(batchId, previewLines, opts.facilityNames);
+}
+
+/**
  * 医療保険UKE(xlsx) をパースして PreviewResult を返す。
  */
 export async function buildIryouPreview(

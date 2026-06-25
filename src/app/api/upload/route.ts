@@ -26,7 +26,7 @@ import { groupForPreview, type PreviewLine } from "@/lib/upload/preview";
 import {
   detectReceiptKind,
   loadResidentsForMatching,
-  buildKaigoPreview,
+  persistKaigoReceipt,
   buildIryouPreview,
 } from "@/lib/upload/receipt-flow";
 import { apiError, apiOk } from "@/types/api";
@@ -149,8 +149,6 @@ export async function POST(req: NextRequest) {
   const head = fileBuffer.slice(0, 256).toString("utf8");
   const receiptKind = detectReceiptKind(fileName, head);
   if (receiptKind) {
-    // レセプトフロー: statement_lines には保存せず、オンメモリでプレビューを返す。
-    // (既存独自CSV と structural に異なるため、移行期間は読み取り専用)
     try {
       const residentsAll = await loadResidentsForMatching(admin);
       const allFacilities = await admin.from("facilities").select("id, name").is("deleted_at", null);
@@ -159,12 +157,32 @@ export async function POST(req: NextRequest) {
         facilityNames.set(f.id, f.name);
       }
 
-      // 暫定 batchId（UUID生成、DBには保存しない）
+      if (receiptKind === "kaigo-csv") {
+        // 介護レセプト: 永続化して決済フローに乗せる（B案）。
+        let facilityIdForSelf: string | null = null;
+        if (role === "facility_staff") {
+          const { data: profile } = await admin
+            .from("profiles")
+            .select("facility_id")
+            .eq("id", user.id)
+            .single();
+          facilityIdForSelf = (profile?.facility_id as string | null) ?? null;
+        }
+        const preview = await persistKaigoReceipt(admin, {
+          fileBuffer,
+          merchantId,
+          providerType: role === "facility_staff" ? "facility_self" : "external_provider",
+          fileName,
+          residents: residentsAll,
+          facilityNames,
+          facilityIdForSelf,
+        });
+        return NextResponse.json(apiOk(preview));
+      }
+
+      // 医療UKE: 当面プレビューのみ（区分明細の取込は後工程）。
       const batchId = `receipt-${Date.now()}`;
-      const preview =
-        receiptKind === "kaigo-csv"
-          ? await buildKaigoPreview(fileBuffer, residentsAll, facilityNames, batchId)
-          : await buildIryouPreview(fileBuffer, residentsAll, facilityNames, batchId);
+      const preview = await buildIryouPreview(fileBuffer, residentsAll, facilityNames, batchId);
       return NextResponse.json(apiOk(preview));
     } catch (e) {
       const msg = e instanceof Error ? e.message : "unknown";

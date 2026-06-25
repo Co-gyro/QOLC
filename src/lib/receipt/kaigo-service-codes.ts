@@ -2,15 +2,17 @@
  * 介護サービスコード → 名称 解決
  *
  * 国保連レセプト（区分02）はサービス種類コード(2桁)・サービス項目コード(4桁)のみを持ち、
- * 名称は含まない。名称表示には公開の「介護サービスコード表」マスタが必要。
+ * 名称は含まない。名称は公開の「介護給付費単位数等サービスコード表」から取り込む。
  *
- * 現状:
- *   - サービス種類（大分類, 2桁）: 安定した小規模テーブルとして内蔵（信頼できる）。
- *   - サービス項目（4桁）: 公開マスタ未取り込みのため、判明分のみ ITEM_NAMES に seed。
- *     未知の項目はコードを併記して返す（推測で誤名称を出さない）。
- *
- * 公開マスタ（介護サービスコード表）を取り込めば item 名称を完全化できる。
+ * - 項目名（サービス内容略称）: kaigo-service-codes.json（マスタ取込・自動生成）から解決。
+ *   生成は scripts/gen-kaigo-service-codes.ts（マスタ更新時に再実行）。
+ * - サービス種類（大分類）: 小規模テーブルを内蔵（未知コードのフォールバック用）。
+ * - マスタに無いコードは「種類名（項目コード）」で返す（推測で誤名称を出さない）。
  */
+import itemNamesJson from "./kaigo-service-codes.json";
+
+/** サービスコード「種類:項目」→ サービス内容略称（マスタ自動生成） */
+const ITEM_NAMES: Record<string, string> = itemNamesJson as Record<string, string>;
 
 /** サービス種類コード（2桁）→ 名称（大分類） */
 const SERVICE_TYPE_NAMES: Record<string, string> = {
@@ -36,14 +38,6 @@ const SERVICE_TYPE_NAMES: Record<string, string> = {
   "78": "居宅介護支援",
 };
 
-/**
- * サービス項目コード（4桁）→ 名称。公開マスタ未取り込みのため判明分のみ。
- * キーは "種類コード:項目コード"（種類により同じ項目コードでも内容が異なるため）。
- */
-const ITEM_NAMES: Record<string, string> = {
-  // 実サンプル等から判明したもの。随時追加可能。
-};
-
 /** サービス種類名（大分類）を返す。未知は「サービス種類NN」。 */
 export function resolveServiceTypeName(serviceTypeCode: string): string {
   return SERVICE_TYPE_NAMES[serviceTypeCode] ?? `サービス種類${serviceTypeCode || "?"}`;
@@ -51,15 +45,16 @@ export function resolveServiceTypeName(serviceTypeCode: string): string {
 
 /**
  * サービス内容の表示名を返す。
- * 項目名が判明していれば「種類名 項目名」、未判明なら「種類名（項目コード）」。
+ * マスタに項目名（サービス内容略称）があればそれを返す。
+ * 無い場合は「種類名（項目コード）」（推測しない）。
  */
 export function resolveServiceName(
   serviceTypeCode: string,
   serviceItemCode: string
 ): string {
-  const typeName = resolveServiceTypeName(serviceTypeCode);
-  const itemName = ITEM_NAMES[`${serviceTypeCode}:${serviceItemCode}`];
-  if (itemName) return `${typeName} ${itemName}`;
-  if (serviceItemCode) return `${typeName}（${serviceItemCode}）`;
-  return typeName;
+  const key = `${serviceTypeCode.padStart(2, "0")}:${serviceItemCode.padStart(4, "0")}`;
+  const itemName = ITEM_NAMES[key];
+  if (itemName) return itemName;
+  if (serviceItemCode) return `${resolveServiceTypeName(serviceTypeCode)}（${serviceItemCode}）`;
+  return resolveServiceTypeName(serviceTypeCode);
 }

@@ -20,8 +20,13 @@ describe("resolveServiceTypeName", () => {
 });
 
 describe("resolveServiceName", () => {
-  it("項目名未取り込みは「種類名（項目コード）」で返す", () => {
-    expect(resolveServiceName("15", "2241")).toBe("通所介護（2241）");
+  it("マスタにある項目はサービス内容略称を返す", () => {
+    // kaigo-service-codes.json（マスタ取込）より
+    expect(resolveServiceName("11", "1211")).toBe("身体介護２");
+    expect(resolveServiceName("15", "2241")).toBe("通所介護Ⅰ１１");
+  });
+  it("マスタに無い項目は「種類名（項目コード）」", () => {
+    expect(resolveServiceName("15", "9999")).toBe("通所介護（9999）");
   });
   it("項目コードが空なら種類名のみ", () => {
     expect(resolveServiceName("13", "")).toBe("訪問看護");

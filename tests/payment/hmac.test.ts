@@ -128,3 +128,60 @@ describe("loadUsenKey / generateCheckCode（環境変数経由）", () => {
     expect(() => loadUsenKey("mall")).toThrow(HmacKeyError);
   });
 });
+
+describe("loadUsenKey（base64環境変数経由・Vercel対応）", () => {
+  const ORIG_SITE_B64 = process.env.USEN_SITE_HMAC_KEY_B64;
+  const ORIG_MALL_B64 = process.env.USEN_MALL_HMAC_KEY_B64;
+  const ORIG_SITE_PATH = process.env.USEN_SITE_HMAC_KEY_PATH;
+
+  beforeEach(() => {
+    resetHmacKeyCache();
+    delete process.env.USEN_SITE_HMAC_KEY_B64;
+    delete process.env.USEN_MALL_HMAC_KEY_B64;
+    delete process.env.USEN_SITE_HMAC_KEY_PATH;
+  });
+
+  afterEach(() => {
+    resetHmacKeyCache();
+    const restore = (name: string, v: string | undefined) =>
+      v === undefined ? delete process.env[name] : (process.env[name] = v);
+    restore("USEN_SITE_HMAC_KEY_B64", ORIG_SITE_B64);
+    restore("USEN_MALL_HMAC_KEY_B64", ORIG_MALL_B64);
+    restore("USEN_SITE_HMAC_KEY_PATH", ORIG_SITE_PATH);
+  });
+
+  it("base64の64バイト鍵をロードしファイル鍵と同一署名になる", () => {
+    process.env.USEN_SITE_HMAC_KEY_B64 = TEST_KEY.toString("base64");
+    const loaded = loadUsenKey("site");
+    expect(loaded.equals(TEST_KEY)).toBe(true);
+    const cc = generateCheckCode("sha256", "site", ["TSJL-0000001", 1]);
+    expect(cc).toBe(generateCheckCodeWithKey("sha256", TEST_KEY, ["TSJL-0000001", 1]));
+  });
+
+  it("前後の空白・改行が混入しても許容する（Vercel貼付対策）", () => {
+    process.env.USEN_MALL_HMAC_KEY_B64 = `\n  ${TEST_KEY.toString("base64")}  \n`;
+    expect(loadUsenKey("mall").equals(TEST_KEY)).toBe(true);
+  });
+
+  it("base64優先: B64とPATH両方設定ならB64を使う", () => {
+    const path = join(tmpdir(), `qolc-site-prio-${Date.now()}.NMK`);
+    const fileKey = Buffer.from(Array.from({ length: 64 }, (_, i) => 64 - i));
+    writeFileSync(path, fileKey);
+    process.env.USEN_SITE_HMAC_KEY_PATH = path;
+    process.env.USEN_SITE_HMAC_KEY_B64 = TEST_KEY.toString("base64");
+    try {
+      expect(loadUsenKey("site").equals(TEST_KEY)).toBe(true);
+    } finally {
+      try { unlinkSync(path); } catch { /* ignore */ }
+    }
+  });
+
+  it("64バイト以外のbase64は HmacKeyError（切り詰め・誤エンコード検知）", () => {
+    process.env.USEN_SITE_HMAC_KEY_B64 = Buffer.from("too-short").toString("base64");
+    expect(() => loadUsenKey("site")).toThrow(HmacKeyError);
+  });
+
+  it("B64もPATHも未設定なら両方の変数名を挙げて HmacKeyError", () => {
+    expect(() => loadUsenKey("site")).toThrow(/USEN_SITE_HMAC_KEY_B64.*USEN_SITE_HMAC_KEY_PATH/);
+  });
+});

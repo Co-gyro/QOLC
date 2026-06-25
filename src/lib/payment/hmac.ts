@@ -9,9 +9,15 @@
  *     - サイトのキー: 会員登録系API（entrybyjutyucd, get, inactivate, activate, delete）
  *     - モールのキー: 与信/売上/取消系API（authbymemberid, salesadd, void 等）
  *
+ * 鍵の供給方法（2系統・base64優先）:
+ *   1. base64環境変数（*_HMAC_KEY_B64）: 64バイトバイナリ鍵をbase64化した文字列。
+ *      Vercel等のファイルシステムを持たない実行環境向け（ファイルレス）。
+ *   2. ファイルパス環境変数（*_HMAC_KEY_PATH）: ローカル開発で *.NMK を直接参照。
+ *   両方設定時は base64 を優先する。
+ *
  * セキュリティ:
- *   - 鍵ファイル(*.NMK)は .gitignore 除外済み。パスは環境変数経由（ハードコード禁止）
- *   - 鍵バイト列・パスをログ出力しない
+ *   - 鍵ファイル(*.NMK)は .gitignore 除外済み。パス/base64値は環境変数経由（ハードコード禁止）
+ *   - 鍵バイト列・パス・base64値をログ出力しない
  */
 import { createHmac, type BinaryLike } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -24,36 +30,79 @@ export const CHECK_CODE_PREFIX = "HM";
 /** HMACキーの種別（サイト or モール） */
 export type UsenKeyType = "site" | "mall";
 
-const ENV_BY_TYPE: Record<UsenKeyType, string> = {
+/** ファイルパス指定の環境変数名（ローカル開発用） */
+const PATH_ENV_BY_TYPE: Record<UsenKeyType, string> = {
   site: "USEN_SITE_HMAC_KEY_PATH",
   mall: "USEN_MALL_HMAC_KEY_PATH",
 };
 
+/** base64指定の環境変数名（Vercel等ファイルレス環境用・優先） */
+const B64_ENV_BY_TYPE: Record<UsenKeyType, string> = {
+  site: "USEN_SITE_HMAC_KEY_B64",
+  mall: "USEN_MALL_HMAC_KEY_B64",
+};
+
+/** HMACキーの規定バイト長（USEN仕様: 64バイトバイナリ） */
+const EXPECTED_KEY_BYTES = 64;
+
 const keyCache = new Map<string, Buffer>();
 
 /**
- * 指定種別の HMAC キーを環境変数のパスからロードする（パス単位でキャッシュ）。
+ * base64文字列を 64バイトの鍵バッファにデコードする。
+ * 貼り付けミス・切り詰めを検知するため、デコード後のバイト長を厳格に検証する。
+ */
+function decodeKeyB64(value: string, envName: string): Buffer {
+  // Vercelのコピー時に混入しがちな前後の空白・改行を除去
+  const trimmed = value.replace(/\s+/g, "");
+  const buf = Buffer.from(trimmed, "base64");
+  if (buf.length !== EXPECTED_KEY_BYTES) {
+    // 鍵内容は出さず、長さ不一致のみ通知（切り詰め・誤エンコードの早期検知）
+    throw new HmacKeyError(
+      `${envName} はbase64デコード後 ${EXPECTED_KEY_BYTES}バイトである必要があります（実際: ${buf.length}バイト）`
+    );
+  }
+  return buf;
+}
+
+/**
+ * 指定種別の HMAC キーを環境変数からロードする（出所単位でキャッシュ）。
+ * base64環境変数（*_B64）を優先し、未設定ならファイルパス（*_PATH）を読む。
  */
 export function loadUsenKey(type: UsenKeyType): Buffer {
-  const envName = ENV_BY_TYPE[type];
-  const path = process.env[envName];
-  if (!path) {
-    throw new HmacKeyError(`${envName} 環境変数が設定されていません`);
+  const b64Env = B64_ENV_BY_TYPE[type];
+  const pathEnv = PATH_ENV_BY_TYPE[type];
+  const b64Value = process.env[b64Env];
+  const pathValue = process.env[pathEnv];
+
+  // 出所ごとに一意なキャッシュキー（base64優先）
+  const cacheKey = b64Value
+    ? `b64:${b64Env}`
+    : pathValue
+      ? `path:${pathValue}`
+      : null;
+  if (!cacheKey) {
+    throw new HmacKeyError(
+      `${b64Env} または ${pathEnv} 環境変数が設定されていません`
+    );
   }
-  const cached = keyCache.get(path);
+  const cached = keyCache.get(cacheKey);
   if (cached) return cached;
 
   let buf: Buffer;
-  try {
-    buf = readFileSync(path);
-  } catch (_e) {
-    // エラーメッセージに鍵の内容を漏らさない（パスのみ）
-    throw new HmacKeyError(`HMACキーファイルを読み込めませんでした: ${path}`);
+  if (b64Value) {
+    buf = decodeKeyB64(b64Value, b64Env);
+  } else {
+    try {
+      buf = readFileSync(pathValue as string);
+    } catch (_e) {
+      // エラーメッセージに鍵の内容を漏らさない（パスのみ）
+      throw new HmacKeyError(`HMACキーファイルを読み込めませんでした: ${pathValue}`);
+    }
+    if (buf.length === 0) {
+      throw new HmacKeyError("HMACキーファイルが空です");
+    }
   }
-  if (buf.length === 0) {
-    throw new HmacKeyError("HMACキーファイルが空です");
-  }
-  keyCache.set(path, buf);
+  keyCache.set(cacheKey, buf);
   return buf;
 }
 

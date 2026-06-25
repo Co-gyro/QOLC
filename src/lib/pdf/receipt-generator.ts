@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   footnote: { fontSize: 7, color: "#555", marginTop: 8 },
 });
 
-const EMPTY_ROWS = 3; // 罫線の見た目（カード決済情報・代理受領の追記分を見込み2面で1ページに収める）
+const EMPTY_ROWS = 1; // 罫線の見た目（カード決済情報・登録番号・代理受領・脚注の追記分を見込み2面で1ページに収める）
 
 /** 金額ボックス（請求年月＋領収金額＋税内訳） */
 function amountBox(m: ReceiptModel, amountLabel: string): React.ReactElement {

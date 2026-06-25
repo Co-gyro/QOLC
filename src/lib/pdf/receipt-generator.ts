@@ -105,7 +105,8 @@ const styles = StyleSheet.create({
   providerTel: { fontSize: 8, textAlign: "right" },
   paymentLine: { fontSize: 8, marginTop: 8, color: "#333" },
   invoiceLine: { fontSize: 7.5, marginTop: 2, color: "#444" },
-  receivedRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 8 },
+  agentLine: { fontSize: 7.5, marginTop: 2, color: "#444" },
+  receivedRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 6 },
   receivedText: { fontSize: 9 },
   stampNote: { fontSize: 7, color: "#555", marginTop: 3 },
   sealBox: { width: 70, height: 46, border: `0.7px solid ${BORDER}` },
@@ -113,7 +114,7 @@ const styles = StyleSheet.create({
   footnote: { fontSize: 7, color: "#555", marginTop: 8 },
 });
 
-const EMPTY_ROWS = 3; // 罫線の見た目（カード決済情報の追記分を見込み2面で1ページに収める）
+const EMPTY_ROWS = 2; // 罫線の見た目（カード決済情報・代理受領の追記分を見込み2面で1ページに収める）
 
 /** 金額ボックス（請求年月＋領収金額＋税内訳） */
 function amountBox(m: ReceiptModel, amountLabel: string): React.ReactElement {
@@ -261,8 +262,13 @@ function panel(
     ),
     m.paymentLine ? React.createElement(Text, { style: styles.paymentLine }, m.paymentLine) : null,
     m.invoiceRegistrationNumber
-      ? React.createElement(Text, { style: styles.invoiceLine }, `登録番号：${m.invoiceRegistrationNumber}`)
+      ? React.createElement(
+          Text,
+          { style: styles.invoiceLine },
+          `適格請求書発行事業者 登録番号：${m.invoiceRegistrationNumber}`
+        )
       : null,
+    m.agentLine ? React.createElement(Text, { style: styles.agentLine }, m.agentLine) : null,
     receivedRow(m),
     m.stampDutyNote ? React.createElement(Text, { style: styles.stampNote }, m.stampDutyNote) : null,
     m.footnote ? React.createElement(Text, { style: styles.footnote }, `※ ${m.footnote}`) : null

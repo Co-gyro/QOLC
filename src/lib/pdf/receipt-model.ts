@@ -83,10 +83,16 @@ export interface ReceiptInput {
   payment?: ReceiptPayment;
 
   /**
-   * 適格請求書（インボイス）発行事業者の登録番号（T+13桁）。
-   * 設定時のみ発行者欄に表示。自費の課税分でインボイス対応する場合に使う。
+   * 適格請求書（インボイス）発行事業者の登録番号（T+13桁）。発行者＝提供者の番号。
+   * 設定時のみ表示。自費の課税分でインボイス対応する場合に使う。
    */
   invoiceRegistrationNumber?: string;
+
+  /**
+   * 集金代行（代理受領）者名。QOLCはUD/QOLCがUSEN経由でカード集金する代理受領のため
+   * 既定でUDを表示。null を渡すと非表示、文字列で上書き可。
+   */
+  collectionAgent?: string | null;
 
   /** 脚注を上書き（未指定は医療カテゴリのみ既定の四捨五入注記が入る） */
   footnote?: string;
@@ -143,6 +149,8 @@ export interface ReceiptModel {
   stampDutyNote: string | null;
   /** インボイス登録番号（T+13桁）。null は非表示 */
   invoiceRegistrationNumber: string | null;
+  /** 集金代行（代理受領）の明記。null は非表示 */
+  agentLine: string | null;
 }
 
 /** 3桁区切りの数値文字列（単位なし・小数切り捨て）。例: 15,191 */
@@ -161,6 +169,9 @@ export function formatBenefit(n: number): string {
 }
 
 const ZERO_TAX: ReceiptTaxBucket = { amount: 0, tax: 0 };
+
+/** 既定の集金代行（代理受領）者。運営=ユニバーサルデベロップメント株式会社 */
+const DEFAULT_COLLECTION_AGENT = "ユニバーサルデベロップメント株式会社（QOLC）";
 
 /** カテゴリ既定のラベル */
 const CATEGORY_DEFAULTS: Record<
@@ -261,7 +272,19 @@ export function buildReceiptModel(input: ReceiptInput): ReceiptModel {
     paymentLine: card.paymentLine,
     stampDutyNote: card.stampDutyNote,
     invoiceRegistrationNumber: input.invoiceRegistrationNumber ?? null,
+    agentLine: resolveAgentLine(input.collectionAgent),
   };
+}
+
+/**
+ * 集金代行（代理受領）の明記行を解決する。
+ * provider を領収者（発行者）としつつ、UD/QOLCが代理受領した旨を明記する。
+ */
+function resolveAgentLine(collectionAgent?: string | null): string | null {
+  if (collectionAgent === null) return null; // 明示的に非表示
+  const agent = collectionAgent === undefined ? DEFAULT_COLLECTION_AGENT : collectionAgent;
+  if (!agent) return null;
+  return `上記金額は ${agent} が提供者に代わり集金代行（クレジットカード決済）により代理受領しています。`;
 }
 
 /**

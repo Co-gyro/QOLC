@@ -173,6 +173,22 @@ describe("buildReceiptModel: カード決済表記", () => {
     );
     expect(m.invoiceRegistrationNumber).toBe("T1234567890123");
   });
+
+  it("既定でUDの集金代行（代理受領）を明記する", () => {
+    const m = buildReceiptModel(kaigoInput());
+    expect(m.agentLine).toContain("ユニバーサルデベロップメント株式会社");
+    expect(m.agentLine).toContain("代理受領");
+  });
+
+  it("collectionAgent=null で代理受領表記を抑止", () => {
+    const m = buildReceiptModel(kaigoInput({ collectionAgent: null }));
+    expect(m.agentLine).toBeNull();
+  });
+
+  it("collectionAgent を文字列で上書きできる", () => {
+    const m = buildReceiptModel(kaigoInput({ collectionAgent: "テスト代行株式会社" }));
+    expect(m.agentLine).toContain("テスト代行株式会社");
+  });
 });
 
 describe("buildReceiptModel: バリデーション", () => {

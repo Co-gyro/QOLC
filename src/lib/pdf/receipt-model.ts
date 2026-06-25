@@ -284,7 +284,7 @@ function resolveAgentLine(collectionAgent?: string | null): string | null {
   if (collectionAgent === null) return null; // 明示的に非表示
   const agent = collectionAgent === undefined ? DEFAULT_COLLECTION_AGENT : collectionAgent;
   if (!agent) return null;
-  return `上記金額は ${agent} が提供者に代わり集金代行（クレジットカード決済）により代理受領しています。`;
+  return `集金代行（代理受領）：${agent}`;
 }
 
 /**
@@ -302,7 +302,8 @@ function resolveCardPayment(payment?: ReceiptPayment): {
   const paymentLine = payment?.settledAt
     ? `お支払方法：${methodLabel}　決済日：${payment.settledAt}`
     : `お支払方法：${methodLabel}`;
-  const showStamp = payment?.showStampDutyNote ?? true;
+  // 印紙不要の注記は既定で非表示（必要時のみ showStampDutyNote:true で明示）
+  const showStamp = payment?.showStampDutyNote ?? false;
   return {
     receivedStatement: "上記金額をクレジットカードにて領収いたしました",
     paymentLine,

@@ -147,11 +147,11 @@ describe("buildReceiptModel: 住宅・自費（jihi）", () => {
 });
 
 describe("buildReceiptModel: カード決済表記", () => {
-  it("既定でクレジットカード決済の文言・印紙不要注記を出す（QOLCは全件カード）", () => {
+  it("既定でクレジットカード決済の文言を出し、印紙注記は出さない", () => {
     const m = buildReceiptModel(kaigoInput());
     expect(m.receivedStatement).toBe("上記金額をクレジットカードにて領収いたしました");
     expect(m.paymentLine).toBe("お支払方法：クレジットカード");
-    expect(m.stampDutyNote).toContain("収入印紙は不要");
+    expect(m.stampDutyNote).toBeNull();
     expect(m.invoiceRegistrationNumber).toBeNull();
   });
 
@@ -162,9 +162,9 @@ describe("buildReceiptModel: カード決済表記", () => {
     expect(m.paymentLine).toBe("お支払方法：クレジットカード（VISA）　決済日：令和8年6月3日");
   });
 
-  it("showStampDutyNote=false で印紙注記を抑止", () => {
-    const m = buildReceiptModel(kaigoInput({ payment: { showStampDutyNote: false } }));
-    expect(m.stampDutyNote).toBeNull();
+  it("showStampDutyNote=true で明示した時のみ印紙注記を出す", () => {
+    const m = buildReceiptModel(kaigoInput({ payment: { showStampDutyNote: true } }));
+    expect(m.stampDutyNote).toContain("収入印紙は不要");
   });
 
   it("インボイス登録番号を指定すると保持する", () => {
@@ -174,10 +174,9 @@ describe("buildReceiptModel: カード決済表記", () => {
     expect(m.invoiceRegistrationNumber).toBe("T1234567890123");
   });
 
-  it("既定でUDの集金代行（代理受領）を明記する", () => {
+  it("既定でUDの集金代行（代理受領）をラベル形式で明記する", () => {
     const m = buildReceiptModel(kaigoInput());
-    expect(m.agentLine).toContain("ユニバーサルデベロップメント株式会社");
-    expect(m.agentLine).toContain("代理受領");
+    expect(m.agentLine).toBe("集金代行（代理受領）：ユニバーサルデベロップメント株式会社（QOLC）");
   });
 
   it("collectionAgent=null で代理受領表記を抑止", () => {

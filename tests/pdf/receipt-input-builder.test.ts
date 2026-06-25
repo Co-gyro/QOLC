@@ -71,6 +71,25 @@ describe("buildReceiptInputFromPayment: 保険（給付額>0）", () => {
     expect(input.category).toBe("iryou");
     expect(input.costTotal).toBe(151904);
   });
+
+  it("明細行を detailLines に変換する（明細書ページ用）", () => {
+    const input = buildReceiptInputFromPayment(
+      baseData({
+        lines: [
+          { amount: 100000, self_pay_amount: 10000, service_name: "訪問介護", quantity: 2 },
+          { amount: 51904, self_pay_amount: 5191, service_name: null },
+        ],
+      })
+    );
+    expect(input.detailLines).toHaveLength(2);
+    expect(input.detailLines![0]).toEqual({
+      content: "訪問介護",
+      quantity: 2,
+      amount: 100000,
+      selfPay: 10000,
+    });
+    expect(input.detailLines![1].content).toBe("サービス利用");
+  });
 });
 
 describe("buildReceiptInputFromPayment: 自費（給付額=0）", () => {

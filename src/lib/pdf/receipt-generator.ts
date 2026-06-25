@@ -112,6 +112,20 @@ const styles = StyleSheet.create({
   sealBox: { width: 70, height: 46, border: `0.7px solid ${BORDER}` },
   sealLabel: { fontSize: 7, textAlign: "center", paddingTop: 2, borderBottom: `0.4px solid ${LINE}` },
   footnote: { fontSize: 7, color: "#555", marginTop: 8 },
+  // サービス利用明細書（2ページ目）
+  detailHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 },
+  detailRecipient: { fontSize: 10, width: "25%" },
+  detailTitle: { fontSize: 13, textAlign: "center", width: "50%" },
+  detailMeta: { fontSize: 8, textAlign: "right", width: "25%", color: "#444" },
+  detailTable: { borderTop: `0.7px solid ${BORDER}` },
+  detailHeadRow: { flexDirection: "row", borderBottom: `0.7px solid ${BORDER}`, backgroundColor: HEAD_BG },
+  detailRow: { flexDirection: "row", borderBottom: `0.4px solid ${LINE}` },
+  detailTotalRow: { flexDirection: "row", borderBottom: `0.7px solid ${BORDER}`, borderTop: `0.7px solid ${BORDER}` },
+  dCellContent: { flex: 4, padding: 4, fontSize: 9, borderRight: `0.4px solid ${LINE}` },
+  dCellQty: { flex: 1, padding: 4, fontSize: 9, textAlign: "right", borderRight: `0.4px solid ${LINE}` },
+  dCellAmount: { flex: 1.6, padding: 4, fontSize: 9, textAlign: "right", borderRight: `0.4px solid ${LINE}` },
+  dCellSelf: { flex: 1.6, padding: 4, fontSize: 9, textAlign: "right" },
+  dHeadCell: { textAlign: "center", fontWeight: "bold" },
 });
 
 const EMPTY_ROWS = 1; // 罫線の見た目（カード決済情報・登録番号・代理受領・脚注の追記分を見込み2面で1ページに収める）
@@ -275,9 +289,65 @@ function panel(
   );
 }
 
+/** サービス利用明細書ページ（2ページ目）を構築 */
+function detailPage(m: ReceiptModel): React.ReactElement | null {
+  const d = m.detail;
+  if (!d) return null;
+
+  const headCells: React.ReactElement[] = [
+    React.createElement(Text, { key: "c", style: [styles.dCellContent, styles.dHeadCell] }, "内容"),
+  ];
+  if (d.showQuantity) headCells.push(React.createElement(Text, { key: "q", style: [styles.dCellQty, styles.dHeadCell] }, "数量"));
+  headCells.push(React.createElement(Text, { key: "a", style: [styles.dCellAmount, styles.dHeadCell] }, "金額"));
+  if (d.showSelfPay) headCells.push(React.createElement(Text, { key: "s", style: [styles.dCellSelf, styles.dHeadCell] }, "自己負担額"));
+
+  const rows = d.rows.map((r, i) => {
+    const cells: React.ReactElement[] = [
+      React.createElement(Text, { key: "c", style: styles.dCellContent }, r.content),
+    ];
+    if (d.showQuantity) cells.push(React.createElement(Text, { key: "q", style: styles.dCellQty }, r.quantity));
+    cells.push(React.createElement(Text, { key: "a", style: styles.dCellAmount }, r.amount));
+    if (d.showSelfPay) cells.push(React.createElement(Text, { key: "s", style: styles.dCellSelf }, r.selfPay));
+    return React.createElement(View, { key: `r${i}`, style: styles.detailRow }, ...cells);
+  });
+
+  // 合計行
+  const totalCells: React.ReactElement[] = [
+    React.createElement(Text, { key: "c", style: [styles.dCellContent, styles.dHeadCell] }, "合計"),
+  ];
+  if (d.showQuantity) totalCells.push(React.createElement(Text, { key: "q", style: styles.dCellQty }, ""));
+  totalCells.push(React.createElement(Text, { key: "a", style: styles.dCellAmount }, d.totalAmount));
+  if (d.showSelfPay) totalCells.push(React.createElement(Text, { key: "s", style: styles.dCellSelf }, d.totalSelfPay));
+
+  return React.createElement(
+    Page,
+    { size: "A4", style: styles.page },
+    React.createElement(
+      View,
+      { style: styles.detailHeader },
+      React.createElement(Text, { style: styles.detailRecipient }, `${m.recipientName}　様`),
+      React.createElement(Text, { style: styles.detailTitle }, `${m.billingMonth}分　サービス利用明細書`),
+      React.createElement(
+        View,
+        { style: styles.detailMeta },
+        React.createElement(Text, null, `発行日：${m.issuedAt}`),
+        React.createElement(Text, null, m.provider.name)
+      )
+    ),
+    React.createElement(
+      View,
+      { style: styles.detailTable },
+      React.createElement(View, { style: styles.detailHeadRow }, ...headCells),
+      ...rows,
+      React.createElement(View, { style: styles.detailTotalRow }, ...totalCells)
+    )
+  );
+}
+
 /** 利用料請求書兼領収書 PDF を React PDF コンポーネントとして構築 */
 export function ReceiptDocument(input: ReceiptInput): React.ReactElement {
   const m = buildReceiptModel(input);
+  const detail = detailPage(m);
   return React.createElement(
     Document,
     null,
@@ -287,7 +357,8 @@ export function ReceiptDocument(input: ReceiptInput): React.ReactElement {
       panel(m, "利用料請求書兼領収書", "領収金額（税込）"),
       React.createElement(View, { style: styles.cutLine }),
       panel(m, "利用料領収書（控）", "領収金額（税込）")
-    )
+    ),
+    detail
   );
 }
 

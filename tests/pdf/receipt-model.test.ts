@@ -190,6 +190,47 @@ describe("buildReceiptModel: カード決済表記", () => {
   });
 });
 
+describe("buildReceiptModel: サービス利用明細書", () => {
+  it("明細が無ければ detail は null", () => {
+    expect(buildReceiptModel(kaigoInput()).detail).toBeNull();
+  });
+
+  it("明細があれば行・合計を構築し、保険系は自己負担列を出す", () => {
+    const m = buildReceiptModel(
+      kaigoInput({
+        detailLines: [
+          { content: "訪問介護", amount: 100000, selfPay: 10000 },
+          { content: "訪問看護", amount: 51904, selfPay: 5191 },
+        ],
+      })
+    );
+    expect(m.detail).not.toBeNull();
+    expect(m.detail!.rows).toHaveLength(2);
+    expect(m.detail!.totalAmount).toBe("151,904円");
+    expect(m.detail!.totalSelfPay).toBe("15,191円");
+    expect(m.detail!.showSelfPay).toBe(true); // amount≠selfPay
+    expect(m.detail!.showQuantity).toBe(false);
+    expect(m.detail!.rows[0].selfPay).toBe("10,000円");
+  });
+
+  it("自費（金額=自己負担）は自己負担列を出さない、数量>1で数量列を出す", () => {
+    const m = buildReceiptModel(
+      kaigoInput({
+        detailLines: [{ content: "その他費用", amount: 5000, selfPay: 5000, quantity: 3 }],
+      })
+    );
+    expect(m.detail!.showSelfPay).toBe(false);
+    expect(m.detail!.showQuantity).toBe(true);
+    expect(m.detail!.rows[0].quantity).toBe("3");
+    expect(m.detail!.rows[0].selfPay).toBe("");
+  });
+
+  it("内容が空ならフォールバック表記", () => {
+    const m = buildReceiptModel(kaigoInput({ detailLines: [{ content: "", amount: 100 }] }));
+    expect(m.detail!.rows[0].content).toBe("サービス利用");
+  });
+});
+
 describe("buildReceiptModel: バリデーション", () => {
   it("userBurden が負だと例外", () => {
     expect(() => buildReceiptModel(kaigoInput({ userBurden: -1 }))).toThrow();

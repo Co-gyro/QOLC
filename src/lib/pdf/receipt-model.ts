@@ -94,8 +94,26 @@ export interface ReceiptInput {
    */
   collectionAgent?: string | null;
 
+  /**
+   * サービス利用明細（明細書ページ用）。1件以上あると2ページ目に明細書を出力する。
+   * QOLCの実データでは statement_lines（サービス名/数量/金額/自己負担額）から構築。
+   */
+  detailLines?: ReceiptDetailLine[];
+
   /** 脚注を上書き（未指定は医療カテゴリのみ既定の四捨五入注記が入る） */
   footnote?: string;
+}
+
+/** サービス利用明細の1行（明細書ページ） */
+export interface ReceiptDetailLine {
+  /** 内容（サービス名） */
+  content: string;
+  /** 数量。1以下や未指定は明細書に数量列を出さない判定に使う */
+  quantity?: number | null;
+  /** 金額（費用総額） */
+  amount: number;
+  /** うち自己負担額 */
+  selfPay?: number | null;
 }
 
 /** カード決済情報 */
@@ -151,6 +169,29 @@ export interface ReceiptModel {
   invoiceRegistrationNumber: string | null;
   /** 集金代行（代理受領）の明記。null は非表示 */
   agentLine: string | null;
+  /** サービス利用明細書（2ページ目）。null は出力しない */
+  detail: ReceiptDetailModel | null;
+}
+
+/** サービス利用明細書（描画用に解決済み） */
+export interface ReceiptDetailModel {
+  rows: Array<{
+    content: string;
+    /** 数量表示（数量列を出さない場合は ""） */
+    quantity: string;
+    /** 金額（費用総額）表示 */
+    amount: string;
+    /** 自己負担額表示（列を出さない場合は ""） */
+    selfPay: string;
+  }>;
+  /** 金額合計（費用総額） */
+  totalAmount: string;
+  /** 自己負担額合計 */
+  totalSelfPay: string;
+  /** 数量列を表示するか（いずれかの行で数量>1のとき） */
+  showQuantity: boolean;
+  /** 自己負担額列を表示するか（費用総額と自己負担が異なる行があるとき＝保険系） */
+  showSelfPay: boolean;
 }
 
 /** 3桁区切りの数値文字列（単位なし・小数切り捨て）。例: 15,191 */
@@ -251,6 +292,7 @@ export function buildReceiptModel(input: ReceiptInput): ReceiptModel {
   const tax10 = input.tax10 ?? ZERO_TAX;
   const tax8 = input.tax8 ?? ZERO_TAX;
   const card = resolveCardPayment(input.payment);
+  const detail = buildDetailModel(input.detailLines);
 
   return {
     category: input.category,
@@ -273,6 +315,44 @@ export function buildReceiptModel(input: ReceiptInput): ReceiptModel {
     stampDutyNote: card.stampDutyNote,
     invoiceRegistrationNumber: input.invoiceRegistrationNumber ?? null,
     agentLine: resolveAgentLine(input.collectionAgent),
+    detail,
+  };
+}
+
+/**
+ * サービス利用明細書（2ページ目）を構築する。明細が無ければ null。
+ * - 数量列: いずれかの行で数量>1 のときのみ表示
+ * - 自己負担額列: いずれかの行で 金額≠自己負担（＝保険給付あり）のときのみ表示
+ */
+function buildDetailModel(
+  lines: ReceiptDetailLine[] | undefined
+): ReceiptDetailModel | null {
+  if (!lines || lines.length === 0) return null;
+
+  const showQuantity = lines.some((l) => (l.quantity ?? 0) > 1);
+  const showSelfPay = lines.some(
+    (l) => l.selfPay != null && l.selfPay !== l.amount
+  );
+
+  let totalAmount = 0;
+  let totalSelfPay = 0;
+  const rows = lines.map((l) => {
+    totalAmount += l.amount ?? 0;
+    totalSelfPay += l.selfPay ?? 0;
+    return {
+      content: l.content || "サービス利用",
+      quantity: showQuantity && (l.quantity ?? 0) > 0 ? String(l.quantity) : "",
+      amount: formatYen(l.amount),
+      selfPay: showSelfPay && l.selfPay != null ? formatYen(l.selfPay) : "",
+    };
+  });
+
+  return {
+    rows,
+    totalAmount: formatYen(totalAmount),
+    totalSelfPay: formatYen(totalSelfPay),
+    showQuantity,
+    showSelfPay,
   };
 }
 

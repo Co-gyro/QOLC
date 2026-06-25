@@ -31,6 +31,7 @@ export interface PaymentReceiptData {
     amount: number;
     self_pay_amount: number;
     service_name: string | null;
+    quantity?: number | null;
   }>;
   /** 入居者（宛名） */
   resident: { name_last: string; name_first: string };
@@ -123,6 +124,15 @@ export function buildReceiptInputFromPayment(
     },
     collectionAgent: data.collectionAgent,
     invoiceRegistrationNumber: data.invoiceRegistrationNumber,
+    // サービス利用明細書（2ページ目）の元データ。明細があるときのみ付与。
+    detailLines: lines.length
+      ? lines.map((l) => ({
+          content: l.service_name ?? "サービス利用",
+          quantity: l.quantity ?? null,
+          amount: l.amount ?? 0,
+          selfPay: l.self_pay_amount ?? null,
+        }))
+      : undefined,
   };
 
   // 保険系のみ費用総額を渡す（モデルが給付額を導出）。自費は本人負担のみ。

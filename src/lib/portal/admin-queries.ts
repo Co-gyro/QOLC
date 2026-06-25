@@ -121,6 +121,8 @@ export interface MerchantRow {
   mallCode: string | null;
   terminalId: string | null;
   uploadFormatId: string | null;
+  invoiceRegistrationNumber: string | null;
+  receiptCategory: string | null;
   facilityCount: number;
 }
 
@@ -133,6 +135,8 @@ interface RawMerchant {
   mall_code: string | null;
   terminal_id: string | null;
   upload_format_id: string | null;
+  invoice_registration_number: string | null;
+  receipt_category: string | null;
   facility_merchant_relations: { count: number }[];
 }
 
@@ -142,7 +146,7 @@ export async function fetchMerchants(): Promise<MerchantRow[]> {
   const { data, error } = await supabase
     .from("merchants")
     .select(
-      "id, name, name_kana, address, phone, mall_code, terminal_id, upload_format_id, facility_merchant_relations(count)"
+      "id, name, name_kana, address, phone, mall_code, terminal_id, upload_format_id, invoice_registration_number, receipt_category, facility_merchant_relations(count)"
     )
     .is("deleted_at", null)
     .order("created_at", { ascending: true });
@@ -157,6 +161,8 @@ export async function fetchMerchants(): Promise<MerchantRow[]> {
     mallCode: r.mall_code,
     terminalId: r.terminal_id,
     uploadFormatId: r.upload_format_id,
+    invoiceRegistrationNumber: r.invoice_registration_number,
+    receiptCategory: r.receipt_category,
     facilityCount: r.facility_merchant_relations?.[0]?.count ?? 0,
   }));
 }
@@ -176,7 +182,15 @@ export async function fetchUploadFormats(): Promise<UploadFormatOption[]> {
 /** 加盟店の基本情報更新（プールは変更しない） */
 export async function updateMerchant(
   id: string,
-  v: { name: string; name_kana?: string; address?: string; phone?: string; upload_format_id?: string | null }
+  v: {
+    name: string;
+    name_kana?: string;
+    address?: string;
+    phone?: string;
+    upload_format_id?: string | null;
+    invoice_registration_number?: string;
+    receipt_category?: "kaigo" | "iryou" | "jihi" | "" | null;
+  }
 ): Promise<void> {
   const supabase = createSupabaseBrowserClient();
   const { error } = await supabase
@@ -187,6 +201,8 @@ export async function updateMerchant(
       address: v.address?.trim() || null,
       phone: v.phone?.trim() || null,
       upload_format_id: v.upload_format_id || null,
+      invoice_registration_number: v.invoice_registration_number?.trim() || null,
+      receipt_category: v.receipt_category || null,
     })
     .eq("id", id);
   if (error) throw new Error(`加盟店の更新に失敗しました: ${error.message}`);
@@ -228,6 +244,8 @@ export async function createMerchant(v: {
   address?: string;
   phone?: string;
   upload_format_id?: string | null;
+  invoice_registration_number?: string;
+  receipt_category?: "kaigo" | "iryou" | "jihi" | "" | null;
   assign_mall_code?: boolean;
   assign_terminal_id?: boolean;
 }): Promise<{ id: string; mallCode: string | null; terminalId: string | null }> {

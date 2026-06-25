@@ -37,6 +37,20 @@ export const merchantFormSchema = z.object({
   assign_mall_code: z.boolean().optional(),
   assign_terminal_id: z.boolean().optional(),
   upload_format_id: z.string().uuid().nullable().optional(),
+  /** 適格請求書発行事業者 登録番号(T+13桁)。請求書/領収書のインボイス表記に使用 */
+  invoice_registration_number: z
+    .string()
+    .trim()
+    .regex(/^(T\d{13})?$/, "登録番号は T+13桁（例: T1234567890123）で入力してください")
+    .max(14)
+    .optional()
+    .or(z.literal("")),
+  /** 領収書の既定区分。空は自動判定（給付額から推定） */
+  receipt_category: z
+    .enum(["kaigo", "iryou", "jihi"])
+    .or(z.literal(""))
+    .nullable()
+    .optional(),
 });
 export type MerchantFormValues = z.infer<typeof merchantFormSchema>;
 

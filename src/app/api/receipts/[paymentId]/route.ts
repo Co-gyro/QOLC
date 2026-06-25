@@ -82,7 +82,7 @@ export async function GET(
       .maybeSingle(),
     admin
       .from("merchants")
-      .select("name, address, phone")
+      .select("name, address, phone, invoice_registration_number, receipt_category")
       .eq("id", payment.merchant_id)
       .maybeSingle(),
   ]);
@@ -95,12 +95,16 @@ export async function GET(
     ? (await admin.from("facilities").select("name, address").eq("id", resident.facility_id).maybeSingle()).data
     : null;
 
-  // カテゴリ上書き（クエリ）
+  // カテゴリの決定: ?type= 上書き > 加盟店の既定区分(receipt_category) > 給付額からの自動判定
   const typeParam = req.nextUrl.searchParams.get("type");
+  const merchantCategory =
+    merchant.receipt_category && (VALID_CATEGORIES as string[]).includes(merchant.receipt_category)
+      ? (merchant.receipt_category as ReceiptCategory)
+      : undefined;
   const category =
     typeParam && (VALID_CATEGORIES as string[]).includes(typeParam)
       ? (typeParam as ReceiptCategory)
-      : undefined;
+      : merchantCategory;
 
   const input = buildReceiptInputFromPayment({
     payment: {
@@ -114,6 +118,7 @@ export async function GET(
     facility,
     category,
     documentNo: payment.usen_jutyu_cd ?? undefined,
+    invoiceRegistrationNumber: merchant.invoice_registration_number ?? undefined,
     issuedAtIso: new Date().toISOString(),
   });
 

@@ -19,6 +19,14 @@ const bodySchema = z.object({
   address: z.string().trim().max(200).optional().or(z.literal("")),
   phone: z.string().trim().max(20).optional().or(z.literal("")),
   upload_format_id: z.string().uuid().nullable().optional(),
+  invoice_registration_number: z
+    .string()
+    .trim()
+    .regex(/^(T\d{13})?$/, "登録番号は T+13桁で入力してください")
+    .max(14)
+    .optional()
+    .or(z.literal("")),
+  receipt_category: z.enum(["kaigo", "iryou", "jihi"]).or(z.literal("")).nullable().optional(),
   assign_mall_code: z.boolean().optional(),
   assign_terminal_id: z.boolean().optional(),
 });
@@ -63,6 +71,8 @@ export async function POST(req: NextRequest) {
       address: v.address?.trim() || null,
       phone: v.phone?.trim() || null,
       upload_format_id: v.upload_format_id || null,
+      invoice_registration_number: v.invoice_registration_number?.trim() || null,
+      receipt_category: v.receipt_category || null,
     })
     .select("id")
     .single();

@@ -34,6 +34,8 @@ export function MerchantFormDialog({
     address: "",
     phone: "",
     upload_format_id: null,
+    invoice_registration_number: "",
+    receipt_category: "",
     assign_mall_code: false,
     assign_terminal_id: false,
   });
@@ -52,6 +54,9 @@ export function MerchantFormDialog({
               address: target.address ?? "",
               phone: target.phone ?? "",
               upload_format_id: target.uploadFormatId,
+              invoice_registration_number: target.invoiceRegistrationNumber ?? "",
+              receipt_category:
+                (target.receiptCategory as "kaigo" | "iryou" | "jihi" | null) ?? "",
               assign_mall_code: false,
               assign_terminal_id: false,
             }
@@ -61,6 +66,8 @@ export function MerchantFormDialog({
               address: "",
               phone: "",
               upload_format_id: null,
+              invoice_registration_number: "",
+              receipt_category: "",
               assign_mall_code: false,
               assign_terminal_id: false,
             }
@@ -156,6 +163,50 @@ export function MerchantFormDialog({
                   </span>
                 </>
               )}
+            </p>
+          </div>
+
+          {/* 領収書区分（保険種別）— 領収書カテゴリの自動判定に使う */}
+          <div>
+            <Label htmlFor="m-receipt-category">領収書区分（保険種別）</Label>
+            <select
+              id="m-receipt-category"
+              value={values.receipt_category ?? ""}
+              onChange={(e) =>
+                setValues({
+                  ...values,
+                  receipt_category: e.target.value as "kaigo" | "iryou" | "jihi" | "",
+                })
+              }
+              className="w-full border rounded px-3 py-2"
+              style={{ borderColor: "var(--qolc-border)", minHeight: 44 }}
+            >
+              <option value="">（自動判定：給付額から推定）</option>
+              <option value="kaigo">介護保険</option>
+              <option value="iryou">医療保険</option>
+              <option value="jihi">自費（その他費用）</option>
+            </select>
+            <p className="text-xs mt-1" style={{ color: "var(--qolc-muted)" }}>
+              この加盟店の領収書を「介護保険／医療保険／自費」のどれで表記するかの既定です。
+              設定すると領収書のラベル（介護保険給付額／医療保険給付額 等）が自動で切り替わります。
+              未設定の場合は給付額の有無から推定します。
+            </p>
+          </div>
+
+          {/* 適格請求書発行事業者 登録番号（インボイス） */}
+          <div>
+            <Label htmlFor="m-invoice-reg">適格請求書発行事業者 登録番号</Label>
+            <Input
+              id="m-invoice-reg"
+              value={values.invoice_registration_number ?? ""}
+              onChange={(e) =>
+                setValues({ ...values, invoice_registration_number: e.target.value })
+              }
+              placeholder="T1234567890123"
+              style={{ minHeight: 44 }}
+            />
+            <p className="text-xs mt-1" style={{ color: "var(--qolc-muted)" }}>
+              「T」＋13桁。登録するとこの加盟店の請求書・領収書にインボイス登録番号として表示されます。
             </p>
           </div>
 

@@ -36,6 +36,28 @@ describe("merchantFormSchema", () => {
   it("名前空はエラー", () => {
     expect(merchantFormSchema.safeParse({ name: "" }).success).toBe(false);
   });
+  it("適格請求書登録番号 T+13桁は有効、空も有効", () => {
+    expect(
+      merchantFormSchema.safeParse({ name: "X", invoice_registration_number: "T1234567890123" }).success
+    ).toBe(true);
+    expect(
+      merchantFormSchema.safeParse({ name: "X", invoice_registration_number: "" }).success
+    ).toBe(true);
+  });
+  it("登録番号の桁不足・T無しはエラー", () => {
+    expect(
+      merchantFormSchema.safeParse({ name: "X", invoice_registration_number: "T123" }).success
+    ).toBe(false);
+    expect(
+      merchantFormSchema.safeParse({ name: "X", invoice_registration_number: "1234567890123" }).success
+    ).toBe(false);
+  });
+  it("領収書区分は kaigo/iryou/jihi と空のみ許可", () => {
+    for (const c of ["kaigo", "iryou", "jihi", ""]) {
+      expect(merchantFormSchema.safeParse({ name: "X", receipt_category: c }).success).toBe(true);
+    }
+    expect(merchantFormSchema.safeParse({ name: "X", receipt_category: "other" }).success).toBe(false);
+  });
 });
 
 describe("residentFormSchema", () => {

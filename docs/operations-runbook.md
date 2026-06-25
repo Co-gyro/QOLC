@@ -79,6 +79,15 @@ NEXT_PUBLIC_USEN_TOKEN_JS_URL=https://payment-cdn.netmove.co.jp/ec-payment/stati
 
 > 現状 `.env.vercel.local` にはLINE/Supabase系のみ設定済み。USEN系未投入のためVercel上では決済不可。**本番でVercel決済を解禁する判断が出たタイミングで上記を投入**する（実カード実課金のためユーザー明示指示後）。
 
+### 2.4 領収書PDFの日本語フォント（必須）
+
+利用料請求書兼領収書PDF（`src/lib/pdf/receipt-generator.ts`）は日本語TTFを埋め込む。未配置だと日本語が□表示になるため、本番前に必ずフォントを供給する。解決順（優先）:
+1. `RECEIPT_FONT_PATH` … ローカルTTFの絶対パス（Node実行・Vercelでバンドルした場合）
+2. `NEXT_PUBLIC_APP_URL` … `public/fonts/NotoSansJP-Regular.ttf` をURL参照（**この場合は当該TTFを public/fonts/ に配置してデプロイ**）
+3. 相対 `/fonts/NotoSansJP-Regular.ttf`
+
+> NotoSansJP Regular は容量が大きいためリポジトリ未コミット。デプロイ時に `public/fonts/` へ配置するか、`RECEIPT_FONT_PATH` でバンドル済みフォントを指す。3ケース（介護/医療/自費）のレイアウトは実サンプル（参考「レセプト」フォルダ Type B）準拠で1ページに2面（請求書兼領収書＋控）を収める。
+
 ---
 
 ## 3. 決済の締め・反映サイクル

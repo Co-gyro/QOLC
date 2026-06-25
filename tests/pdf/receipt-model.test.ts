@@ -190,12 +190,12 @@ describe("buildReceiptModel: カード決済表記", () => {
   });
 });
 
-describe("buildReceiptModel: サービス利用明細書", () => {
+describe("buildReceiptModel: サービス利用明細書（円ベース・A案）", () => {
   it("明細が無ければ detail は null", () => {
     expect(buildReceiptModel(kaigoInput()).detail).toBeNull();
   });
 
-  it("明細があれば行・合計を構築し、保険系は自己負担列を出す", () => {
+  it("保険系は内容/金額/自己負担額の列＋合計行", () => {
     const m = buildReceiptModel(
       kaigoInput({
         detailLines: [
@@ -204,13 +204,10 @@ describe("buildReceiptModel: サービス利用明細書", () => {
         ],
       })
     );
-    expect(m.detail).not.toBeNull();
+    expect(m.detail!.columns).toEqual(["内容", "金額", "自己負担額"]);
     expect(m.detail!.rows).toHaveLength(2);
-    expect(m.detail!.totalAmount).toBe("151,904円");
-    expect(m.detail!.totalSelfPay).toBe("15,191円");
-    expect(m.detail!.showSelfPay).toBe(true); // amount≠selfPay
-    expect(m.detail!.showQuantity).toBe(false);
-    expect(m.detail!.rows[0].selfPay).toBe("10,000円");
+    expect(m.detail!.rows[0]).toEqual(["訪問介護", "100,000円", "10,000円"]);
+    expect(m.detail!.totalRow).toEqual(["合計", "151,904円", "15,191円"]);
   });
 
   it("自費（金額=自己負担）は自己負担列を出さない、数量>1で数量列を出す", () => {
@@ -219,15 +216,31 @@ describe("buildReceiptModel: サービス利用明細書", () => {
         detailLines: [{ content: "その他費用", amount: 5000, selfPay: 5000, quantity: 3 }],
       })
     );
-    expect(m.detail!.showSelfPay).toBe(false);
-    expect(m.detail!.showQuantity).toBe(true);
-    expect(m.detail!.rows[0].quantity).toBe("3");
-    expect(m.detail!.rows[0].selfPay).toBe("");
+    expect(m.detail!.columns).toEqual(["内容", "数量", "金額"]);
+    expect(m.detail!.rows[0]).toEqual(["その他費用", "3", "5,000円"]);
   });
 
   it("内容が空ならフォールバック表記", () => {
     const m = buildReceiptModel(kaigoInput({ detailLines: [{ content: "", amount: 100 }] }));
-    expect(m.detail!.rows[0].content).toBe("サービス利用");
+    expect(m.detail!.rows[0][0]).toBe("サービス利用");
+  });
+});
+
+describe("buildReceiptModel: サービス利用明細書（単位ベース・B案/レセプト）", () => {
+  it("単位系フィールドがあると 内容/単位数/回数/合計単位数 で構築", () => {
+    const m = buildReceiptModel(
+      kaigoInput({
+        detailLines: [
+          { content: "通所介護（2241）", unitScore: 370, count: 1, totalUnits: 370 },
+          { content: "通所介護（2246）", unitScore: 388, count: 8, totalUnits: 3104 },
+          { content: "訪問介護同一建物減算3", unitScore: 0, count: 1, totalUnits: -777 },
+        ],
+      })
+    );
+    expect(m.detail!.columns).toEqual(["内容", "単位数", "回数", "合計単位数"]);
+    expect(m.detail!.rows[0]).toEqual(["通所介護（2241）", "370", "1", "370"]);
+    expect(m.detail!.rows[2]).toEqual(["訪問介護同一建物減算3", "", "1", "-777"]);
+    expect(m.detail!.totalRow).toEqual(["合計", "", "", "2,697"]); // 370+3104-777
   });
 });
 

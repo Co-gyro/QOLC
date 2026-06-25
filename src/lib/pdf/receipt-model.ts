@@ -104,16 +104,28 @@ export interface ReceiptInput {
   footnote?: string;
 }
 
-/** サービス利用明細の1行（明細書ページ） */
+/**
+ * サービス利用明細の1行（明細書ページ）。
+ * 円ベース（A: statement_lines）と単位ベース（B: レセプト区分02）の両対応。
+ * 単位系フィールド（unitScore/totalUnits）が1つでもあると単位ベースで描画する。
+ */
 export interface ReceiptDetailLine {
   /** 内容（サービス名） */
   content: string;
-  /** 数量。1以下や未指定は明細書に数量列を出さない判定に使う */
-  quantity?: number | null;
+  // 円ベース（A）
   /** 金額（費用総額） */
-  amount: number;
+  amount?: number;
   /** うち自己負担額 */
   selfPay?: number | null;
+  /** 数量。1以下や未指定は数量列を出さない判定に使う */
+  quantity?: number | null;
+  // 単位ベース（B: レセプト区分02）
+  /** 単位数（単価） */
+  unitScore?: number | null;
+  /** 回数・日数 */
+  count?: number | null;
+  /** 合計単位数 */
+  totalUnits?: number | null;
 }
 
 /** カード決済情報 */
@@ -173,25 +185,19 @@ export interface ReceiptModel {
   detail: ReceiptDetailModel | null;
 }
 
-/** サービス利用明細書（描画用に解決済み） */
+/**
+ * サービス利用明細書（描画用に解決済み・汎用テーブル）。
+ * 円ベース/単位ベースのどちらも columns/rows/totalRow で表現する。
+ */
 export interface ReceiptDetailModel {
-  rows: Array<{
-    content: string;
-    /** 数量表示（数量列を出さない場合は ""） */
-    quantity: string;
-    /** 金額（費用総額）表示 */
-    amount: string;
-    /** 自己負担額表示（列を出さない場合は ""） */
-    selfPay: string;
-  }>;
-  /** 金額合計（費用総額） */
-  totalAmount: string;
-  /** 自己負担額合計 */
-  totalSelfPay: string;
-  /** 数量列を表示するか（いずれかの行で数量>1のとき） */
-  showQuantity: boolean;
-  /** 自己負担額列を表示するか（費用総額と自己負担が異なる行があるとき＝保険系） */
-  showSelfPay: boolean;
+  /** ヘッダ列ラベル */
+  columns: string[];
+  /** 各列の寄せ（内容列=left、数値列=right） */
+  aligns: Array<"left" | "right">;
+  /** 各行のセル文字列（columns と同数） */
+  rows: string[][];
+  /** 合計行（先頭="合計"、非集計列は ""） */
+  totalRow: string[];
 }
 
 /** 3桁区切りの数値文字列（単位なし・小数切り捨て）。例: 15,191 */
@@ -321,39 +327,65 @@ export function buildReceiptModel(input: ReceiptInput): ReceiptModel {
 
 /**
  * サービス利用明細書（2ページ目）を構築する。明細が無ければ null。
- * - 数量列: いずれかの行で数量>1 のときのみ表示
- * - 自己負担額列: いずれかの行で 金額≠自己負担（＝保険給付あり）のときのみ表示
+ * 単位系フィールド（unitScore/totalUnits）があれば単位ベース、無ければ円ベースで構築。
  */
 function buildDetailModel(
   lines: ReceiptDetailLine[] | undefined
 ): ReceiptDetailModel | null {
   if (!lines || lines.length === 0) return null;
+  const unitMode = lines.some((l) => l.unitScore != null || l.totalUnits != null);
+  return unitMode ? buildUnitDetail(lines) : buildYenDetail(lines);
+}
 
+/** 単位ベース明細（B案: レセプト区分02）。内容/単位数/回数/合計単位数 */
+function buildUnitDetail(lines: ReceiptDetailLine[]): ReceiptDetailModel {
+  let totalUnits = 0;
+  const rows = lines.map((l) => {
+    totalUnits += l.totalUnits ?? 0;
+    return [
+      l.content || "サービス利用",
+      l.unitScore != null && l.unitScore !== 0 ? formatNumber(l.unitScore) : "",
+      l.count != null && l.count !== 0 ? formatNumber(l.count) : "",
+      l.totalUnits != null ? formatNumber(l.totalUnits) : "",
+    ];
+  });
+  return {
+    columns: ["内容", "単位数", "回数", "合計単位数"],
+    aligns: ["left", "right", "right", "right"],
+    rows,
+    totalRow: ["合計", "", "", formatNumber(totalUnits)],
+  };
+}
+
+/** 円ベース明細（A案: statement_lines）。内容/[数量]/金額/[自己負担額] */
+function buildYenDetail(lines: ReceiptDetailLine[]): ReceiptDetailModel {
   const showQuantity = lines.some((l) => (l.quantity ?? 0) > 1);
-  const showSelfPay = lines.some(
-    (l) => l.selfPay != null && l.selfPay !== l.amount
-  );
+  const showSelfPay = lines.some((l) => l.selfPay != null && l.selfPay !== l.amount);
+
+  const columns = ["内容"];
+  const aligns: Array<"left" | "right"> = ["left"];
+  if (showQuantity) { columns.push("数量"); aligns.push("right"); }
+  columns.push("金額"); aligns.push("right");
+  if (showSelfPay) { columns.push("自己負担額"); aligns.push("right"); }
 
   let totalAmount = 0;
   let totalSelfPay = 0;
   const rows = lines.map((l) => {
     totalAmount += l.amount ?? 0;
     totalSelfPay += l.selfPay ?? 0;
-    return {
-      content: l.content || "サービス利用",
-      quantity: showQuantity && (l.quantity ?? 0) > 0 ? String(l.quantity) : "",
-      amount: formatYen(l.amount),
-      selfPay: showSelfPay && l.selfPay != null ? formatYen(l.selfPay) : "",
-    };
+    const cells = [l.content || "サービス利用"];
+    if (showQuantity) cells.push((l.quantity ?? 0) > 0 ? formatNumber(l.quantity as number) : "");
+    cells.push(formatYen(l.amount ?? 0));
+    if (showSelfPay) cells.push(l.selfPay != null ? formatYen(l.selfPay) : "");
+    return cells;
   });
 
-  return {
-    rows,
-    totalAmount: formatYen(totalAmount),
-    totalSelfPay: formatYen(totalSelfPay),
-    showQuantity,
-    showSelfPay,
-  };
+  const totalRow = ["合計"];
+  if (showQuantity) totalRow.push("");
+  totalRow.push(formatYen(totalAmount));
+  if (showSelfPay) totalRow.push(formatYen(totalSelfPay));
+
+  return { columns, aligns, rows, totalRow };
 }
 
 /**

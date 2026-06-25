@@ -37,6 +37,23 @@
 import { convert } from "encoding-japanese";
 import Papa from "papaparse";
 
+/**
+ * サービス明細（7131-02）1行。サービスコード単位の単位数・回数。
+ * レセプトには日付・時間は含まれない（月単位でサービスコードごとに集約）。
+ */
+export interface KaigoServiceDetail {
+  /** サービス種類コード（2桁。例 11=訪問介護, 13=訪問看護, 15=通所介護） */
+  serviceTypeCode: string;
+  /** サービス項目コード（4桁。例 1111） */
+  serviceItemCode: string;
+  /** 単位数（単価） */
+  unitScore: number;
+  /** 回数・日数 */
+  count: number;
+  /** サービス単位数（合計＝単位数×回数 等、レセプト記載値） */
+  totalUnits: number;
+}
+
 /** 1利用者の1月分の介護保険請求情報 */
 export interface KaigoReceiptResident {
   /** 被保険者番号 (10桁、先頭0保持の文字列) */
@@ -57,6 +74,8 @@ export interface KaigoReceiptResident {
   insuranceClaim: number;
   /** 利用者負担額（円）★ QOLCで決済する金額 */
   userBurden: number;
+  /** サービス明細（区分02）。明細書(B案)用。日付・時間はレセプトに無い */
+  serviceDetails: KaigoServiceDetail[];
 }
 
 /** パース時の警告（処理は継続される非致命的問題） */
@@ -107,6 +126,8 @@ export function parseKaigoCsv(
   let facilityNumber = "";
   let processingMonth = "";
   const residents: KaigoReceiptResident[] = [];
+  // 区分02を被保険者番号で対応付けるための索引（同一ファイル内で一意）
+  const byInsuranceNumber = new Map<string, KaigoReceiptResident>();
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -139,12 +160,21 @@ export function parseKaigoCsv(
     // 明細書基本情報レコード (7131/7141 など、区分=01) ← QOLCの主処理対象
     if ((dataKind === "7131" || dataKind === "7141") && subKubun === "01") {
       const resident = parseDetailHeaderRow(row, i + 1, warnings);
-      if (resident) residents.push(resident);
+      if (resident) {
+        residents.push(resident);
+        byInsuranceNumber.set(resident.insuranceNumber, resident);
+      }
       continue;
     }
 
-    // 区分=02 以降はサービス明細。QOLC は利用者負担額を直読する方針のため
-    // 集約計算は不要。スキップ。
+    // 区分=02 はサービス明細（サービスコード別の単位数・回数）。明細書(B案)用に捕捉。
+    // 本人負担額は区分01から直読するため金額計算には使わない。
+    if ((dataKind === "7131" || dataKind === "7141") && subKubun === "02") {
+      const detail = parseServiceDetailRow(row);
+      const owner = byInsuranceNumber.get(trim(row[7]));
+      if (detail && owner) owner.serviceDetails.push(detail);
+      continue;
+    }
   }
 
   return {
@@ -192,6 +222,26 @@ function parseDetailHeaderRow(
     totalUnits: toIntOrZero(row[34]),
     insuranceClaim: toIntOrZero(row[35]),
     userBurden,
+    serviceDetails: [],
+  };
+}
+
+/**
+ * サービス明細レコード（7131-02）を1件パースする。
+ * フィールド位置: [8]=サービス種類コード [9]=サービス項目コード
+ *   [10]=単位数(単価) [11]=回数/日数 [15]=サービス単位数(合計)
+ * サービス項目コードが空の行（区切り等）は null。
+ */
+function parseServiceDetailRow(row: string[]): KaigoServiceDetail | null {
+  const serviceTypeCode = trim(row[8]);
+  const serviceItemCode = trim(row[9]);
+  if (!serviceTypeCode && !serviceItemCode) return null;
+  return {
+    serviceTypeCode,
+    serviceItemCode,
+    unitScore: toIntOrZero(row[10]),
+    count: toIntOrZero(row[11]),
+    totalUnits: toIntOrZero(row[15]),
   };
 }
 

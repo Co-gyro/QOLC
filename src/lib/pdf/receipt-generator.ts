@@ -121,10 +121,12 @@ const styles = StyleSheet.create({
   detailHeadRow: { flexDirection: "row", borderBottom: `0.7px solid ${BORDER}`, backgroundColor: HEAD_BG },
   detailRow: { flexDirection: "row", borderBottom: `0.4px solid ${LINE}` },
   detailTotalRow: { flexDirection: "row", borderBottom: `0.7px solid ${BORDER}`, borderTop: `0.7px solid ${BORDER}` },
+  // 内容列（広め）/ 数値列（狭め）。寄せは dLeft/dRight で付与。
   dCellContent: { flex: 4, padding: 4, fontSize: 9, borderRight: `0.4px solid ${LINE}` },
-  dCellQty: { flex: 1, padding: 4, fontSize: 9, textAlign: "right", borderRight: `0.4px solid ${LINE}` },
-  dCellAmount: { flex: 1.6, padding: 4, fontSize: 9, textAlign: "right", borderRight: `0.4px solid ${LINE}` },
-  dCellSelf: { flex: 1.6, padding: 4, fontSize: 9, textAlign: "right" },
+  dCellNum: { flex: 1.6, padding: 4, fontSize: 9, borderRight: `0.4px solid ${LINE}` },
+  dCellLast: {},
+  dLeft: { textAlign: "left" },
+  dRight: { textAlign: "right" },
   dHeadCell: { textAlign: "center", fontWeight: "bold" },
 });
 
@@ -289,35 +291,49 @@ function panel(
   );
 }
 
-/** サービス利用明細書ページ（2ページ目）を構築 */
+/** 1セルのスタイル（先頭=内容列は広め左寄せ、以降は右寄せ） */
+function detailCellStyle(colIndex: number, align: "left" | "right", isHead: boolean) {
+  const base = colIndex === 0 ? styles.dCellContent : styles.dCellNum;
+  const last = styles.dCellLast; // 右端は右ボーダー無し（後段で個別調整しないため共通）
+  void last;
+  const alignStyle = align === "right" ? styles.dRight : styles.dLeft;
+  return isHead ? [base, alignStyle, styles.dHeadCell] : [base, alignStyle];
+}
+
+/** サービス利用明細書ページ（2ページ目）を構築。円ベース/単位ベース共通の汎用テーブル。 */
 function detailPage(m: ReceiptModel): React.ReactElement | null {
   const d = m.detail;
   if (!d) return null;
 
-  const headCells: React.ReactElement[] = [
-    React.createElement(Text, { key: "c", style: [styles.dCellContent, styles.dHeadCell] }, "内容"),
-  ];
-  if (d.showQuantity) headCells.push(React.createElement(Text, { key: "q", style: [styles.dCellQty, styles.dHeadCell] }, "数量"));
-  headCells.push(React.createElement(Text, { key: "a", style: [styles.dCellAmount, styles.dHeadCell] }, "金額"));
-  if (d.showSelfPay) headCells.push(React.createElement(Text, { key: "s", style: [styles.dCellSelf, styles.dHeadCell] }, "自己負担額"));
+  const headRow = React.createElement(
+    View,
+    { style: styles.detailHeadRow },
+    ...d.columns.map((c, i) =>
+      React.createElement(Text, { key: `h${i}`, style: detailCellStyle(i, d.aligns[i], true) }, c)
+    )
+  );
 
-  const rows = d.rows.map((r, i) => {
-    const cells: React.ReactElement[] = [
-      React.createElement(Text, { key: "c", style: styles.dCellContent }, r.content),
-    ];
-    if (d.showQuantity) cells.push(React.createElement(Text, { key: "q", style: styles.dCellQty }, r.quantity));
-    cells.push(React.createElement(Text, { key: "a", style: styles.dCellAmount }, r.amount));
-    if (d.showSelfPay) cells.push(React.createElement(Text, { key: "s", style: styles.dCellSelf }, r.selfPay));
-    return React.createElement(View, { key: `r${i}`, style: styles.detailRow }, ...cells);
-  });
+  const bodyRows = d.rows.map((cells, ri) =>
+    React.createElement(
+      View,
+      { key: `r${ri}`, style: styles.detailRow },
+      ...cells.map((cell, ci) =>
+        React.createElement(Text, { key: `c${ci}`, style: detailCellStyle(ci, d.aligns[ci], false) }, cell)
+      )
+    )
+  );
 
-  // 合計行
-  const totalCells: React.ReactElement[] = [
-    React.createElement(Text, { key: "c", style: [styles.dCellContent, styles.dHeadCell] }, "合計"),
-  ];
-  if (d.showQuantity) totalCells.push(React.createElement(Text, { key: "q", style: styles.dCellQty }, ""));
-  totalCells.push(React.createElement(Text, { key: "a", style: styles.dCellAmount }, d.totalAmount));
-  if (d.showSelfPay) totalCells.push(React.createElement(Text, { key: "s", style: styles.dCellSelf }, d.totalSelfPay));
+  const totalRow = React.createElement(
+    View,
+    { style: styles.detailTotalRow },
+    ...d.totalRow.map((cell, ci) =>
+      React.createElement(
+        Text,
+        { key: `t${ci}`, style: detailCellStyle(ci, d.aligns[ci], ci === 0) },
+        cell
+      )
+    )
+  );
 
   return React.createElement(
     Page,
@@ -337,9 +353,9 @@ function detailPage(m: ReceiptModel): React.ReactElement | null {
     React.createElement(
       View,
       { style: styles.detailTable },
-      React.createElement(View, { style: styles.detailHeadRow }, ...headCells),
-      ...rows,
-      React.createElement(View, { style: styles.detailTotalRow }, ...totalCells)
+      headRow,
+      ...bodyRows,
+      totalRow
     )
   );
 }

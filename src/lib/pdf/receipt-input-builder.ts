@@ -14,7 +14,9 @@
  *   - 給付額 > 0 → 保険（既定 kaigo。医療/介護は明細から判別不可のため override 可）
  *   - 給付額 = 0 → jihi（全額自己負担＝その他費用）
  */
-import type { ReceiptCategory, ReceiptInput } from "./receipt-model";
+import type { ReceiptCategory, ReceiptInput, ReceiptDetailLine } from "./receipt-model";
+import { resolveServiceName } from "@/lib/receipt/kaigo-service-codes";
+import type { KaigoServiceDetail } from "@/lib/receipt/kaigo-csv";
 
 /** 領収書生成に必要な決済関連データ（DB取得済みの素の値） */
 export interface PaymentReceiptData {
@@ -51,6 +53,22 @@ export interface PaymentReceiptData {
   collectionAgent?: string | null;
   /** 適格請求書発行事業者 登録番号（T+13桁）。任意 */
   invoiceRegistrationNumber?: string;
+}
+
+/**
+ * 介護レセプトのサービス明細（区分02）を、明細書ページ用の単位ベース明細行に変換する。
+ * サービス名はサービスコード表マスタで解決（未取り込みの項目はコード併記）。
+ * レセプトには日付・時間が無いため、サービスコード単位の単位数・回数で構成する（B案）。
+ */
+export function buildKaigoDetailLines(
+  serviceDetails: KaigoServiceDetail[]
+): ReceiptDetailLine[] {
+  return serviceDetails.map((d) => ({
+    content: resolveServiceName(d.serviceTypeCode, d.serviceItemCode),
+    unitScore: d.unitScore,
+    count: d.count,
+    totalUnits: d.totalUnits,
+  }));
 }
 
 /** ISO文字列(yyyy-mm-dd...) を和暦の年月日に分解（TZ非依存・先頭10文字を使用） */

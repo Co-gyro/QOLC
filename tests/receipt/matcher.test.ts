@@ -38,6 +38,7 @@ function buildKaigoReceipt(overrides: Partial<KaigoReceiptResident>): KaigoRecei
     totalUnits: 0,
     insuranceClaim: 100000,
     userBurden: 10000,
+    serviceDetails: [],
     ...overrides,
   };
 }

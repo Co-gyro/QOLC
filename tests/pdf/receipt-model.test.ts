@@ -5,6 +5,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildReceiptModel,
+  allocateByWeights,
   formatYen,
   formatNumber,
   formatBenefit,
@@ -226,21 +227,80 @@ describe("buildReceiptModel: サービス利用明細書（円ベース・A案�
   });
 });
 
-describe("buildReceiptModel: サービス利用明細書（単位ベース・B案/レセプト）", () => {
-  it("単位系フィールドがあると 内容/単位数/回数/合計単位数 で構築", () => {
+describe("allocateByWeights（金額の項目配分）", () => {
+  it("重み比で配分し合計は厳密一致", () => {
+    expect(allocateByWeights(1000, [60, 40])).toEqual([600, 400]);
+  });
+  it("端数は最大剰余で配分（合計一致）", () => {
+    const r = allocateByWeights(100, [1, 1, 1]);
+    expect(r.reduce((s, v) => s + v, 0)).toBe(100);
+    expect(r).toEqual([34, 33, 33]);
+  });
+  it("負の重み（減算行）でも合計一致", () => {
+    const r = allocateByWeights(151904, [370, 3104, -777]);
+    expect(r.reduce((s, v) => s + v, 0)).toBe(151904);
+  });
+  it("重み合計0は先頭に全額", () => {
+    expect(allocateByWeights(500, [0, 0])).toEqual([500, 0]);
+  });
+});
+
+describe("buildReceiptModel: サービス利用明細書（B案・項目別フル/横向き）", () => {
+  it("保険系+単位明細は 内容/単位数/回数/費用総額/給付額/自己負担額 を項目別に配分", () => {
     const m = buildReceiptModel(
       kaigoInput({
+        userBurden: 100,
+        costTotal: 1000,
         detailLines: [
-          { content: "通所介護（2241）", unitScore: 370, count: 1, totalUnits: 370 },
-          { content: "通所介護（2246）", unitScore: 388, count: 8, totalUnits: 3104 },
-          { content: "訪問介護同一建物減算3", unitScore: 0, count: 1, totalUnits: -777 },
+          { content: "通所介護Ⅰ１１", unitScore: 370, count: 1, totalUnits: 60 },
+          { content: "通所介護Ⅰ２１", unitScore: 388, count: 8, totalUnits: 40 },
         ],
       })
     );
+    const d = m.detail!;
+    expect(d.columns).toEqual(["内容", "単位数", "回数", "費用総額", "保険給付額", "自己負担額"]);
+    expect(d.landscape).toBe(true);
+    expect(d.note).toContain("按分");
+    // 配分: 費用 600/400, 自己負担 60/40, 給付=費用-自己負担 540/360
+    expect(d.rows[0]).toEqual(["通所介護Ⅰ１１", "370", "1", "600円", "540円", "60円"]);
+    expect(d.rows[1]).toEqual(["通所介護Ⅰ２１", "388", "8", "400円", "360円", "40円"]);
+    // 合計は確定額に一致（自己負担合計=領収額）
+    expect(d.totalRow).toEqual(["合計", "", "", "1,000円", "900円", "100円"]);
+  });
+
+  it("各金額列の行合計は確定額（領収額）に厳密一致する", () => {
+    const m = buildReceiptModel(
+      kaigoInput({
+        userBurden: 17464,
+        costTotal: 174631,
+        detailLines: [
+          { content: "A", unitScore: 370, count: 1, totalUnits: 370 },
+          { content: "B", unitScore: 388, count: 8, totalUnits: 3104 },
+          { content: "C", unitScore: 658, count: 17, totalUnits: 11186 },
+          { content: "減算", unitScore: 0, count: 1, totalUnits: -156 },
+        ],
+      })
+    );
+    const yen = (s: string) => Number(s.replace(/[円,]/g, ""));
+    const d = m.detail!;
+    const sumCost = d.rows.reduce((s, r) => s + yen(r[3]), 0);
+    const sumSelf = d.rows.reduce((s, r) => s + yen(r[5]), 0);
+    expect(sumCost).toBe(174631);
+    expect(sumSelf).toBe(17464); // = 領収額
+  });
+
+  it("総額が無い単位明細（自費等）は 内容/単位数/回数/合計単位数 にフォールバック", () => {
+    const m = buildReceiptModel({
+      category: "jihi",
+      issuedAt: "x",
+      billingMonth: "y",
+      recipientName: "z",
+      userBurden: 1000,
+      provider: { name: "p" },
+      detailLines: [{ content: "サービス", unitScore: 50, count: 2, totalUnits: 100 }],
+    });
     expect(m.detail!.columns).toEqual(["内容", "単位数", "回数", "合計単位数"]);
-    expect(m.detail!.rows[0]).toEqual(["通所介護（2241）", "370", "1", "370"]);
-    expect(m.detail!.rows[2]).toEqual(["訪問介護同一建物減算3", "", "1", "-777"]);
-    expect(m.detail!.totalRow).toEqual(["合計", "", "", "2,697"]); // 370+3104-777
+    expect(m.detail!.landscape).toBe(false);
   });
 });
 

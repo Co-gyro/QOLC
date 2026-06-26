@@ -198,6 +198,10 @@ export interface ReceiptDetailModel {
   rows: string[][];
   /** 合計行（先頭="合計"、非集計列は ""） */
   totalRow: string[];
+  /** 横向き(A4 landscape)で描画するか（列数が多い項目別フル明細） */
+  landscape: boolean;
+  /** 明細書下部の注記（按分の旨など）。null は非表示 */
+  note: string | null;
 }
 
 /** 3桁区切りの数値文字列（単位なし・小数切り捨て）。例: 15,191 */
@@ -267,6 +271,8 @@ export function buildReceiptModel(input: ReceiptInput): ReceiptModel {
       : `${defaults.serviceItemPrefix}(${input.billingMonth})`);
 
   const itemRows: ReceiptItemRow[] = [];
+  // 明細書(B案)で項目別金額を実単価逆算するため、保険系の総額をここで保持。
+  let insuranceCostTotal: number | undefined;
 
   if (input.category === "jihi") {
     // 自費: 給付控除なし。本人請求額をそのまま1行で。
@@ -278,6 +284,7 @@ export function buildReceiptModel(input: ReceiptInput): ReceiptModel {
   } else {
     // 保険系: 費用総額・給付額を解決（一方からもう一方を導出）
     const { costTotal, benefit } = resolveInsuranceAmounts(input);
+    insuranceCostTotal = costTotal;
     itemRows.push({
       itemName: serviceItemLabel,
       breakdown: null,
@@ -298,7 +305,10 @@ export function buildReceiptModel(input: ReceiptInput): ReceiptModel {
   const tax10 = input.tax10 ?? ZERO_TAX;
   const tax8 = input.tax8 ?? ZERO_TAX;
   const card = resolveCardPayment(input.payment);
-  const detail = buildDetailModel(input.detailLines);
+  const detail = buildDetailModel(input.detailLines, {
+    costTotal: insuranceCostTotal,
+    userBurden: input.userBurden,
+  });
 
   return {
     category: input.category,
@@ -327,17 +337,94 @@ export function buildReceiptModel(input: ReceiptInput): ReceiptModel {
 
 /**
  * サービス利用明細書（2ページ目）を構築する。明細が無ければ null。
- * 単位系フィールド（unitScore/totalUnits）があれば単位ベース、無ければ円ベースで構築。
+ * - 保険系(costTotal あり) かつ 単位明細 → 項目別フル(内容/単位数/回数/費用総額/給付額/自己負担額)。
+ *   金額は実単価逆算で項目に配分し、各合計を確定額(費用総額/給付額/自己負担=領収額)に厳密一致。
+ * - 単位明細のみ(総額なし) → 内容/単位数/回数/合計単位数。
+ * - 円明細(statement_lines) → 内容/[数量]/金額/[自己負担額]。
  */
 function buildDetailModel(
-  lines: ReceiptDetailLine[] | undefined
+  lines: ReceiptDetailLine[] | undefined,
+  opts: { costTotal?: number; userBurden?: number }
 ): ReceiptDetailModel | null {
   if (!lines || lines.length === 0) return null;
   const unitMode = lines.some((l) => l.unitScore != null || l.totalUnits != null);
-  return unitMode ? buildUnitDetail(lines) : buildYenDetail(lines);
+  if (unitMode) {
+    if (opts.costTotal != null && opts.userBurden != null) {
+      return buildKaigoFullDetail(lines, opts.costTotal, opts.userBurden);
+    }
+    return buildUnitDetail(lines);
+  }
+  return buildYenDetail(lines);
 }
 
-/** 単位ベース明細（B案: レセプト区分02）。内容/単位数/回数/合計単位数 */
+/**
+ * 重み(weights)に比例して total を整数配分する（最大剰余法）。
+ * Σ結果 = total を厳密に保証。weights/total は負値可（減算行）。
+ */
+export function allocateByWeights(total: number, weights: number[]): number[] {
+  const sumW = weights.reduce((s, w) => s + w, 0);
+  if (sumW === 0) {
+    // 単位数合計が0：先頭行に全額を寄せる（合計一致を優先）
+    return weights.map((_, i) => (i === 0 ? total : 0));
+  }
+  const raw = weights.map((w) => (total * w) / sumW);
+  const floored = raw.map((r) => Math.floor(r));
+  let remainder = total - floored.reduce((s, v) => s + v, 0); // 端数処理で常に >=0
+  const order = raw
+    .map((r, i) => ({ i, frac: r - Math.floor(r) }))
+    .sort((a, b) => b.frac - a.frac);
+  const res = floored.slice();
+  for (let k = 0; remainder > 0 && k < order.length; k++, remainder--) {
+    res[order[k].i] += 1;
+  }
+  return res;
+}
+
+/** ▲付き or マイナス表記の円（負値は「-1,234円」）。0以上は通常表記。 */
+function formatYenSigned(n: number): string {
+  return `${formatNumber(n)}円`;
+}
+
+/**
+ * 項目別フル明細（B案・横向き）。費用総額・保険給付額・自己負担額を項目に配分。
+ * 配分は合計単位数(totalUnits)比。各列の合計は確定額に厳密一致する。
+ */
+function buildKaigoFullDetail(
+  lines: ReceiptDetailLine[],
+  costTotal: number,
+  userBurden: number
+): ReceiptDetailModel {
+  const weights = lines.map((l) => l.totalUnits ?? 0);
+  const costs = allocateByWeights(costTotal, weights);
+  const selfPays = allocateByWeights(userBurden, weights);
+
+  const rows = lines.map((l, i) => [
+    l.content || "サービス利用",
+    l.unitScore != null && l.unitScore !== 0 ? formatNumber(l.unitScore) : "",
+    l.count != null && l.count !== 0 ? formatNumber(l.count) : "",
+    formatYenSigned(costs[i]),
+    formatYenSigned(costs[i] - selfPays[i]), // 保険給付額 = 費用 − 自己負担
+    formatYenSigned(selfPays[i]),
+  ]);
+
+  return {
+    columns: ["内容", "単位数", "回数", "費用総額", "保険給付額", "自己負担額"],
+    aligns: ["left", "right", "right", "right", "right", "right"],
+    rows,
+    totalRow: [
+      "合計",
+      "",
+      "",
+      formatYenSigned(costTotal),
+      formatYenSigned(costTotal - userBurden),
+      formatYenSigned(userBurden),
+    ],
+    landscape: true,
+    note: "金額は各サービスの単位数比で按分しています（合計は領収金額と一致）。",
+  };
+}
+
+/** 単位ベース明細（総額情報が無い場合）。内容/単位数/回数/合計単位数 */
 function buildUnitDetail(lines: ReceiptDetailLine[]): ReceiptDetailModel {
   let totalUnits = 0;
   const rows = lines.map((l) => {
@@ -354,6 +441,8 @@ function buildUnitDetail(lines: ReceiptDetailLine[]): ReceiptDetailModel {
     aligns: ["left", "right", "right", "right"],
     rows,
     totalRow: ["合計", "", "", formatNumber(totalUnits)],
+    landscape: false,
+    note: null,
   };
 }
 
@@ -385,7 +474,7 @@ function buildYenDetail(lines: ReceiptDetailLine[]): ReceiptDetailModel {
   totalRow.push(formatYen(totalAmount));
   if (showSelfPay) totalRow.push(formatYen(totalSelfPay));
 
-  return { columns, aligns, rows, totalRow };
+  return { columns, aligns, rows, totalRow, landscape: false, note: null };
 }
 
 /**

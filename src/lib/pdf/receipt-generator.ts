@@ -128,6 +128,7 @@ const styles = StyleSheet.create({
   dLeft: { textAlign: "left" },
   dRight: { textAlign: "right" },
   dHeadCell: { textAlign: "center", fontWeight: "bold" },
+  detailNote: { fontSize: 7.5, color: "#555", marginTop: 8 },
 });
 
 const EMPTY_ROWS = 1; // 罫線の見た目（カード決済情報・登録番号・代理受領・脚注の追記分を見込み2面で1ページに収める）
@@ -337,7 +338,11 @@ function detailPage(m: ReceiptModel): React.ReactElement | null {
 
   return React.createElement(
     Page,
-    { size: "A4", style: styles.page },
+    {
+      size: "A4",
+      orientation: d.landscape ? "landscape" : "portrait",
+      style: styles.page,
+    },
     React.createElement(
       View,
       { style: styles.detailHeader },
@@ -356,7 +361,8 @@ function detailPage(m: ReceiptModel): React.ReactElement | null {
       headRow,
       ...bodyRows,
       totalRow
-    )
+    ),
+    d.note ? React.createElement(Text, { style: styles.detailNote }, `※ ${d.note}`) : null
   );
 }
 

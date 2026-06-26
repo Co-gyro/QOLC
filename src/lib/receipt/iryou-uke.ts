@@ -51,6 +51,24 @@ export interface IryouReceiptPatient {
   kofu: IryouReceiptKofu[];
   /** 本人負担額（円）★ QOLCで決済する金額 */
   userBurden: number;
+  /**
+   * 算定項目明細（KAレコードを訪問看護療養費コード単位で集計）。明細書(B案・医療)用。
+   * Σ金額 = HO 合計金額（費用総額）に一致する。
+   */
+  serviceDetails: IryouServiceDetail[];
+}
+
+/**
+ * 算定項目明細（KAレコード集計）。基本療養費・管理療養費・各加算など、
+ * 訪問看護療養費コード単位の金額(費用)と回数。日付・時間はB案では持たない。
+ */
+export interface IryouServiceDetail {
+  /** 訪問看護療養費コード（9桁、KA[3]） */
+  code: string;
+  /** 費用（円）＝当該コードの金額(KA[5])合計 */
+  totalAmount: number;
+  /** 回数（当該コードのKAレコード件数） */
+  count: number;
 }
 
 /** 主保険情報（HOレコード） */
@@ -156,6 +174,7 @@ export function parseIryouUke(rows: string[][]): IryouReceiptParseResult {
           hoken: null,
           kofu: [],
           userBurden: 0,
+          serviceDetails: [],
         };
         break;
       }
@@ -202,7 +221,32 @@ export function parseIryouUke(rows: string[][]): IryouReceiptParseResult {
         });
         break;
       }
-      // SY/KA/SN/JS/RJ/TZ/IH/HJ/MF/GI/GO 等は本パーサーでは未使用
+      case "KA": {
+        // 訪問看護療養費レコード（算定項目）。明細書(B案)用にコード別集計。
+        // [0]=KA, [1]=算定年月日, [2]=負担区分, [3]=訪問看護療養費コード,
+        // [4]=数量データ, [5]=金額(円。点数規定は点数×10), [6]=職種等,
+        // [7]=同日訪問回数, [8]=指示区分
+        if (!current) {
+          warnings.push({
+            line: i + 1,
+            code: "ORPHAN_KA",
+            message: "REレコードの前にKAレコードが出現しました",
+          });
+          break;
+        }
+        const code = trim(row[3]);
+        if (!code) break;
+        const amount = toIntOrZero(row[5]);
+        const existing = current.serviceDetails.find((d) => d.code === code);
+        if (existing) {
+          existing.totalAmount += amount;
+          existing.count += 1;
+        } else {
+          current.serviceDetails.push({ code, totalAmount: amount, count: 1 });
+        }
+        break;
+      }
+      // SY/SN/JS/RJ/TZ/IH/HJ/MF/GI/GO 等は本パーサーでは未使用
       default:
         break;
     }

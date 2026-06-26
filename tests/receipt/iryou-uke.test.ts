@@ -107,4 +107,27 @@ describe("parseIryouUke", () => {
     expect(result.patients).toHaveLength(1);
     expect(result.patients[0].userBurden).toBe(10000);
   });
+
+  it("KAレコードを訪問看護療養費コード別に集計する（費用=Σ金額, 回数=件数）", () => {
+    // 実サンプル(国保)準拠: [3]コード [5]金額。同コードは合算・件数加算。
+    const rows = [
+      ["RE", "1", "6122", "202604", "患者"],
+      ["HO", "100016", "ま", "717-6128", "23", "302580", "", "", "10000"],
+      // 基本療養費系 510002270 を2日分(7200×2)
+      ["KA", "20260401", "5", "510002270", "", "7200", "", "3"],
+      ["KA", "20260402", "5", "510002270", "", "7200", "", "3"],
+      // 管理療養費 550002010 を1日分(2500)
+      ["KA", "20260402", "5", "550002010", "", "2500"],
+      // 割合方式で金額0の加算（合計に影響しない）
+      ["KA", "20260401", "5", "550000870", "", "0"],
+    ];
+    const p = parseIryouUke(rows).patients[0];
+    expect(p.serviceDetails).toHaveLength(3);
+    const base = p.serviceDetails.find((d) => d.code === "510002270")!;
+    expect(base).toEqual({ code: "510002270", totalAmount: 14400, count: 2 });
+    const kanri = p.serviceDetails.find((d) => d.code === "550002010")!;
+    expect(kanri).toEqual({ code: "550002010", totalAmount: 2500, count: 1 });
+    const zero = p.serviceDetails.find((d) => d.code === "550000870")!;
+    expect(zero.totalAmount).toBe(0);
+  });
 });

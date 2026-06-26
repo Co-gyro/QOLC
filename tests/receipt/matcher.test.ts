@@ -77,6 +77,7 @@ function buildIryouReceipt(
     },
     kofu: [],
     userBurden: burdenAmount,
+    serviceDetails: [],
     ...rest,
   };
 }

@@ -16,6 +16,7 @@
  */
 import type { ReceiptCategory, ReceiptInput, ReceiptDetailLine } from "./receipt-model";
 import { resolveServiceName } from "@/lib/receipt/kaigo-service-codes";
+import { resolveIryouServiceName } from "@/lib/receipt/iryou-service-codes";
 import type { KaigoServiceDetail } from "@/lib/receipt/kaigo-csv";
 
 /** 領収書生成に必要な決済関連データ（DB取得済みの素の値） */
@@ -68,6 +69,21 @@ export function buildKaigoDetailLines(
     unitScore: d.unitScore,
     count: d.count,
     totalUnits: d.totalUnits,
+  }));
+}
+
+/**
+ * 医療UKEの算定項目明細（コード別集計）を、明細書ページ用の明細行に変換する。
+ * 訪問看護療養費は円建てのため費用(amount)は実額、自己負担はモデル側で費用比配分。
+ * 名称は訪問看護療養費マスターで解決（未取込コードはコード表示）。
+ */
+export function buildIryouDetailLines(
+  details: Array<{ code: string; totalAmount: number; count: number }>
+): ReceiptDetailLine[] {
+  return details.map((d) => ({
+    content: resolveIryouServiceName(d.code),
+    count: d.count,
+    amount: d.totalAmount,
   }));
 }
 

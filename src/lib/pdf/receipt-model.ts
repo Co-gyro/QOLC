@@ -347,13 +347,21 @@ function buildDetailModel(
   opts: { costTotal?: number; userBurden?: number }
 ): ReceiptDetailModel | null {
   if (!lines || lines.length === 0) return null;
-  const unitMode = lines.some((l) => l.unitScore != null || l.totalUnits != null);
-  if (unitMode) {
-    if (opts.costTotal != null && opts.userBurden != null) {
-      return buildKaigoFullDetail(lines, opts.costTotal, opts.userBurden);
-    }
+  const hasUnits = lines.some((l) => l.unitScore != null || l.totalUnits != null);
+  const hasAmount = lines.some((l) => l.amount != null);
+  const hasSelfPay = lines.some((l) => l.selfPay != null);
+  const totalsKnown = opts.costTotal != null && opts.userBurden != null;
+
+  if (hasUnits) {
+    // 介護レセプト(区分02): 単位数比で費用・自己負担を配分
+    if (totalsKnown) return buildInsuranceFullDetail(lines, opts.costTotal!, opts.userBurden!, "kaigo");
     return buildUnitDetail(lines);
   }
+  if (totalsKnown && hasAmount && !hasSelfPay) {
+    // 医療UKE(KA): 費用は実額(amount)、自己負担のみ費用比で配分
+    return buildInsuranceFullDetail(lines, opts.costTotal!, opts.userBurden!, "iryou");
+  }
+  // statement_lines 等（費用・自己負担が行ごとに既知）
   return buildYenDetail(lines);
 }
 
@@ -386,42 +394,54 @@ function formatYenSigned(n: number): string {
 }
 
 /**
- * 項目別フル明細（B案・横向き）。費用総額・保険給付額・自己負担額を項目に配分。
- * 配分は合計単位数(totalUnits)比。各列の合計は確定額に厳密一致する。
+ * 項目別フル明細（B案・横向き）。費用総額・保険給付額・自己負担額を項目別に表示。
+ * - kaigo: 配分の重み＝合計単位数(totalUnits)。単位数列あり。
+ * - iryou: 配分の重み＝費用(amount)。費用は実額。単位数列なし。
+ * いずれも各列合計を確定額(費用総額/給付額/自己負担=領収額)に厳密一致させる。
  */
-function buildKaigoFullDetail(
+function buildInsuranceFullDetail(
   lines: ReceiptDetailLine[],
   costTotal: number,
-  userBurden: number
+  userBurden: number,
+  mode: "kaigo" | "iryou"
 ): ReceiptDetailModel {
-  const weights = lines.map((l) => l.totalUnits ?? 0);
+  const showUnits = mode === "kaigo";
+  const weights = lines.map((l) => (showUnits ? l.totalUnits ?? 0 : l.amount ?? 0));
   const costs = allocateByWeights(costTotal, weights);
   const selfPays = allocateByWeights(userBurden, weights);
 
-  const rows = lines.map((l, i) => [
-    l.content || "サービス利用",
-    l.unitScore != null && l.unitScore !== 0 ? formatNumber(l.unitScore) : "",
-    l.count != null && l.count !== 0 ? formatNumber(l.count) : "",
-    formatYenSigned(costs[i]),
-    formatYenSigned(costs[i] - selfPays[i]), // 保険給付額 = 費用 − 自己負担
-    formatYenSigned(selfPays[i]),
-  ]);
+  const rows = lines.map((l, i) => {
+    const cells = [l.content || "サービス利用"];
+    if (showUnits) cells.push(l.unitScore != null && l.unitScore !== 0 ? formatNumber(l.unitScore) : "");
+    cells.push(l.count != null && l.count !== 0 ? formatNumber(l.count) : "");
+    cells.push(
+      formatYenSigned(costs[i]),
+      formatYenSigned(costs[i] - selfPays[i]), // 保険給付額 = 費用 − 自己負担
+      formatYenSigned(selfPays[i])
+    );
+    return cells;
+  });
 
-  return {
-    columns: ["内容", "単位数", "回数", "費用総額", "保険給付額", "自己負担額"],
-    aligns: ["left", "right", "right", "right", "right", "right"],
-    rows,
-    totalRow: [
-      "合計",
-      "",
-      "",
-      formatYenSigned(costTotal),
-      formatYenSigned(costTotal - userBurden),
-      formatYenSigned(userBurden),
-    ],
-    landscape: true,
-    note: "金額は各サービスの単位数比で按分しています（合計は領収金額と一致）。",
-  };
+  const columns = showUnits
+    ? ["内容", "単位数", "回数", "費用総額", "保険給付額", "自己負担額"]
+    : ["内容", "回数", "費用総額", "保険給付額", "自己負担額"];
+  const aligns: Array<"left" | "right"> = columns.map((_, i) => (i === 0 ? "left" : "right"));
+
+  const totalRow = ["合計"];
+  if (showUnits) totalRow.push("");
+  totalRow.push(
+    "",
+    formatYenSigned(costTotal),
+    formatYenSigned(costTotal - userBurden),
+    formatYenSigned(userBurden)
+  );
+
+  const note =
+    mode === "iryou"
+      ? "利用者負担額は各項目の費用比で按分しています（合計は領収金額と一致）。医療分は10円未満四捨五入。"
+      : "金額は各サービスの単位数比で按分しています（合計は領収金額と一致）。";
+
+  return { columns, aligns, rows, totalRow, landscape: true, note };
 }
 
 /** 単位ベース明細（総額情報が無い場合）。内容/単位数/回数/合計単位数 */

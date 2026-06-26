@@ -248,7 +248,132 @@ export async function persistKaigoReceipt(
 }
 
 /**
- * 医療保険UKE(xlsx) をパースして PreviewResult を返す。
+ * 医療保険UKE(xlsx) を**永続化**して PreviewResult を返す（B案決済結線）。
+ *
+ * - upload_batch を作成
+ * - 患者ごとに statement_lines を1行作成（amount=費用総額=HO合計金額, self_pay=本人負担）
+ * - KA(算定項目)をコード別に集計し statement_service_details に保存（amount=費用円）
+ */
+export async function persistIryouReceipt(
+  admin: SupabaseClient,
+  opts: {
+    fileBuffer: Buffer;
+    merchantId: string;
+    providerType: "external_provider" | "facility_self";
+    fileName: string;
+    residents: ResidentWithFacility[];
+    facilityNames: Map<string, string>;
+    facilityIdForSelf: string | null;
+  }
+): Promise<PreviewResult> {
+  const wb = new ExcelJS.Workbook();
+  const ab = opts.fileBuffer.buffer.slice(
+    opts.fileBuffer.byteOffset,
+    opts.fileBuffer.byteOffset + opts.fileBuffer.byteLength
+  ) as ArrayBuffer;
+  await wb.xlsx.load(ab);
+  const sheet = wb.worksheets[0];
+  if (!sheet) return { batchId: "", facilities: [], unmatched: [], totalAmount: 0 };
+  const parsed = parseIryouUke(xlsxSheetToRows(sheet));
+  const matches = matchIryouReceipts(parsed.patients, opts.residents);
+
+  // 費用総額 = HO合計金額（無ければ Σ明細費用）
+  const costTotalOf = (p: (typeof matches)[number]["receipt"]) =>
+    p.hoken?.totalAmount ?? p.serviceDetails.reduce((s, d) => s + d.totalAmount, 0);
+  const totalAmount = matches.reduce((s, m) => s + costTotalOf(m.receipt), 0);
+
+  const { data: batch, error: batchErr } = await admin
+    .from("upload_batches")
+    .insert({
+      merchant_id: opts.merchantId,
+      provider_type: opts.providerType,
+      file_name: opts.fileName,
+      total_rows: matches.length,
+      total_amount: totalAmount,
+      status: "processing",
+    })
+    .select("id")
+    .single();
+  if (batchErr || !batch) throw new Error(batchErr?.message ?? "batch insert失敗");
+  const batchId = batch.id as string;
+
+  const lineInserts = matches.map((m) => {
+    const p = m.receipt;
+    const resident = m.resident as ResidentWithFacility | null;
+    const matched = m.status === "matched" || m.status === "matched_via_history";
+    return {
+      upload_batch_id: batchId,
+      facility_id: resident?.facilityId ?? opts.facilityIdForSelf ?? null,
+      resident_id: resident?.id ?? null,
+      insurance_number: p.hoken
+        ? [p.hoken.hokenshaNumber, p.hoken.kigou, p.hoken.bangou].filter(Boolean).join("/")
+        : `(公費) ${p.kofu[0]?.futanshaNumber ?? ""}`,
+      service_code: null,
+      service_name: `医療保険 ${p.serviceMonth}`,
+      amount: costTotalOf(p),
+      self_pay_amount: p.userBurden,
+      match_status: matched ? "matched" : "unmatched",
+    };
+  });
+
+  const { data: insertedLines, error: insErr } = await admin
+    .from("statement_lines")
+    .insert(lineInserts)
+    .select("id");
+  if (insErr) {
+    await admin.from("upload_batches").update({ status: "error" }).eq("id", batchId);
+    throw new Error(insErr.message);
+  }
+  const lineIds = (insertedLines as Array<{ id: string }> | null) ?? [];
+
+  // 算定項目明細（KA集計）を statement_service_details に保存。医療は amount(費用円)を保持。
+  const detailInserts: Array<Record<string, unknown>> = [];
+  matches.forEach((m, i) => {
+    const lineId = lineIds[i]?.id;
+    if (!lineId) return;
+    m.receipt.serviceDetails.forEach((d, j) => {
+      detailInserts.push({
+        statement_line_id: lineId,
+        service_type_code: null,
+        service_item_code: d.code, // 訪問看護療養費コード(9桁)
+        unit_score: 0,
+        count: d.count,
+        total_units: 0,
+        amount: d.totalAmount, // 費用(円)
+        sort_order: j,
+      });
+    });
+  });
+  if (detailInserts.length > 0) {
+    const { error: dErr } = await admin.from("statement_service_details").insert(detailInserts);
+    if (dErr) throw new Error(`サービス明細の保存に失敗: ${dErr.message}`);
+  }
+
+  const previewLines: PreviewLine[] = matches.map((m, i) => {
+    const p = m.receipt;
+    const resident = m.resident as ResidentWithFacility | null;
+    return {
+      statementLineId: lineIds[i]?.id ?? "",
+      facilityId: resident?.facilityId ?? null,
+      residentId: resident?.id ?? null,
+      residentName: resident ? `${resident.nameLast} ${resident.nameFirst}` : p.name || null,
+      insuranceNumber: p.hoken
+        ? [p.hoken.hokenshaNumber, p.hoken.kigou, p.hoken.bangou].filter(Boolean).join("/")
+        : `(公費単独) ${p.kofu[0]?.futanshaNumber ?? ""}`,
+      serviceCode: null,
+      serviceName: `医療保険 ${p.serviceMonth}`,
+      amount: p.userBurden,
+      selfPayAmount: p.userBurden,
+      matchStatus:
+        m.status === "matched" || m.status === "matched_via_history" ? "matched" : "unmatched",
+    };
+  });
+
+  return groupByFacility(batchId, previewLines, opts.facilityNames);
+}
+
+/**
+ * 医療保険UKE(xlsx) をパースして PreviewResult を返す（読み取り専用・旧）。
  */
 export async function buildIryouPreview(
   fileBuffer: Buffer,

@@ -289,6 +289,30 @@ describe("buildReceiptModel: サービス利用明細書（B案・項目別フ�
     expect(sumSelf).toBe(17464); // = 領収額
   });
 
+  it("医療(費用amount・単位数なし)は 内容/回数/費用総額/給付額/自己負担額（単位数列なし）", () => {
+    const m = buildReceiptModel({
+      category: "iryou",
+      issuedAt: "x",
+      billingMonth: "令和8年4月",
+      recipientName: "患者",
+      userBurden: 100,
+      costTotal: 1000,
+      provider: { name: "訪問看護ST" },
+      detailLines: [
+        { content: "訪問看護基本療養費", count: 10, amount: 600 },
+        { content: "訪問看護管理療養費", count: 1, amount: 400 },
+      ],
+    });
+    const d = m.detail!;
+    expect(d.columns).toEqual(["内容", "回数", "費用総額", "保険給付額", "自己負担額"]);
+    expect(d.landscape).toBe(true);
+    expect(d.note).toContain("10円未満");
+    // 費用は実額、自己負担は費用比配分(60/40)、給付=費用-自己負担
+    expect(d.rows[0]).toEqual(["訪問看護基本療養費", "10", "600円", "540円", "60円"]);
+    expect(d.rows[1]).toEqual(["訪問看護管理療養費", "1", "400円", "360円", "40円"]);
+    expect(d.totalRow).toEqual(["合計", "", "1,000円", "900円", "100円"]);
+  });
+
   it("総額が無い単位明細（自費等）は 内容/単位数/回数/合計単位数 にフォールバック", () => {
     const m = buildReceiptModel({
       category: "jihi",

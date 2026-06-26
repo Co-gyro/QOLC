@@ -27,7 +27,7 @@ import {
   detectReceiptKind,
   loadResidentsForMatching,
   persistKaigoReceipt,
-  buildIryouPreview,
+  persistIryouReceipt,
 } from "@/lib/upload/receipt-flow";
 import { apiError, apiOk } from "@/types/api";
 import type { UserRole } from "@/types";
@@ -157,32 +157,31 @@ export async function POST(req: NextRequest) {
         facilityNames.set(f.id, f.name);
       }
 
-      if (receiptKind === "kaigo-csv") {
-        // 介護レセプト: 永続化して決済フローに乗せる（B案）。
-        let facilityIdForSelf: string | null = null;
-        if (role === "facility_staff") {
-          const { data: profile } = await admin
-            .from("profiles")
-            .select("facility_id")
-            .eq("id", user.id)
-            .single();
-          facilityIdForSelf = (profile?.facility_id as string | null) ?? null;
-        }
-        const preview = await persistKaigoReceipt(admin, {
-          fileBuffer,
-          merchantId,
-          providerType: role === "facility_staff" ? "facility_self" : "external_provider",
-          fileName,
-          residents: residentsAll,
-          facilityNames,
-          facilityIdForSelf,
-        });
-        return NextResponse.json(apiOk(preview));
+      // 介護レセプト/医療UKE とも永続化して決済フローに乗せる（B案）。
+      let facilityIdForSelf: string | null = null;
+      if (role === "facility_staff") {
+        const { data: profile } = await admin
+          .from("profiles")
+          .select("facility_id")
+          .eq("id", user.id)
+          .single();
+        facilityIdForSelf = (profile?.facility_id as string | null) ?? null;
       }
-
-      // 医療UKE: 当面プレビューのみ（区分明細の取込は後工程）。
-      const batchId = `receipt-${Date.now()}`;
-      const preview = await buildIryouPreview(fileBuffer, residentsAll, facilityNames, batchId);
+      const persistOpts = {
+        fileBuffer,
+        merchantId,
+        providerType: (role === "facility_staff" ? "facility_self" : "external_provider") as
+          | "facility_self"
+          | "external_provider",
+        fileName,
+        residents: residentsAll,
+        facilityNames,
+        facilityIdForSelf,
+      };
+      const preview =
+        receiptKind === "kaigo-csv"
+          ? await persistKaigoReceipt(admin, persistOpts)
+          : await persistIryouReceipt(admin, persistOpts);
       return NextResponse.json(apiOk(preview));
     } catch (e) {
       const msg = e instanceof Error ? e.message : "unknown";

@@ -305,9 +305,8 @@ export async function persistIryouReceipt(
       upload_batch_id: batchId,
       facility_id: resident?.facilityId ?? opts.facilityIdForSelf ?? null,
       resident_id: resident?.id ?? null,
-      insurance_number: p.hoken
-        ? [p.hoken.hokenshaNumber, p.hoken.kigou, p.hoken.bangou].filter(Boolean).join("/")
-        : `(公費) ${p.kofu[0]?.futanshaNumber ?? ""}`,
+      // insurance_number は VARCHAR(10)。医療は被保険者番号のみ保持（複合キーはマッチ済）。
+      insurance_number: (p.hoken?.bangou ?? "").slice(0, 10) || null,
       service_code: null,
       service_name: `医療保険 ${p.serviceMonth}`,
       amount: costTotalOf(p),

@@ -22,7 +22,6 @@ import {
   matchInsuranceNumber,
   getActiveFacilityIdsForMerchant,
 } from "@/lib/upload/matcher";
-import type { PreviewLine } from "@/lib/upload/preview";
 import {
   detectReceiptKind,
   loadResidentsForMatching,
@@ -34,7 +33,9 @@ import {
   buildPreviewForBatch,
 } from "@/lib/upload/receipt-flow";
 import { detectOtherCostCsv } from "@/lib/receipt/other-cost-csv";
+import { logActivity } from "@/lib/audit/activity-log";
 import { apiError, apiOk } from "@/types/api";
+import type { PreviewResult } from "@/lib/upload/preview";
 import type { UserRole } from "@/types";
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
@@ -198,6 +199,7 @@ export async function POST(req: NextRequest) {
           facilityNames,
           allowedFacilityIds,
         });
+        await logUpload(user.id, role, "その他費用（保険外）", fileName, preview);
         return NextResponse.json(apiOk(preview));
       }
 
@@ -216,6 +218,13 @@ export async function POST(req: NextRequest) {
         receiptKind === "kaigo-csv"
           ? await persistKaigoReceipt(admin, persistOpts)
           : await persistIryouReceipt(admin, persistOpts);
+      await logUpload(
+        user.id,
+        role,
+        receiptKind === "kaigo-csv" ? "介護レセプト" : "医療UKE",
+        fileName,
+        preview
+      );
       return NextResponse.json(apiOk(preview));
     } catch (e) {
       const msg = e instanceof Error ? e.message : "unknown";
@@ -364,7 +373,29 @@ export async function POST(req: NextRequest) {
   await recomputeBatchTotal(admin, batchId);
   await admin.from("upload_batches").update({ status: "preview" }).eq("id", batchId);
   const preview = await buildPreviewForBatch(admin, batchId, facilityNames);
+  await logUpload(user.id, role, "明細CSV", fileName, preview);
   return NextResponse.json(apiOk(preview));
+}
+
+/** アップロードの監査ログを記録する（失敗は内部で握りつぶす） */
+async function logUpload(
+  userId: string,
+  role: UserRole,
+  kind: string,
+  fileName: string,
+  preview: PreviewResult
+): Promise<void> {
+  const matched = preview.facilities.reduce((s, f) => s + f.residents.length, 0);
+  await logActivity({
+    actorId: userId,
+    actorRole: role,
+    facilityId: preview.facilities[0]?.facilityId ?? null,
+    action: "upload",
+    targetType: "upload_batch",
+    targetId: preview.batchId,
+    targetLabel: `${kind}を取込（${matched}名マッチ）`,
+    metadata: { kind, fileName, matched, totalAmount: preview.totalAmount },
+  });
 }
 
 /** ロール別の突合許可施設ID（admin は null=全施設） */

@@ -183,6 +183,9 @@ export async function persistKaigoReceipt(
     };
   });
 
+  // 二重投入ガード: 同一(入居者×サービス名)の既存行を置換
+  await replacePriorLines(admin, batchId, lineInserts);
+
   const { data: insertedLines, error: insErr } = await admin
     .from("statement_lines")
     .insert(lineInserts)
@@ -285,6 +288,9 @@ export async function persistIryouReceipt(
       match_status: matched ? "matched" : "unmatched",
     };
   });
+
+  // 二重投入ガード: 同一(入居者×サービス名)の既存行を置換
+  await replacePriorLines(admin, batchId, lineInserts);
 
   const { data: insertedLines, error: insErr } = await admin
     .from("statement_lines")
@@ -457,6 +463,32 @@ export async function persistOtherCost(
 }
 
 /** バッチの total_amount を statement_lines の self_pay 合計で再計算する */
+/**
+ * 同一バッチ内の重複行を置換する（二重投入ガード）。
+ * 追記する明細と (resident_id × service_name) が一致する既存行を削除してから挿入することで、
+ * 同じレセプトを誤って二重投入しても重複計上（＝二重課金）を防ぐ。
+ * service_name に種別＋年月が入る（例「介護保険 202604」）ため、介護と医療、別月は共存する。
+ */
+async function replacePriorLines(
+  admin: SupabaseClient,
+  batchId: string,
+  newLines: Array<{ resident_id: string | null; service_name: string | null }>
+): Promise<void> {
+  const residentIds = Array.from(new Set(newLines.map((l) => l.resident_id).filter((x): x is string => !!x)));
+  const serviceNames = Array.from(new Set(newLines.map((l) => l.service_name).filter((x): x is string => !!x)));
+  if (residentIds.length === 0 || serviceNames.length === 0) return;
+  const { data: prior } = await admin
+    .from("statement_lines")
+    .select("id")
+    .eq("upload_batch_id", batchId)
+    .in("resident_id", residentIds)
+    .in("service_name", serviceNames);
+  const ids = ((prior ?? []) as Array<{ id: string }>).map((p) => p.id);
+  if (ids.length === 0) return;
+  await admin.from("statement_service_details").delete().in("statement_line_id", ids);
+  await admin.from("statement_lines").delete().in("id", ids);
+}
+
 export async function recomputeBatchTotal(admin: SupabaseClient, batchId: string): Promise<void> {
   const { data } = await admin
     .from("statement_lines")

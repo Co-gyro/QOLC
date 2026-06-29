@@ -15,6 +15,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { processBatch } from "@/lib/payment/payment-service";
 import { notifyCapturedPaymentsForBatch } from "@/lib/notifications/payment-notify";
+import { logActivity } from "@/lib/audit/activity-log";
 import { apiError, apiOk } from "@/types/api";
 import type { UserRole } from "@/types";
 
@@ -114,6 +115,30 @@ export async function POST(req: NextRequest) {
       .from("upload_batches")
       .update({ status: "completed" })
       .eq("id", parsed.data.uploadBatchId);
+
+    // 監査ログ（決済実行）。スコープ表示用に施設IDを明細から1件取得。失敗は握りつぶす。
+    const { data: oneLine } = await admin
+      .from("statement_lines")
+      .select("facility_id")
+      .eq("upload_batch_id", parsed.data.uploadBatchId)
+      .not("facility_id", "is", null)
+      .limit(1)
+      .maybeSingle();
+    await logActivity({
+      actorId: user.id,
+      actorRole: role,
+      facilityId: (oneLine?.facility_id as string | null) ?? null,
+      action: "payment_execute",
+      targetType: "upload_batch",
+      targetId: parsed.data.uploadBatchId,
+      targetLabel: `一括決済 ${result.success}/${result.total}件成功`,
+      metadata: {
+        total: result.total,
+        success: result.success,
+        pending: result.pending,
+        failed: result.failed,
+      },
+    });
 
     // 決済完了通知（記録 + LINE push）。失敗しても決済結果には影響させない。
     try {

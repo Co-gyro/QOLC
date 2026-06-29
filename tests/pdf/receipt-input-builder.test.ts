@@ -4,6 +4,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildReceiptInputFromPayment,
+  buildJihiDetailLines,
   formatWarekiMonth,
   formatWarekiDate,
   type PaymentReceiptData,
@@ -121,5 +122,20 @@ describe("buildReceiptInputFromPayment: フォールバック", () => {
     );
     expect(input.billingMonth).toBe("令和8年5月");
     expect(input.payment?.settledAt).toBeUndefined();
+  });
+});
+
+describe("buildJihiDetailLines: 自費（その他費用）明細変換", () => {
+  it("確定額・税区分・軽減税率・日付/分類をそのまま明細行に写す", () => {
+    const lines = buildJihiDetailLines([
+      { content: "家賃", amount: 50000, taxKind: "非課税" },
+      { content: "昼食", amount: 529, date: "04/01", category: "食事", taxKind: "内税", reduced: true },
+    ]);
+    expect(lines[0]).toEqual({
+      content: "家賃", amount: 50000, date: null, category: null, taxKind: "非課税", reduced: null,
+    });
+    expect(lines[1]).toEqual({
+      content: "昼食", amount: 529, date: "04/01", category: "食事", taxKind: "内税", reduced: true,
+    });
   });
 });

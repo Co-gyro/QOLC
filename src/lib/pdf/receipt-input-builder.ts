@@ -87,6 +87,43 @@ export function buildIryouDetailLines(
   }));
 }
 
+/**
+ * 自費請求（住宅・その他費用）の1明細。施設の請求ソフトが出力する確定値を想定。
+ * QOLCは金額を独自計算せず、確定額(amount)・税区分・軽減税率フラグを直読する（星さん方針）。
+ * 取込経路（請求ソフト出力フォーマット）は提供者ごとに異なるため後工程で実装する。
+ */
+export interface JihiCostItem {
+  /** 内容（例: 昼食、洗濯＿小、家賃） */
+  content: string;
+  /** 確定金額（円・税込） */
+  amount: number;
+  /** 日付（表示文字列。例: 04/01）。月額固定（家賃等）は無し */
+  date?: string | null;
+  /** 分類（例: 食事（富士見・木部）、富士見・RH　オムツ） */
+  category?: string | null;
+  /** 税区分（非課税/内税/外税） */
+  taxKind?: "非課税" | "内税" | "外税" | null;
+  /** 軽減税率（8%）対象か */
+  reduced?: boolean | null;
+}
+
+/**
+ * 自費請求（その他費用）明細を、明細書ページ用の明細行に変換する。
+ * 施行規則65条の保険外費用の区分記載＋軽減税率☆表示に対応（住宅請求書タイプB準拠）。
+ */
+export function buildJihiDetailLines(
+  items: JihiCostItem[]
+): ReceiptDetailLine[] {
+  return items.map((it) => ({
+    content: it.content,
+    amount: it.amount,
+    date: it.date ?? null,
+    category: it.category ?? null,
+    taxKind: it.taxKind ?? null,
+    reduced: it.reduced ?? null,
+  }));
+}
+
 /** ISO文字列(yyyy-mm-dd...) を和暦の年月日に分解（TZ非依存・先頭10文字を使用） */
 function warekiParts(iso: string): { year: number; month: number; day: number } {
   const [y, m, d] = iso.slice(0, 10).split("-").map((s) => Number(s));

@@ -126,7 +126,19 @@ export interface ReceiptDetailLine {
   count?: number | null;
   /** 合計単位数 */
   totalUnits?: number | null;
+  // 自費（jihi: 住宅・その他費用）。施行規則65条の区分記載＋軽減税率表示用。
+  /** 日付（表示文字列。例: 04/01）。家賃・共益費など月額固定は空 */
+  date?: string | null;
+  /** 分類（例: 食事（富士見・木部）、富士見・RH　オムツ）。空可 */
+  category?: string | null;
+  /** 税区分（非課税/内税/外税）。明細の内容欄に併記する */
+  taxKind?: JihiTaxKind | null;
+  /** 軽減税率（8%）対象☆か */
+  reduced?: boolean | null;
 }
+
+/** 自費明細の税区分（住宅請求書サンプル準拠） */
+export type JihiTaxKind = "非課税" | "内税" | "外税";
 
 /** カード決済情報 */
 export interface ReceiptPayment {
@@ -202,6 +214,11 @@ export interface ReceiptDetailModel {
   landscape: boolean;
   /** 明細書下部の注記（按分の旨など）。null は非表示 */
   note: string | null;
+  /**
+   * 列ごとの幅（flex重み）。未指定なら描画側の既定（先頭列＝広い/他＝狭い）。
+   * 内容列が先頭でない明細（自費＝日付/分類/内容/金額）で内容列を広く取るために使う。
+   */
+  widths?: number[];
 }
 
 /** 3桁区切りの数値文字列（単位なし・小数切り捨て）。例: 15,191 */
@@ -221,8 +238,8 @@ export function formatBenefit(n: number): string {
 
 const ZERO_TAX: ReceiptTaxBucket = { amount: 0, tax: 0 };
 
-/** 既定の集金代行（代理受領）者。運営=ユニバーサルデベロップメント株式会社 */
-const DEFAULT_COLLECTION_AGENT = "ユニバーサルデベロップメント株式会社（QOLC）";
+/** 既定の集金代行（代理受領）者。運営=株式会社ユニバーサルデベロップメント（前株） */
+const DEFAULT_COLLECTION_AGENT = "株式会社ユニバーサルデベロップメント（QOLC）";
 
 /** カテゴリ既定のラベル */
 const CATEGORY_DEFAULTS: Record<
@@ -308,6 +325,7 @@ export function buildReceiptModel(input: ReceiptInput): ReceiptModel {
   const detail = buildDetailModel(input.detailLines, {
     costTotal: insuranceCostTotal,
     userBurden: input.userBurden,
+    category: input.category,
   });
 
   return {
@@ -344,10 +362,13 @@ export function buildReceiptModel(input: ReceiptInput): ReceiptModel {
  */
 function buildDetailModel(
   lines: ReceiptDetailLine[] | undefined,
-  opts: { costTotal?: number; userBurden?: number }
+  opts: { costTotal?: number; userBurden?: number; category?: ReceiptCategory }
 ): ReceiptDetailModel | null {
   if (!lines || lines.length === 0) return null;
   const hasUnits = lines.some((l) => l.unitScore != null || l.totalUnits != null);
+  // 自費（その他費用）: 施行規則65条の区分記載。日付/分類/内容(税区分・☆)/金額。
+  // 自費は円ベースのため、単位明細(レセプト区分02)が来た場合は従来フォールバックに委ねる。
+  if (opts.category === "jihi" && !hasUnits) return buildJihiDetail(lines);
   const hasAmount = lines.some((l) => l.amount != null);
   const hasSelfPay = lines.some((l) => l.selfPay != null);
   const totalsKnown = opts.costTotal != null && opts.userBurden != null;
@@ -495,6 +516,55 @@ function buildYenDetail(lines: ReceiptDetailLine[]): ReceiptDetailModel {
   if (showSelfPay) totalRow.push(formatYen(totalSelfPay));
 
   return { columns, aligns, rows, totalRow, landscape: false, note: null };
+}
+
+/**
+ * 自費（その他費用）明細書。住宅請求書タイプB サンプル準拠。
+ * 列＝日付/分類/内容/金額。内容欄に税区分(非課税/内税/外税)と軽減税率☆を併記する。
+ * 施行規則65条の保険外費用の区分記載に対応。QOLCは金額を独自計算せず確定額(amount)を表示。
+ * - 日付/分類は1行でも値があれば列を出す（家賃・共益費など月額固定は空欄）。
+ * - 合計＝Σ amount（領収金額＝本人請求と一致する想定）。
+ */
+function buildJihiDetail(lines: ReceiptDetailLine[]): ReceiptDetailModel {
+  const showDate = lines.some((l) => (l.date ?? "") !== "");
+  const showCategory = lines.some((l) => (l.category ?? "") !== "");
+  const hasReduced = lines.some((l) => l.reduced === true);
+
+  const columns: string[] = [];
+  const aligns: Array<"left" | "right"> = [];
+  const widths: number[] = [];
+  // 内容列を最も広く、日付は狭め、金額は数値幅。
+  if (showDate) { columns.push("日付"); aligns.push("left"); widths.push(1.4); }
+  if (showCategory) { columns.push("分類"); aligns.push("left"); widths.push(3); }
+  columns.push("内容"); aligns.push("left"); widths.push(5);
+  columns.push("金額"); aligns.push("right"); widths.push(1.8);
+
+  let total = 0;
+  const rows = lines.map((l) => {
+    total += l.amount ?? 0;
+    const cells: string[] = [];
+    if (showDate) cells.push(l.date ?? "");
+    if (showCategory) cells.push(l.category ?? "");
+    cells.push(formatJihiContent(l));
+    cells.push(formatYen(l.amount ?? 0));
+    return cells;
+  });
+
+  const totalRow = columns.map((_, i) =>
+    i === 0 ? "合計" : i === columns.length - 1 ? formatYen(total) : ""
+  );
+
+  const note = hasReduced ? "☆ 軽減税率対象" : null;
+
+  return { columns, aligns, rows, totalRow, landscape: false, note, widths };
+}
+
+/** 自費明細の内容欄文字列。「{内容}　(税区分) ☆」形式（サンプル準拠）。 */
+function formatJihiContent(l: ReceiptDetailLine): string {
+  let s = l.content || "その他費用";
+  if (l.taxKind) s += `　(${l.taxKind})`;
+  if (l.reduced) s += " ☆";
+  return s;
 }
 
 /**

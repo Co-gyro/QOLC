@@ -147,6 +147,76 @@ describe("buildReceiptModel: 住宅・自費（jihi）", () => {
   });
 });
 
+describe("buildReceiptModel: 自費（その他費用）明細書 — 施行規則65条・住宅サンプル準拠", () => {
+  function jihiWithDetail(lines: ReceiptInput["detailLines"]): ReceiptInput {
+    return {
+      category: "jihi",
+      issuedAt: "令和8年6月3日",
+      billingMonth: "令和8年4月",
+      recipientName: "渡邉 愛",
+      userLabel: "金子 恭子 様分",
+      userBurden: 145859,
+      tax10: { amount: 66235, tax: 6022 },
+      tax8: { amount: 29624, tax: 2195 },
+      provider: { name: "リハビリホームかしの樹富士見" },
+      detailLines: lines,
+    };
+  }
+
+  it("日付/分類/内容/金額の列を出し、税区分と☆を内容欄に併記する", () => {
+    const m = buildReceiptModel(
+      jihiWithDetail([
+        { content: "家賃", amount: 50000, taxKind: "非課税" },
+        { content: "共益費", amount: 43900, taxKind: "内税" },
+        { content: "住宅サービス費", amount: 0, taxKind: "外税" },
+        { content: "昼食", amount: 529, date: "04/01", category: "食事（富士見・木部）", taxKind: "内税", reduced: true },
+        { content: "洗濯＿小（施設対応）", amount: 275, date: "04/02", category: "富士見・RH　その他", taxKind: "内税" },
+      ])
+    );
+    const d = m.detail!;
+    expect(d.columns).toEqual(["日付", "分類", "内容", "金額"]);
+    expect(d.landscape).toBe(false);
+    // 家賃（日付・分類なし、非課税）
+    expect(d.rows[0]).toEqual(["", "", "家賃　(非課税)", "50,000円"]);
+    // 昼食（軽減税率☆・内税）
+    expect(d.rows[3]).toEqual(["04/01", "食事（富士見・木部）", "昼食　(内税) ☆", "529円"]);
+    // 洗濯（☆なし）
+    expect(d.rows[4]).toEqual(["04/02", "富士見・RH　その他", "洗濯＿小（施設対応）　(内税)", "275円"]);
+    expect(d.note).toBe("☆ 軽減税率対象");
+  });
+
+  it("合計行は金額の総和（領収金額と一致）", () => {
+    const m = buildReceiptModel(
+      jihiWithDetail([
+        { content: "家賃", amount: 50000, taxKind: "非課税" },
+        { content: "共益費", amount: 43900, taxKind: "内税" },
+        { content: "昼食", amount: 529, date: "04/01", category: "食事（富士見・木部）", taxKind: "内税", reduced: true },
+      ])
+    );
+    expect(m.detail!.totalRow).toEqual(["合計", "", "", "94,429円"]);
+  });
+
+  it("日付・分類が全て空なら内容/金額のみの2列に畳む", () => {
+    const m = buildReceiptModel(
+      jihiWithDetail([
+        { content: "家賃", amount: 50000, taxKind: "非課税" },
+        { content: "共益費", amount: 43900, taxKind: "内税" },
+      ])
+    );
+    const d = m.detail!;
+    expect(d.columns).toEqual(["内容", "金額"]);
+    expect(d.rows[0]).toEqual(["家賃　(非課税)", "50,000円"]);
+    expect(d.totalRow).toEqual(["合計", "93,900円"]);
+  });
+
+  it("軽減税率対象が無ければ注記を出さない", () => {
+    const m = buildReceiptModel(
+      jihiWithDetail([{ content: "家賃", amount: 50000, taxKind: "非課税" }])
+    );
+    expect(m.detail!.note).toBeNull();
+  });
+});
+
 describe("buildReceiptModel: カード決済表記", () => {
   it("既定でクレジットカード決済の文言を出し、印紙注記は出さない", () => {
     const m = buildReceiptModel(kaigoInput());
@@ -177,7 +247,7 @@ describe("buildReceiptModel: カード決済表記", () => {
 
   it("既定でUDの集金代行（代理受領）をラベル形式で明記する", () => {
     const m = buildReceiptModel(kaigoInput());
-    expect(m.agentLine).toBe("集金代行（代理受領）：ユニバーサルデベロップメント株式会社（QOLC）");
+    expect(m.agentLine).toBe("集金代行（代理受領）：株式会社ユニバーサルデベロップメント（QOLC）");
   });
 
   it("collectionAgent=null で代理受領表記を抑止", () => {

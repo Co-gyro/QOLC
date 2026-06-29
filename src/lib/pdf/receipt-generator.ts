@@ -293,10 +293,19 @@ function panel(
 }
 
 /** 1セルのスタイル（先頭=内容列は広め左寄せ、以降は右寄せ） */
-function detailCellStyle(colIndex: number, align: "left" | "right", isHead: boolean) {
-  const base = colIndex === 0 ? styles.dCellContent : styles.dCellNum;
-  const last = styles.dCellLast; // 右端は右ボーダー無し（後段で個別調整しないため共通）
-  void last;
+function detailCellStyle(
+  colIndex: number,
+  align: "left" | "right",
+  isHead: boolean,
+  width?: number
+) {
+  // width 指定があれば flex を上書き（内容列が先頭でない自費明細用）。
+  const base =
+    width != null
+      ? { padding: 4, fontSize: 9, borderRight: `0.4px solid ${LINE}`, flex: width }
+      : colIndex === 0
+        ? styles.dCellContent
+        : styles.dCellNum;
   const alignStyle = align === "right" ? styles.dRight : styles.dLeft;
   return isHead ? [base, alignStyle, styles.dHeadCell] : [base, alignStyle];
 }
@@ -310,7 +319,7 @@ function detailPage(m: ReceiptModel): React.ReactElement | null {
     View,
     { style: styles.detailHeadRow },
     ...d.columns.map((c, i) =>
-      React.createElement(Text, { key: `h${i}`, style: detailCellStyle(i, d.aligns[i], true) }, c)
+      React.createElement(Text, { key: `h${i}`, style: detailCellStyle(i, d.aligns[i], true, d.widths?.[i]) }, c)
     )
   );
 
@@ -319,7 +328,7 @@ function detailPage(m: ReceiptModel): React.ReactElement | null {
       View,
       { key: `r${ri}`, style: styles.detailRow },
       ...cells.map((cell, ci) =>
-        React.createElement(Text, { key: `c${ci}`, style: detailCellStyle(ci, d.aligns[ci], false) }, cell)
+        React.createElement(Text, { key: `c${ci}`, style: detailCellStyle(ci, d.aligns[ci], false, d.widths?.[ci]) }, cell)
       )
     )
   );
@@ -330,7 +339,7 @@ function detailPage(m: ReceiptModel): React.ReactElement | null {
     ...d.totalRow.map((cell, ci) =>
       React.createElement(
         Text,
-        { key: `t${ci}`, style: detailCellStyle(ci, d.aligns[ci], ci === 0) },
+        { key: `t${ci}`, style: detailCellStyle(ci, d.aligns[ci], ci === 0, d.widths?.[ci]) },
         cell
       )
     )

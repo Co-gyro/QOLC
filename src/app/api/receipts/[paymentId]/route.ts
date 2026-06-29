@@ -73,11 +73,11 @@ export async function GET(
     return NextResponse.json(apiError("権限がありません", "FORBIDDEN"), { status: 403 });
   }
 
-  // 関連データ取得
-  const [{ data: lines }, { data: resident }, { data: merchant }] = await Promise.all([
+  // 関連データ取得（statement_lines は migration026未適用でも動くようフォールバック）
+  const [linesRes, { data: resident }, { data: merchant }] = await Promise.all([
     admin
       .from("statement_lines")
-      .select("id, amount, self_pay_amount, service_name, quantity")
+      .select("id, amount, self_pay_amount, service_name, quantity, cost_kind, tax_10_amount, tax_8_amount")
       .eq("payment_id", payment.id),
     admin
       .from("residents")
@@ -90,6 +90,15 @@ export async function GET(
       .eq("id", payment.merchant_id)
       .maybeSingle(),
   ]);
+  let lines = linesRes.data;
+  if (linesRes.error) {
+    // cost_kind/tax 列が未適用(026前)のとき従来列のみで再取得
+    const { data } = await admin
+      .from("statement_lines")
+      .select("id, amount, self_pay_amount, service_name, quantity")
+      .eq("payment_id", payment.id);
+    lines = data as typeof lines;
+  }
 
   if (!resident || !merchant) {
     return NextResponse.json(apiError("領収書の生成に必要な情報が不足しています", "DATA_INCOMPLETE"), { status: 500 });

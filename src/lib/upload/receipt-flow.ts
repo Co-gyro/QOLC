@@ -17,17 +17,19 @@ import ExcelJS from "exceljs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseKaigoCsv } from "@/lib/receipt/kaigo-csv";
 import { parseIryouUke, xlsxSheetToRows } from "@/lib/receipt/iryou-uke";
+import { parseOtherCostCsv } from "@/lib/receipt/other-cost-csv";
 import {
   matchKaigoReceipts,
   matchIryouReceipts,
   type ResidentForMatching,
   type FormerInsuranceNumber,
 } from "@/lib/receipt/matcher";
-import type {
-  PreviewLine,
-  PreviewResult,
-  PreviewFacilityGroup,
-  PreviewResidentGroup,
+import {
+  groupForPreview,
+  type PreviewLine,
+  type PreviewResult,
+  type PreviewFacilityGroup,
+  type PreviewResidentGroup,
 } from "./preview";
 
 /** マッチング対象 + 施設ID を持つ拡張型 */
@@ -369,6 +371,165 @@ export async function persistIryouReceipt(
   });
 
   return groupByFacility(batchId, previewLines, opts.facilityNames);
+}
+
+/** 被保険者番号を突合用に正規化（前後空白除去・先頭0除去） */
+function normalizeInsuranceNumber(s: string): string {
+  return s.trim().replace(/^0+/, "");
+}
+
+/**
+ * その他費用（保険外）CSVを既存バッチに**結合**して PreviewResult を返す。
+ *
+ * - レセプトで作成済みのバッチ（status=preview）に対し、被保険者番号で入居者へ突合し
+ *   statement_lines を cost_kind='other' で1行追加する（amount=self_pay=その他費用合計）。
+ * - 既に同バッチへ取り込んだ その他費用行があれば置き換える（再アップロード冪等）。
+ * - 決済は self_pay_amount を resident×merchant で合計するため、保険分と自動合算される。
+ * - 領収書は cost_kind='other' を区分表示（合算）する。
+ *
+ * @throws バッチが存在しない/別merchant/決済実行済みのとき
+ */
+export async function persistOtherCost(
+  admin: SupabaseClient,
+  opts: {
+    fileBuffer: Buffer;
+    batchId: string;
+    merchantId: string;
+    residents: ResidentWithFacility[];
+    facilityNames: Map<string, string>;
+    /** 突合を許可する施設ID（provider/facility_staff用）。null は全施設（admin） */
+    allowedFacilityIds: string[] | null;
+  }
+): Promise<PreviewResult> {
+  // バッチ検証（merchant一致・未実行）
+  const { data: batch } = await admin
+    .from("upload_batches")
+    .select("id, merchant_id, status")
+    .eq("id", opts.batchId)
+    .maybeSingle();
+  if (!batch) throw new Error("対象のアップロードバッチが見つかりません");
+  if (batch.merchant_id !== opts.merchantId) throw new Error("このバッチを操作する権限がありません");
+  if (batch.status !== "preview") {
+    throw new Error("このバッチは決済実行済みのため、その他費用を追加できません");
+  }
+
+  const { rows } = parseOtherCostCsv(opts.fileBuffer);
+
+  // 突合対象の入居者: 許可施設で絞り、被保険者番号で索引
+  const allowed = opts.allowedFacilityIds;
+  const byNumber = new Map<string, ResidentWithFacility>();
+  for (const r of opts.residents) {
+    if (!r.insuranceNumber) continue;
+    if (allowed && (!r.facilityId || !allowed.includes(r.facilityId))) continue;
+    byNumber.set(normalizeInsuranceNumber(r.insuranceNumber), r);
+  }
+
+  // 既存の その他費用行を削除（再アップロード冪等）
+  await admin
+    .from("statement_lines")
+    .delete()
+    .eq("upload_batch_id", opts.batchId)
+    .eq("cost_kind", "other");
+
+  const inserts = rows.map((row) => {
+    const resident = byNumber.get(normalizeInsuranceNumber(row.insuranceNumber)) ?? null;
+    const matched = Boolean(resident);
+    return {
+      upload_batch_id: opts.batchId,
+      facility_id: resident?.facilityId ?? null,
+      resident_id: resident?.id ?? null,
+      insurance_number: row.insuranceNumber.slice(0, 10),
+      service_code: null,
+      service_name: "その他費用（保険外）",
+      amount: row.total,
+      self_pay_amount: row.total,
+      match_status: matched ? "matched" : "unmatched",
+      cost_kind: "other",
+      tax_10_amount: row.tax10,
+      tax_8_amount: row.tax8,
+    };
+  });
+  if (inserts.length > 0) {
+    const { error: insErr } = await admin.from("statement_lines").insert(inserts);
+    if (insErr) throw new Error(`その他費用の保存に失敗: ${insErr.message}`);
+  }
+
+  // バッチ合計を再計算（self_pay 合計）
+  await recomputeBatchTotal(admin, opts.batchId);
+
+  return buildPreviewForBatch(admin, opts.batchId, opts.facilityNames);
+}
+
+/** バッチの total_amount を statement_lines の self_pay 合計で再計算する */
+async function recomputeBatchTotal(admin: SupabaseClient, batchId: string): Promise<void> {
+  const { data } = await admin
+    .from("statement_lines")
+    .select("self_pay_amount, amount")
+    .eq("upload_batch_id", batchId);
+  const lines = (data as Array<{ self_pay_amount: number | null; amount: number | null }> | null) ?? [];
+  const total = lines.reduce((s, l) => s + (l.self_pay_amount ?? l.amount ?? 0), 0);
+  await admin.from("upload_batches").update({ total_amount: total }).eq("id", batchId);
+}
+
+/**
+ * 既存バッチの statement_lines を読み直して PreviewResult を再構築する。
+ * 各行の表示額は self_pay_amount（＝決済対象額）を用いる。
+ */
+export async function buildPreviewForBatch(
+  admin: SupabaseClient,
+  batchId: string,
+  facilityNames: Map<string, string>
+): Promise<PreviewResult> {
+  const { data } = await admin
+    .from("statement_lines")
+    .select(
+      "id, facility_id, resident_id, insurance_number, service_code, service_name, amount, self_pay_amount, match_status, cost_kind"
+    )
+    .eq("upload_batch_id", batchId)
+    .order("cost_kind", { ascending: true });
+
+  type Row = {
+    id: string;
+    facility_id: string | null;
+    resident_id: string | null;
+    insurance_number: string | null;
+    service_code: string | null;
+    service_name: string | null;
+    amount: number | null;
+    self_pay_amount: number | null;
+    match_status: PreviewLine["matchStatus"];
+  };
+  const rows = ((data ?? []) as unknown) as Row[];
+
+  // 入居者名を取得
+  const residentIds = Array.from(
+    new Set(rows.map((r) => r.resident_id).filter((id): id is string => !!id))
+  );
+  const residentNames = new Map<string, string>();
+  if (residentIds.length > 0) {
+    const { data: rs } = await admin
+      .from("residents")
+      .select("id, name_last, name_first")
+      .in("id", residentIds);
+    for (const r of (rs as Array<{ id: string; name_last: string; name_first: string }> | null) ?? []) {
+      residentNames.set(r.id, `${r.name_last} ${r.name_first}`);
+    }
+  }
+
+  const lines: PreviewLine[] = rows.map((r) => ({
+    statementLineId: r.id,
+    facilityId: r.facility_id,
+    residentId: r.resident_id,
+    residentName: r.resident_id ? residentNames.get(r.resident_id) ?? null : null,
+    insuranceNumber: r.insurance_number ?? "",
+    serviceCode: r.service_code,
+    serviceName: r.service_name,
+    amount: r.self_pay_amount ?? r.amount ?? 0,
+    selfPayAmount: r.self_pay_amount ?? 0,
+    matchStatus: r.match_status,
+  }));
+
+  return groupForPreview(batchId, lines, { facilityNames, residentNames });
 }
 
 /**

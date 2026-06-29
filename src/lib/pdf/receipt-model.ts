@@ -73,6 +73,15 @@ export interface ReceiptInput {
   /** 8%対象☆（軽減税率・自費のみ）。未指定は 0円/0円 */
   tax8?: ReceiptTaxBucket;
 
+  /**
+   * その他費用（保険外）の合算区分（保険系カテゴリにのみ適用）。
+   * 施行規則65条の保険外費用の区分記載に対応。設定すると保険分の下に
+   * 「その他費用(保険外)」区分を1行追加し、領収金額＝保険本人負担＋その他費用 とする。
+   * 軽減税率の内訳(tax10/tax8)があれば領収金額ボックスに表示する。
+   * QOLCは金額を独自計算せず、施設の自費請求確定額を直読する（星さん方針）。
+   */
+  otherCost?: ReceiptOtherCost;
+
   /** 提供者情報 */
   provider: ReceiptProvider;
 
@@ -139,6 +148,18 @@ export interface ReceiptDetailLine {
 
 /** 自費明細の税区分（住宅請求書サンプル準拠） */
 export type JihiTaxKind = "非課税" | "内税" | "外税";
+
+/** その他費用（保険外）の合算区分 */
+export interface ReceiptOtherCost {
+  /** その他費用 合計（税込）＝決済へ合算する額 */
+  total: number;
+  /** 区分行のラベル。未指定は「その他費用(保険外)」 */
+  label?: string;
+  /** 10%対象（税込・消費税）。表示用・任意 */
+  tax10?: ReceiptTaxBucket;
+  /** 8%対象☆（税込・消費税）。表示用・任意 */
+  tax8?: ReceiptTaxBucket;
+}
 
 /** カード決済情報 */
 export interface ReceiptPayment {
@@ -291,6 +312,19 @@ export function buildReceiptModel(input: ReceiptInput): ReceiptModel {
   // 明細書(B案)で項目別金額を実単価逆算するため、保険系の総額をここで保持。
   let insuranceCostTotal: number | undefined;
 
+  // その他費用（保険外）の合算区分（保険系のみ）。領収金額＝保険本人＋その他費用。
+  const other = input.category === "jihi" ? undefined : input.otherCost;
+  if (other && other.total < 0) {
+    throw new Error("その他費用が負の値です");
+  }
+  // 保険分の本人負担＝領収金額（grand total）からその他費用を差し引いた額。
+  const insuranceSelf = other ? input.userBurden - other.total : input.userBurden;
+  if (other && insuranceSelf < 0) {
+    throw new Error(
+      `その他費用(${other.total}) が領収金額(${input.userBurden}) を超えています`
+    );
+  }
+
   if (input.category === "jihi") {
     // 自費: 給付控除なし。本人請求額をそのまま1行で。
     itemRows.push({
@@ -300,12 +334,12 @@ export function buildReceiptModel(input: ReceiptInput): ReceiptModel {
     });
   } else {
     // 保険系: 費用総額・給付額を解決（一方からもう一方を導出）
-    const { costTotal, benefit } = resolveInsuranceAmounts(input);
+    const { costTotal, benefit } = resolveInsuranceAmounts(input, insuranceSelf);
     insuranceCostTotal = costTotal;
     itemRows.push({
       itemName: serviceItemLabel,
       breakdown: null,
-      amount: formatYen(input.userBurden),
+      amount: formatYen(insuranceSelf),
     });
     itemRows.push({
       itemName: `　${input.costTotalLabel ?? defaults.costTotalLabel}`,
@@ -317,14 +351,24 @@ export function buildReceiptModel(input: ReceiptInput): ReceiptModel {
       breakdown: formatBenefit(benefit),
       amount: null,
     });
+    // その他費用（保険外）の区分行を追加（施行規則65条の区分記載）。
+    if (other) {
+      itemRows.push({
+        itemName: other.label ?? "その他費用(保険外)",
+        breakdown: null,
+        amount: formatYen(other.total),
+      });
+    }
   }
 
-  const tax10 = input.tax10 ?? ZERO_TAX;
-  const tax8 = input.tax8 ?? ZERO_TAX;
+  // 税内訳: その他費用がある保険系はその他費用の税バケットを使う。
+  const tax10 = (other ? other.tax10 : input.tax10) ?? ZERO_TAX;
+  const tax8 = (other ? other.tax8 : input.tax8) ?? ZERO_TAX;
   const card = resolveCardPayment(input.payment);
   const detail = buildDetailModel(input.detailLines, {
     costTotal: insuranceCostTotal,
-    userBurden: input.userBurden,
+    // 明細書は保険分の按分に使うため、その他費用を除いた保険本人負担を渡す。
+    userBurden: insuranceSelf,
     category: input.category,
   });
 
@@ -610,7 +654,10 @@ function resolveCardPayment(payment?: ReceiptPayment): {
  * 医療保険は10円未満四捨五入により厳密一致しない場合があるため、整合チェックは
  * 介護（端数なし）のみ厳格に行い、医療は許容する。
  */
-function resolveInsuranceAmounts(input: ReceiptInput): {
+function resolveInsuranceAmounts(
+  input: ReceiptInput,
+  insuranceSelf: number
+): {
   costTotal: number;
   benefit: number;
 } {
@@ -622,10 +669,10 @@ function resolveInsuranceAmounts(input: ReceiptInput): {
     );
   }
   if (costTotal == null && benefit != null) {
-    costTotal = benefit + input.userBurden;
+    costTotal = benefit + insuranceSelf;
   }
   if (benefit == null && costTotal != null) {
-    benefit = costTotal - input.userBurden;
+    benefit = costTotal - insuranceSelf;
   }
   // ここで両方とも数値
   const ct = costTotal as number;
@@ -635,9 +682,9 @@ function resolveInsuranceAmounts(input: ReceiptInput): {
   }
   if (input.category === "kaigo") {
     // 介護は端数処理なし → 厳密一致を要求
-    if (ct !== bf + input.userBurden) {
+    if (ct !== bf + insuranceSelf) {
       throw new Error(
-        `費用総額(${ct}) が 給付額(${bf})+本人請求(${input.userBurden}) と一致しません`
+        `費用総額(${ct}) が 給付額(${bf})+本人請求(${insuranceSelf}) と一致しません`
       );
     }
   }

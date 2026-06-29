@@ -14,7 +14,7 @@
  *   - 給付額 > 0 → 保険（既定 kaigo。医療/介護は明細から判別不可のため override 可）
  *   - 給付額 = 0 → jihi（全額自己負担＝その他費用）
  */
-import type { ReceiptCategory, ReceiptInput, ReceiptDetailLine } from "./receipt-model";
+import type { ReceiptCategory, ReceiptInput, ReceiptDetailLine, ReceiptTaxBucket } from "./receipt-model";
 import { resolveServiceName } from "@/lib/receipt/kaigo-service-codes";
 import { resolveIryouServiceName } from "@/lib/receipt/iryou-service-codes";
 import type { KaigoServiceDetail } from "@/lib/receipt/kaigo-csv";
@@ -35,6 +35,12 @@ export interface PaymentReceiptData {
     self_pay_amount: number;
     service_name: string | null;
     quantity?: number | null;
+    /** 'insurance'(保険分・既定) / 'other'(その他費用＝保険外) */
+    cost_kind?: string | null;
+    /** その他費用の10%対象額(税込)。任意 */
+    tax_10_amount?: number | null;
+    /** その他費用の8%対象☆額(税込)。任意 */
+    tax_8_amount?: number | null;
   }>;
   /** 入居者（宛名） */
   resident: { name_last: string; name_first: string };
@@ -155,14 +161,25 @@ export function buildReceiptInputFromPayment(
 ): ReceiptInput {
   const { payment, lines } = data;
 
-  // 明細から費用総額・本人負担を集計（明細が無ければ payment.total_amount を本人負担に）
-  const costTotalFromLines = lines.reduce((s, l) => s + (l.amount ?? 0), 0);
-  const userBurden = lines.length
-    ? lines.reduce((s, l) => s + (l.self_pay_amount ?? 0), 0)
-    : payment.total_amount;
-  const costTotal = lines.length ? costTotalFromLines : userBurden;
-  const benefit = costTotal - userBurden;
+  // cost_kind で 保険分 と その他費用(保険外) に分離する。
+  const insuranceLines = lines.filter((l) => (l.cost_kind ?? "insurance") !== "other");
+  const otherLines = lines.filter((l) => (l.cost_kind ?? "insurance") === "other");
 
+  // 保険分の集計（明細が無ければ payment.total_amount を本人負担に）
+  const insuranceCostTotal = insuranceLines.reduce((s, l) => s + (l.amount ?? 0), 0);
+  const insuranceSelf = insuranceLines.reduce((s, l) => s + (l.self_pay_amount ?? 0), 0);
+  // その他費用の集計
+  const otherTotal = otherLines.reduce((s, l) => s + (l.self_pay_amount ?? 0), 0);
+  const otherTax10 = otherLines.reduce((s, l) => s + (l.tax_10_amount ?? 0), 0);
+  const otherTax8 = otherLines.reduce((s, l) => s + (l.tax_8_amount ?? 0), 0);
+
+  // 領収金額（grand total）＝全 self_pay。明細無しは payment.total_amount。
+  const userBurden = lines.length ? insuranceSelf + otherTotal : payment.total_amount;
+  // 保険分の費用総額（その他費用は含めない）。保険明細が無ければ本人負担と同額。
+  const costTotal = insuranceLines.length ? insuranceCostTotal : insuranceSelf;
+  const benefit = costTotal - insuranceSelf;
+
+  // 給付額があれば保険カテゴリ、無ければ（全額自己負担）自費。
   const category: ReceiptCategory =
     data.category ?? (benefit > 0 ? "kaigo" : "jihi");
 
@@ -195,9 +212,9 @@ export function buildReceiptInputFromPayment(
     },
     collectionAgent: data.collectionAgent,
     invoiceRegistrationNumber: data.invoiceRegistrationNumber,
-    // サービス利用明細書（2ページ目）の元データ。明細があるときのみ付与。
-    detailLines: lines.length
-      ? lines.map((l) => ({
+    // サービス利用明細書（2ページ目）の元データ。保険明細のみ（その他費用は合算区分1行）。
+    detailLines: insuranceLines.length
+      ? insuranceLines.map((l) => ({
           content: l.service_name ?? "サービス利用",
           quantity: l.quantity ?? null,
           amount: l.amount ?? 0,
@@ -209,7 +226,25 @@ export function buildReceiptInputFromPayment(
   // 保険系のみ費用総額を渡す（モデルが給付額を導出）。自費は本人負担のみ。
   if (category !== "jihi") {
     input.costTotal = costTotal;
+    // その他費用（保険外）があれば合算区分として付与（施行規則65条の区分記載）。
+    if (otherTotal > 0) {
+      input.otherCost = {
+        total: otherTotal,
+        tax10: otherTax10 > 0 ? taxBucketFromGross(otherTax10, 1.1) : undefined,
+        tax8: otherTax8 > 0 ? taxBucketFromGross(otherTax8, 1.08) : undefined,
+      };
+    }
   }
 
   return input;
+}
+
+/**
+ * 内税の税込対象額から消費税額を算出して ReceiptTaxBucket を作る。
+ * QOLCは税額を独自計算しないが、CSVが対象額のみ（税額なし）の場合の表示補完。
+ * 内税合計の丸めにより施設の確定税額と1円程度ずれることがある（許容）。
+ */
+function taxBucketFromGross(gross: number, rate: number): ReceiptTaxBucket {
+  const net = Math.round(gross / rate);
+  return { amount: gross, tax: gross - net };
 }

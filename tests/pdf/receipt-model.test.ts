@@ -80,6 +80,64 @@ describe("buildReceiptModel: 介護保険（kaigo）", () => {
   });
 });
 
+describe("buildReceiptModel: 介護＋その他費用 合算区分表示（施行規則65条）", () => {
+  it("保険分3行＋その他費用区分1行、領収額＝保険本人＋その他費用", () => {
+    // 介護: 費用総額174,631 − 給付157,167 = 保険本人17,464、その他費用145,859 → 計163,323
+    const m = buildReceiptModel({
+      category: "kaigo",
+      issuedAt: "令和8年6月3日",
+      billingMonth: "令和8年5月",
+      recipientName: "渡邉 愛",
+      userBurden: 163323,
+      costTotal: 174631,
+      provider: { name: "テスト施設" },
+      otherCost: {
+        total: 145859,
+        tax10: { amount: 66235, tax: 6022 },
+        tax8: { amount: 29624, tax: 2195 },
+      },
+    });
+    // 領収金額＝grand total
+    expect(m.amountDisplay).toBe("163,323");
+    // 4行: 保険内サービス(本人) / 費用総額 / 給付額 / その他費用
+    expect(m.itemRows).toHaveLength(4);
+    expect(m.itemRows[0].amount).toBe("17,464円"); // 保険本人（grand totalではない）
+    expect(m.itemRows[1].breakdown).toBe("174,631円");
+    expect(m.itemRows[2].breakdown).toBe("▲157,167円");
+    expect(m.itemRows[3].itemName).toBe("その他費用(保険外)");
+    expect(m.itemRows[3].amount).toBe("145,859円");
+    // 税内訳はその他費用のものを領収金額ボックスに表示
+    expect(m.tax10).toEqual({ amount: 66235, tax: 6022 });
+    expect(m.tax8).toEqual({ amount: 29624, tax: 2195 });
+  });
+
+  it("その他費用が領収額を超えると例外", () => {
+    expect(() =>
+      buildReceiptModel(kaigoInput({ userBurden: 1000, costTotal: 174631, otherCost: { total: 5000 } }))
+    ).toThrow(/その他費用/);
+  });
+
+  it("明細書(2ページ目)は保険本人で按分（その他費用を含めない）", () => {
+    const m = buildReceiptModel({
+      category: "kaigo",
+      issuedAt: "x",
+      billingMonth: "令和8年5月",
+      recipientName: "z",
+      userBurden: 163323,
+      costTotal: 174631,
+      provider: { name: "p" },
+      otherCost: { total: 145859 },
+      detailLines: [
+        { content: "通所介護", unitScore: 800, count: 10, totalUnits: 8000 },
+        { content: "加算", unitScore: 100, count: 5, totalUnits: 500 },
+      ],
+    });
+    // 自己負担列の合計＝保険本人17,464（grand total 163,323 ではない）
+    expect(m.detail!.totalRow).toContain("17,464円");
+    expect(m.detail!.totalRow).toContain("174,631円");
+  });
+});
+
 describe("buildReceiptModel: 医療保険（iryou）", () => {
   it("医療ラベル・脚注・費用総額(保険内なし)（338,520-320,520=18,000）", () => {
     const m = buildReceiptModel({

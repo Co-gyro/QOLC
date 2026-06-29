@@ -125,6 +125,52 @@ describe("buildReceiptInputFromPayment: フォールバック", () => {
   });
 });
 
+describe("buildReceiptInputFromPayment: 保険＋その他費用 合算区分", () => {
+  it("cost_kind=other を分離し、保険費用総額はその他費用を含めず、otherCostに合算", () => {
+    const input = buildReceiptInputFromPayment(
+      baseData({
+        payment: { total_amount: 163323, captured_at: "2026-06-03T05:00:00Z", created_at: "2026-06-01T00:00:00Z" },
+        lines: [
+          { amount: 174631, self_pay_amount: 17464, service_name: "介護保険 202605", cost_kind: "insurance" },
+          {
+            amount: 145859,
+            self_pay_amount: 145859,
+            service_name: "その他費用（保険外）",
+            cost_kind: "other",
+            tax_10_amount: 66235,
+            tax_8_amount: 29624,
+          },
+        ],
+      })
+    );
+    expect(input.category).toBe("kaigo");
+    // 領収金額（grand total）＝保険本人17,464＋その他145,859
+    expect(input.userBurden).toBe(163323);
+    // 費用総額はその他費用を含めない（保険のみ）
+    expect(input.costTotal).toBe(174631);
+    expect(input.otherCost?.total).toBe(145859);
+    expect(input.otherCost?.tax10?.amount).toBe(66235);
+    expect(input.otherCost?.tax8?.amount).toBe(29624);
+    // 明細書(detailLines)は保険明細のみ（その他費用は区分1行）
+    expect(input.detailLines).toHaveLength(1);
+    expect(input.detailLines?.[0].content).toBe("介護保険 202605");
+  });
+
+  it("その他費用のみ（保険明細なし）は jihi 扱い・otherCostなし", () => {
+    const input = buildReceiptInputFromPayment(
+      baseData({
+        payment: { total_amount: 50000, captured_at: "2026-06-03T05:00:00Z", created_at: "2026-06-01T00:00:00Z" },
+        lines: [
+          { amount: 50000, self_pay_amount: 50000, service_name: "その他費用（保険外）", cost_kind: "other" },
+        ],
+      })
+    );
+    expect(input.category).toBe("jihi");
+    expect(input.userBurden).toBe(50000);
+    expect(input.otherCost).toBeUndefined();
+  });
+});
+
 describe("buildJihiDetailLines: 自費（その他費用）明細変換", () => {
   it("確定額・税区分・軽減税率・日付/分類をそのまま明細行に写す", () => {
     const lines = buildJihiDetailLines([

@@ -31,6 +31,9 @@ export default function ProviderUploadPage() {
   const [executing, setExecuting] = useState(false);
   const [result, setResult] = useState<ExecuteResult | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
+  const [otherCostLoading, setOtherCostLoading] = useState(false);
+  const [otherCostError, setOtherCostError] = useState<string | null>(null);
+  const [otherCostDone, setOtherCostDone] = useState(false);
 
   async function handleFile(file: File) {
     setError(null);
@@ -61,6 +64,34 @@ export default function ProviderUploadPage() {
     setFileName(null);
     setError(null);
     setResult(null);
+    setOtherCostError(null);
+    setOtherCostDone(false);
+  }
+
+  /** その他費用（保険外）CSVを現バッチに結合する */
+  async function handleOtherCostFile(file: File) {
+    if (!preview) return;
+    setOtherCostError(null);
+    setOtherCostLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/upload/other-cost?batchId=${preview.batchId}`, {
+        method: "POST",
+        body: fd,
+      });
+      const json = (await res.json()) as ApiResponse<PreviewResult>;
+      if (!json.success) {
+        setOtherCostError(json.error);
+        return;
+      }
+      setPreview(json.data); // 合算後のプレビューに更新
+      setOtherCostDone(true);
+    } catch (e) {
+      setOtherCostError(e instanceof Error ? e.message : "その他費用の取り込みに失敗しました");
+    } finally {
+      setOtherCostLoading(false);
+    }
   }
 
   async function executePayment() {
@@ -105,12 +136,12 @@ export default function ProviderUploadPage() {
       {!preview && !loading && (
         <Card>
           <CardHeader>
-            <CardTitle>CSVファイルを選択</CardTitle>
+            <CardTitle>① 明細・レセプトをアップロード</CardTitle>
           </CardHeader>
           <CardContent>
             <FileUpload
               onFile={handleFile}
-              helperText="独自CSV（被保険者番号＋金額のヘッダ付き）、または介護保険CSV／医療保険UKE（.xlsx）に対応。最大10MB。"
+              helperText="介護保険CSV／医療保険UKE（.xlsx）、または独自CSV（被保険者番号＋金額）に対応。最大10MB。アップロード後、② その他費用（保険外）を追加できます。"
             />
             {error && (
               <p className="text-sm mt-3" style={{ color: "#DC2626" }}>
@@ -190,6 +221,41 @@ export default function ProviderUploadPage() {
                     ))}
                   </ul>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="mb-4" style={{ borderColor: "var(--qolc-border)", borderStyle: "dashed" }}>
+            <CardHeader>
+              <CardTitle className="text-base">
+                その他費用を追加（保険外・任意）
+                {otherCostDone && (
+                  <span className="ml-2 text-sm font-normal" style={{ color: "#1B5E20" }}>
+                    ✓ 合算済み
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm mb-3" style={{ color: "var(--qolc-muted)" }}>
+                家賃・食事・居住費・日常生活費などレセプトに載らない自費を、被保険者番号で各入居者に合算します。
+                列＝<code>被保険者番号, その他費用</code>（任意で <code>10%対象, 8%対象</code>）のCSV。
+                合算後の領収書は保険分とその他費用を区分表示します。
+              </p>
+              {otherCostLoading ? (
+                <div className="py-4 flex justify-center">
+                  <LoadingSpinner size="md" label="その他費用を合算中..." />
+                </div>
+              ) : (
+                <FileUpload
+                  onFile={handleOtherCostFile}
+                  helperText="その他費用CSV（被保険者番号＋合計のヘッダ付き）。最大10MB。"
+                />
+              )}
+              {otherCostError && (
+                <p className="text-sm mt-3" style={{ color: "#DC2626" }}>
+                  {otherCostError}
+                </p>
               )}
             </CardContent>
           </Card>

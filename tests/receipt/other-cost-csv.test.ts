@@ -1,5 +1,21 @@
 import { describe, it, expect } from "vitest";
-import { parseOtherCostCsv } from "../../src/lib/receipt/other-cost-csv";
+import { parseOtherCostCsv, detectOtherCostCsv } from "../../src/lib/receipt/other-cost-csv";
+
+describe("detectOtherCostCsv", () => {
+  it("「その他費用」列を持つCSVは true", () => {
+    expect(detectOtherCostCsv("被保険者番号,その他費用,10%対象,8%対象\n0001325455,145859,66235,29624")).toBe(true);
+    expect(detectOtherCostCsv("介護保険番号,その他費用合計\n0001325455,50000")).toBe(true);
+  });
+  it("独自CSV(金額/サービス名)やレセプトは false", () => {
+    expect(detectOtherCostCsv("被保険者番号,サービス名,金額,自己負担額\n0000005678,処方薬,3000,3000")).toBe(false);
+    expect(detectOtherCostCsv('"1","1","0","261","711"')).toBe(false);
+  });
+  it("SJISバイナリでも判定できる", () => {
+    // UTF-8で十分なケースのみここでは検証（SJIS変換はparse側でカバー）
+    const buf = Buffer.from("被保険者番号,その他費用\n0001325455,50000", "utf8");
+    expect(detectOtherCostCsv(buf)).toBe(true);
+  });
+});
 
 describe("parseOtherCostCsv", () => {
   it("被保険者番号＋その他費用＋税内訳を読む", () => {

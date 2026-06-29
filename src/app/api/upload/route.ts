@@ -22,13 +22,18 @@ import {
   matchInsuranceNumber,
   getActiveFacilityIdsForMerchant,
 } from "@/lib/upload/matcher";
-import { groupForPreview, type PreviewLine } from "@/lib/upload/preview";
+import type { PreviewLine } from "@/lib/upload/preview";
 import {
   detectReceiptKind,
   loadResidentsForMatching,
   persistKaigoReceipt,
   persistIryouReceipt,
+  persistOtherCost,
+  ensureBatch,
+  recomputeBatchTotal,
+  buildPreviewForBatch,
 } from "@/lib/upload/receipt-flow";
+import { detectOtherCostCsv } from "@/lib/receipt/other-cost-csv";
 import { apiError, apiOk } from "@/types/api";
 import type { UserRole } from "@/types";
 
@@ -47,6 +52,8 @@ const querySchema = z.object({
   // provider は自分の merchant に固定するため任意。admin/facility_staff は指定可。
   merchantId: z.string().uuid().optional(),
   uploadFormatId: z.string().uuid().optional(),
+  // 既存バッチへ追記する場合に指定（1アップロード=1バッチに集約。create-or-append）
+  batchId: z.string().uuid().optional(),
 });
 
 interface FormatMapping {
@@ -85,6 +92,7 @@ export async function POST(req: NextRequest) {
   const qs = querySchema.safeParse({
     merchantId: url.searchParams.get("merchantId") ?? undefined,
     uploadFormatId: url.searchParams.get("uploadFormatId") ?? undefined,
+    batchId: url.searchParams.get("batchId") ?? undefined,
   });
   if (!qs.success) {
     return NextResponse.json(apiError("クエリパラメータ不正", "VALIDATION_ERROR"), {
@@ -143,12 +151,32 @@ export async function POST(req: NextRequest) {
   }
   const fileName = (file as File).name ?? "upload.csv";
 
-  // レセプトファイル(.xlsx/.uke or 介護保険CSV) を先頭バイトと拡張子で判定し、
-  // 該当する場合は別フロー(receipt-flow) に振り分ける。
+  // ファイル種別を判定して振り分ける（1アップロード=1バッチに集約。create-or-append）:
+  //   - 介護保険CSV / 医療UKE(xlsx) → レセプト永続化フロー
+  //   - その他費用CSV（「その他費用」列あり）→ その他費用結合フロー（誤って①に投入されても正しく処理）
+  //   - それ以外 → 独自CSVフロー（後段）
   const fileBuffer = Buffer.from(await file.arrayBuffer());
   const head = fileBuffer.slice(0, 256).toString("utf8");
+  const incomingBatchId = qs.data.batchId ?? null;
+  const providerType = (role === "facility_staff" ? "facility_self" : "external_provider") as
+    | "facility_self"
+    | "external_provider";
+
+  // facility_staff の自施設ID（突合フォールバック用）
+  let facilityIdForSelf: string | null = null;
+  if (role === "facility_staff") {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("facility_id")
+      .eq("id", user.id)
+      .single();
+    facilityIdForSelf = (profile?.facility_id as string | null) ?? null;
+  }
+
   const receiptKind = detectReceiptKind(fileName, head);
-  if (receiptKind) {
+  const isOtherCost = !receiptKind && detectOtherCostCsv(fileBuffer);
+
+  if (receiptKind || isOtherCost) {
     try {
       const residentsAll = await loadResidentsForMatching(admin);
       const allFacilities = await admin.from("facilities").select("id, name").is("deleted_at", null);
@@ -157,22 +185,28 @@ export async function POST(req: NextRequest) {
         facilityNames.set(f.id, f.name);
       }
 
-      // 介護レセプト/医療UKE とも永続化して決済フローに乗せる（B案）。
-      let facilityIdForSelf: string | null = null;
-      if (role === "facility_staff") {
-        const { data: profile } = await admin
-          .from("profiles")
-          .select("facility_id")
-          .eq("id", user.id)
-          .single();
-        facilityIdForSelf = (profile?.facility_id as string | null) ?? null;
+      if (isOtherCost) {
+        // その他費用CSV: 突合許可施設を解決して結合（create-or-append）
+        const allowedFacilityIds = await resolveAllowedFacilityIds(admin, role, merchantId, facilityIdForSelf);
+        const preview = await persistOtherCost(admin, {
+          fileBuffer,
+          batchId: incomingBatchId,
+          merchantId,
+          providerType,
+          fileName,
+          residents: residentsAll,
+          facilityNames,
+          allowedFacilityIds,
+        });
+        return NextResponse.json(apiOk(preview));
       }
+
+      // 介護レセプト/医療UKE とも永続化して決済フローに乗せる（B案）。
       const persistOpts = {
         fileBuffer,
+        batchId: incomingBatchId,
         merchantId,
-        providerType: (role === "facility_staff" ? "facility_self" : "external_provider") as
-          | "facility_self"
-          | "external_provider",
+        providerType,
         fileName,
         residents: residentsAll,
         facilityNames,
@@ -185,7 +219,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(apiOk(preview));
     } catch (e) {
       const msg = e instanceof Error ? e.message : "unknown";
-      return NextResponse.json(apiError(`レセプトファイルの処理に失敗しました: ${msg}`, "RECEIPT_PARSE"), {
+      return NextResponse.json(apiError(`ファイルの処理に失敗しました: ${msg}`, "RECEIPT_PARSE"), {
         status: 400,
       });
     }
@@ -237,18 +271,11 @@ export async function POST(req: NextRequest) {
   }
   const rows = parsed.data;
 
-  // 対象施設の解決
+  // 対象施設の解決（facilityIdForSelf は上部で解決済み）
   let facilityIds: string[] = [];
-  let facilityIdForSelf: string | null = null;
   if (role === "provider") {
     facilityIds = await getActiveFacilityIdsForMerchant(admin, merchantId);
   } else if (role === "facility_staff") {
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("facility_id")
-      .eq("id", user.id)
-      .single();
-    facilityIdForSelf = (profile?.facility_id as string | null) ?? null;
     facilityIds = facilityIdForSelf ? [facilityIdForSelf] : [];
   } else {
     // admin: 全施設対象
@@ -259,32 +286,16 @@ export async function POST(req: NextRequest) {
     facilityIds = ((allFac as Array<{ id: string }>) ?? []).map((f) => f.id);
   }
 
-  // upload_batches INSERT
-  const totalAmountAll = rows.reduce(
-    (sum, r) => sum + toInt(r[mapping.amount ?? "amount"]),
-    0
-  );
-  const { data: batch, error: batchErr } = await admin
-    .from("upload_batches")
-    .insert({
-      merchant_id: merchantId,
-      provider_type: role === "facility_staff" ? "facility_self" : "external_provider",
-      file_name: fileName,
-      total_rows: rows.length,
-      total_amount: totalAmountAll,
-      status: "processing",
-    })
-    .select("id")
-    .single();
-  if (batchErr || !batch) {
-    return NextResponse.json(apiError(batchErr?.message ?? "batch insert失敗", "DB"), {
-      status: 500,
-    });
+  // バッチ解決（create-or-append。独自CSVも既存バッチへ追記可能）
+  let batchId: string;
+  try {
+    batchId = await ensureBatch(admin, { batchId: incomingBatchId, merchantId, providerType, fileName });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "batch resolve失敗";
+    return NextResponse.json(apiError(msg, "DB"), { status: 400 });
   }
-  const batchId = batch.id as string;
 
   // statement_lines 構築 + マッチング
-  const previewLines: PreviewLine[] = [];
   const statementInserts: Array<Record<string, unknown>> = [];
 
   for (const row of rows) {
@@ -321,26 +332,12 @@ export async function POST(req: NextRequest) {
       self_pay_amount: selfPay,
       match_status: matchResult.status,
     });
-
-    previewLines.push({
-      statementLineId: "",
-      facilityId: facilityId,
-      residentId: matchResult.residentId ?? null,
-      residentName: null,
-      insuranceNumber: insurance,
-      serviceCode: serviceCode || null,
-      serviceName: serviceName || null,
-      amount,
-      selfPayAmount: selfPay,
-      matchStatus: matchResult.status,
-    });
   }
 
   // バルクINSERT
-  const { data: inserted, error: insErr } = await admin
+  const { error: insErr } = await admin
     .from("statement_lines")
-    .insert(statementInserts)
-    .select("id, facility_id, resident_id, insurance_number, match_status, amount");
+    .insert(statementInserts);
   if (insErr) {
     await admin
       .from("upload_batches")
@@ -351,15 +348,8 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // preview ID 付与
-  const insertedArr = (inserted as Array<{ id: string }>) ?? [];
-  for (let i = 0; i < previewLines.length; i++) {
-    previewLines[i].statementLineId = insertedArr[i]?.id ?? "";
-  }
-
-  // メタ取得: 関連施設・入居者の名前
+  // 施設名（プレビュー表示用）
   const facilityNames = new Map<string, string>();
-  const residentNames = new Map<string, string>();
   if (facilityIds.length > 0) {
     const { data: facs } = await admin
       .from("facilities")
@@ -369,36 +359,24 @@ export async function POST(req: NextRequest) {
       facilityNames.set(f.id, f.name);
     }
   }
-  const residentIds = previewLines
-    .map((l) => l.residentId)
-    .filter((id): id is string => !!id);
-  if (residentIds.length > 0) {
-    const { data: residents } = await admin
-      .from("residents")
-      .select("id, name_last, name_first")
-      .in("id", residentIds);
-    for (const r of (residents as Array<{
-      id: string;
-      name_last: string;
-      name_first: string;
-    }>) ?? []) {
-      residentNames.set(r.id, `${r.name_last} ${r.name_first}`);
-    }
-  }
 
-  // preview JSON 構築
-  const preview = groupForPreview(batchId, previewLines, {
-    facilityNames,
-    residentNames,
-  });
-
-  // batches UPDATE
-  await admin
-    .from("upload_batches")
-    .update({ status: "preview" })
-    .eq("id", batchId);
-
+  // 合計再計算 → 確認待ち。バッチ全体（既存その他費用も含む）を読み直して合算プレビューを返す。
+  await recomputeBatchTotal(admin, batchId);
+  await admin.from("upload_batches").update({ status: "preview" }).eq("id", batchId);
+  const preview = await buildPreviewForBatch(admin, batchId, facilityNames);
   return NextResponse.json(apiOk(preview));
+}
+
+/** ロール別の突合許可施設ID（admin は null=全施設） */
+async function resolveAllowedFacilityIds(
+  admin: ReturnType<typeof getSupabaseAdminClient>,
+  role: UserRole,
+  merchantId: string,
+  facilityIdForSelf: string | null
+): Promise<string[] | null> {
+  if (role === "provider") return getActiveFacilityIdsForMerchant(admin, merchantId);
+  if (role === "facility_staff") return facilityIdForSelf ? [facilityIdForSelf] : [];
+  return null; // admin
 }
 
 function toInt(v: string | number | undefined | null): number {

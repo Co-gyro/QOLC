@@ -61,6 +61,26 @@ function normHeader(s: string): string {
 }
 
 /**
+ * その他費用CSVかどうかをヘッダ行から判定する。
+ * 「その他費用」列を持つことを必須条件にし、独自CSV(金額/サービス名)やレセプトと区別する。
+ * SJIS/UTF-8 を自動判定するため、生バイナリ(Buffer/Uint8Array)を渡してよい。
+ * @param input ファイル先頭サンプル(文字列) または 生バイナリ
+ */
+export function detectOtherCostCsv(input: string | Buffer | Uint8Array): boolean {
+  const head = typeof input === "string" ? input : decodeToUtf8(input);
+  const firstLine = head.split(/\r?\n/)[0] ?? "";
+  if (!firstLine) return false;
+  const cols = firstLine.split(",").map(normHeader);
+  const totalAliases = HEADER_ALIASES.total.map(normHeader);
+  const insAliases = HEADER_ALIASES.insuranceNumber.map(normHeader);
+  const hasOtherCost = cols.includes(normHeader("その他費用")) || cols.includes(normHeader("その他費用合計"));
+  const hasTotalCol = cols.some((c) => totalAliases.includes(c));
+  const hasInsCol = cols.some((c) => insAliases.includes(c));
+  // 「その他費用」列を明示的に持つ場合のみ true（合計/金額だけの独自CSVは対象外）
+  return hasInsCol && hasTotalCol && hasOtherCost;
+}
+
+/**
  * その他費用CSVをパースする。
  * @param input SJIS/UTF-8 バイナリ(Buffer/Uint8Array) または UTF-8 文字列
  */

@@ -52,11 +52,20 @@ export async function fetchUploadBatches(limit = 100): Promise<UploadBatchRow[]>
 
 /** upload_status の日本語ラベルと色 */
 export const UPLOAD_STATUS_LABEL: Record<string, string> = {
-  processing: "処理中",
-  preview: "プレビュー",
+  processing: "取込み中",
+  preview: "確認待ち",
   confirmed: "確認済み",
-  completed: "完了",
+  completed: "決済完了",
   error: "エラー",
+};
+
+/** 各状態の意味（凡例・詳細表示用） */
+export const UPLOAD_STATUS_DESCRIPTION: Record<string, string> = {
+  processing: "ファイルを取込み中です（通常はすぐに確認待ちへ進みます）。",
+  preview: "取込み済みで決済はまだです。内容を確認し、その他費用の追加や決済実行ができます。",
+  confirmed: "内容が確認済みです。",
+  completed: "決済を実行済みです。領収書を発行できます。",
+  error: "取込みに失敗しました。ファイル形式をご確認のうえ再アップロードしてください。",
 };
 
 export const UPLOAD_STATUS_COLOR: Record<string, { bg: string; fg: string }> = {

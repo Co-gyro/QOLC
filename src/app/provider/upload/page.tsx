@@ -23,79 +23,48 @@ interface ExecuteResult {
 }
 
 export default function ProviderUploadPage() {
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [batchId, setBatchId] = useState<string | null>(null);
+  const [loadingSlot, setLoadingSlot] = useState<null | "main" | "other">(null);
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [result, setResult] = useState<ExecuteResult | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
-  const [otherCostLoading, setOtherCostLoading] = useState(false);
-  const [otherCostError, setOtherCostError] = useState<string | null>(null);
-  const [otherCostDone, setOtherCostDone] = useState(false);
 
-  async function handleFile(file: File) {
+  /** ①②共通: ファイルを現バッチへ取込む（未作成なら新規。サーバが種別自動判定） */
+  async function handleUpload(file: File, slot: "main" | "other") {
     setError(null);
-    setPreview(null);
-    setFileName(file.name);
-    setLoading(true);
+    setLoadingSlot(slot);
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const q = batchId ? `?batchId=${batchId}` : "";
+      const res = await fetch(`/api/upload${q}`, { method: "POST", body: fd });
       const json = (await res.json()) as ApiResponse<PreviewResult>;
       if (!json.success) {
         setError(json.error);
-        setLoading(false);
         return;
       }
+      setBatchId(json.data.batchId);
       setPreview(json.data);
-      setHistoryKey((k) => k + 1); // バッチ作成 → 履歴更新
+      setHistoryKey((k) => k + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "アップロードに失敗しました");
     } finally {
-      setLoading(false);
+      setLoadingSlot(null);
     }
   }
 
   function reset() {
+    setBatchId(null);
     setPreview(null);
-    setFileName(null);
     setError(null);
     setResult(null);
-    setOtherCostError(null);
-    setOtherCostDone(false);
-  }
-
-  /** その他費用（保険外）CSVを現バッチに結合する */
-  async function handleOtherCostFile(file: File) {
-    if (!preview) return;
-    setOtherCostError(null);
-    setOtherCostLoading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch(`/api/upload/other-cost?batchId=${preview.batchId}`, {
-        method: "POST",
-        body: fd,
-      });
-      const json = (await res.json()) as ApiResponse<PreviewResult>;
-      if (!json.success) {
-        setOtherCostError(json.error);
-        return;
-      }
-      setPreview(json.data); // 合算後のプレビューに更新
-      setOtherCostDone(true);
-    } catch (e) {
-      setOtherCostError(e instanceof Error ? e.message : "その他費用の取り込みに失敗しました");
-    } finally {
-      setOtherCostLoading(false);
-    }
   }
 
   async function executePayment() {
-    if (!preview) return;
+    if (!batchId) return;
     setConfirming(false);
     setExecuting(true);
     setError(null);
@@ -103,7 +72,7 @@ export default function ProviderUploadPage() {
       const res = await fetch("/api/payment/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uploadBatchId: preview.batchId }),
+        body: JSON.stringify({ uploadBatchId: batchId }),
       });
       const json = (await res.json()) as ApiResponse<ExecuteResult>;
       if (!json.success) {
@@ -112,7 +81,7 @@ export default function ProviderUploadPage() {
         return;
       }
       setResult(json.data);
-      setHistoryKey((k) => k + 1); // 実行完了 → 履歴更新
+      setHistoryKey((k) => k + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "決済実行に失敗しました");
     } finally {
@@ -131,33 +100,39 @@ export default function ProviderUploadPage() {
   return (
     <PortalLayout portal="provider">
       <Breadcrumb items={[{ label: "ダッシュボード", href: "/provider/dashboard" }, { label: "明細アップロード" }]} />
-      <h1 className="text-2xl font-bold mb-6">明細アップロード</h1>
+      <h1 className="text-2xl font-bold mb-2">明細アップロード</h1>
+      <p className="text-sm mb-6" style={{ color: "var(--qolc-muted)" }}>
+        ①明細・②その他費用はどちらから入れてもOKです。1回の取込み（同じまとめ）に合算され、入居者ごとに1決済になります。
+      </p>
 
-      {!preview && !loading && (
-        <Card>
-          <CardHeader>
-            <CardTitle>① 明細・レセプトをアップロード</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <FileUpload
-              onFile={handleFile}
-              helperText="介護保険CSV／医療保険UKE（.xlsx）、または独自CSV（被保険者番号＋金額）に対応。最大10MB。アップロード後、② その他費用（保険外）を追加できます。"
-            />
-            {error && (
-              <p className="text-sm mt-3" style={{ color: "#DC2626" }}>
-                {error}
-              </p>
-            )}
-          </CardContent>
-        </Card>
+      {!result && (
+        <div className="grid gap-4 md:grid-cols-2 mb-4">
+          {/* ① 明細・レセプト */}
+          <UploadSlot
+            badge="①"
+            title="明細・レセプト"
+            description="介護保険CSV／医療保険UKE（.xlsx）／独自CSV（被保険者番号＋金額）。保険分の費用総額・給付・本人負担を取込みます。"
+            helperText="最大10MB。介護CSV・医療UKE・独自CSVに対応。"
+            loading={loadingSlot === "main"}
+            onFile={(f) => handleUpload(f, "main")}
+          />
+          {/* ② その他費用（保険外） */}
+          <UploadSlot
+            badge="②"
+            title="その他費用（保険外）"
+            description="家賃・食事・居住費・日常生活費などレセプトに載らない自費。被保険者番号で各入居者に合算します。列＝被保険者番号, その他費用（任意で 10%対象, 8%対象）。"
+            helperText="その他費用CSV（被保険者番号＋合計のヘッダ付き）。単独・先行でもOK。"
+            loading={loadingSlot === "other"}
+            onFile={(f) => handleUpload(f, "other")}
+            dashed
+          />
+        </div>
       )}
 
-      {loading && (
-        <Card>
-          <CardContent className="py-8 flex justify-center">
-            <LoadingSpinner size="lg" label={`${fileName ?? "ファイル"} を処理中...`} />
-          </CardContent>
-        </Card>
+      {error && (
+        <p className="text-sm mb-4" style={{ color: "#DC2626" }}>
+          {error}
+        </p>
       )}
 
       {preview && !result && !executing && (
@@ -225,53 +200,13 @@ export default function ProviderUploadPage() {
             </CardContent>
           </Card>
 
-          <Card className="mb-4" style={{ borderColor: "var(--qolc-border)", borderStyle: "dashed" }}>
-            <CardHeader>
-              <CardTitle className="text-base">
-                その他費用を追加（保険外・任意）
-                {otherCostDone && (
-                  <span className="ml-2 text-sm font-normal" style={{ color: "#1B5E20" }}>
-                    ✓ 合算済み
-                  </span>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm mb-3" style={{ color: "var(--qolc-muted)" }}>
-                家賃・食事・居住費・日常生活費などレセプトに載らない自費を、被保険者番号で各入居者に合算します。
-                列＝<code>被保険者番号, その他費用</code>（任意で <code>10%対象, 8%対象</code>）のCSV。
-                合算後の領収書は保険分とその他費用を区分表示します。
-              </p>
-              {otherCostLoading ? (
-                <div className="py-4 flex justify-center">
-                  <LoadingSpinner size="md" label="その他費用を合算中..." />
-                </div>
-              ) : (
-                <FileUpload
-                  onFile={handleOtherCostFile}
-                  helperText="その他費用CSV（被保険者番号＋合計のヘッダ付き）。最大10MB。"
-                />
-              )}
-              {otherCostError && (
-                <p className="text-sm mt-3" style={{ color: "#DC2626" }}>
-                  {otherCostError}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          {error && (
-            <p className="text-sm mb-2 text-right" style={{ color: "#DC2626" }}>
-              {error}
-            </p>
-          )}
           <div className="flex gap-2 justify-end">
             <button
               className="qolc-btn px-4 py-2 rounded border"
               style={{ borderColor: "var(--qolc-border)" }}
               onClick={reset}
             >
-              別のファイルを選ぶ
+              新しいまとめを始める
             </button>
             <button
               className="qolc-btn px-4 py-2 rounded text-white font-medium disabled:opacity-50"
@@ -284,7 +219,7 @@ export default function ProviderUploadPage() {
             </button>
           </div>
           <p className="text-xs mt-2" style={{ color: "var(--qolc-muted)" }}>
-            バッチID: {preview.batchId.slice(0, 8)}…
+            まとめID: {preview.batchId.slice(0, 8)}…（追加で①②を投入すると同じまとめに合算されます）
           </p>
         </>
       )}
@@ -340,6 +275,46 @@ export default function ProviderUploadPage() {
         onCancel={() => setConfirming(false)}
       />
     </PortalLayout>
+  );
+}
+
+/** 1つのアップロード枠（明細 / その他費用） */
+function UploadSlot({
+  badge,
+  title,
+  description,
+  helperText,
+  loading,
+  onFile,
+  dashed = false,
+}: {
+  badge: string;
+  title: string;
+  description: string;
+  helperText: string;
+  loading: boolean;
+  onFile: (file: File) => void;
+  dashed?: boolean;
+}) {
+  return (
+    <Card style={dashed ? { borderColor: "var(--qolc-border)", borderStyle: "dashed" } : undefined}>
+      <CardHeader>
+        <CardTitle className="text-base">
+          <span className="mr-2" style={{ color: "var(--qolc-primary)" }}>{badge}</span>
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm mb-3" style={{ color: "var(--qolc-muted)" }}>{description}</p>
+        {loading ? (
+          <div className="py-4 flex justify-center">
+            <LoadingSpinner size="md" label="取込み中..." />
+          </div>
+        ) : (
+          <FileUpload onFile={onFile} helperText={helperText} />
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

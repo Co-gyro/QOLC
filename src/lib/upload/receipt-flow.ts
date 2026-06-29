@@ -145,6 +145,8 @@ export async function persistKaigoReceipt(
   admin: SupabaseClient,
   opts: {
     fileBuffer: Buffer;
+    /** 既存バッチに追記する場合に指定（未指定は新規作成）。create-or-append */
+    batchId?: string | null;
     merchantId: string;
     providerType: "external_provider" | "facility_self";
     fileName: string;
@@ -156,25 +158,12 @@ export async function persistKaigoReceipt(
   const parsed = parseKaigoCsv(opts.fileBuffer);
   const matches = matchKaigoReceipts(parsed.residents, opts.residents);
 
-  const totalAmount = matches.reduce(
-    (s, m) => s + (m.receipt.insuranceClaim + m.receipt.userBurden),
-    0
-  );
-
-  const { data: batch, error: batchErr } = await admin
-    .from("upload_batches")
-    .insert({
-      merchant_id: opts.merchantId,
-      provider_type: opts.providerType,
-      file_name: opts.fileName,
-      total_rows: matches.length,
-      total_amount: totalAmount,
-      status: "processing",
-    })
-    .select("id")
-    .single();
-  if (batchErr || !batch) throw new Error(batchErr?.message ?? "batch insert失敗");
-  const batchId = batch.id as string;
+  const batchId = await ensureBatch(admin, {
+    batchId: opts.batchId,
+    merchantId: opts.merchantId,
+    providerType: opts.providerType,
+    fileName: opts.fileName,
+  });
 
   // statement_lines（利用者1人=1行。費用総額/利用者負担額をそのまま保持）
   const lineInserts = matches.map((m) => {
@@ -228,25 +217,12 @@ export async function persistKaigoReceipt(
     if (dErr) throw new Error(`サービス明細の保存に失敗: ${dErr.message}`);
   }
 
-  const previewLines: PreviewLine[] = matches.map((m, i) => {
-    const r = m.receipt;
-    const resident = m.resident as ResidentWithFacility | null;
-    return {
-      statementLineId: lineIds[i]?.id ?? "",
-      facilityId: resident?.facilityId ?? null,
-      residentId: resident?.id ?? null,
-      residentName: resident ? `${resident.nameLast} ${resident.nameFirst}` : null,
-      insuranceNumber: r.insuranceNumber,
-      serviceCode: null,
-      serviceName: `介護保険 ${r.serviceMonth}`,
-      amount: r.userBurden,
-      selfPayAmount: r.userBurden,
-      matchStatus:
-        m.status === "matched" || m.status === "matched_via_history" ? "matched" : "unmatched",
-    };
-  });
+  await recomputeBatchTotal(admin, batchId);
+  // 取込完了 → 確認待ち(preview)。決済実行で completed になる。
+  await admin.from("upload_batches").update({ status: "preview" }).eq("id", batchId);
 
-  return groupByFacility(batchId, previewLines, opts.facilityNames);
+  // バッチ全体（既存その他費用も含む）を読み直して合算プレビューを返す。
+  return buildPreviewForBatch(admin, batchId, opts.facilityNames);
 }
 
 /**
@@ -260,6 +236,8 @@ export async function persistIryouReceipt(
   admin: SupabaseClient,
   opts: {
     fileBuffer: Buffer;
+    /** 既存バッチに追記する場合に指定（未指定は新規作成）。create-or-append */
+    batchId?: string | null;
     merchantId: string;
     providerType: "external_provider" | "facility_self";
     fileName: string;
@@ -282,22 +260,13 @@ export async function persistIryouReceipt(
   // 費用総額 = HO合計金額（無ければ Σ明細費用）
   const costTotalOf = (p: (typeof matches)[number]["receipt"]) =>
     p.hoken?.totalAmount ?? p.serviceDetails.reduce((s, d) => s + d.totalAmount, 0);
-  const totalAmount = matches.reduce((s, m) => s + costTotalOf(m.receipt), 0);
 
-  const { data: batch, error: batchErr } = await admin
-    .from("upload_batches")
-    .insert({
-      merchant_id: opts.merchantId,
-      provider_type: opts.providerType,
-      file_name: opts.fileName,
-      total_rows: matches.length,
-      total_amount: totalAmount,
-      status: "processing",
-    })
-    .select("id")
-    .single();
-  if (batchErr || !batch) throw new Error(batchErr?.message ?? "batch insert失敗");
-  const batchId = batch.id as string;
+  const batchId = await ensureBatch(admin, {
+    batchId: opts.batchId,
+    merchantId: opts.merchantId,
+    providerType: opts.providerType,
+    fileName: opts.fileName,
+  });
 
   const lineInserts = matches.map((m) => {
     const p = m.receipt;
@@ -350,27 +319,12 @@ export async function persistIryouReceipt(
     if (dErr) throw new Error(`サービス明細の保存に失敗: ${dErr.message}`);
   }
 
-  const previewLines: PreviewLine[] = matches.map((m, i) => {
-    const p = m.receipt;
-    const resident = m.resident as ResidentWithFacility | null;
-    return {
-      statementLineId: lineIds[i]?.id ?? "",
-      facilityId: resident?.facilityId ?? null,
-      residentId: resident?.id ?? null,
-      residentName: resident ? `${resident.nameLast} ${resident.nameFirst}` : p.name || null,
-      insuranceNumber: p.hoken
-        ? [p.hoken.hokenshaNumber, p.hoken.kigou, p.hoken.bangou].filter(Boolean).join("/")
-        : `(公費単独) ${p.kofu[0]?.futanshaNumber ?? ""}`,
-      serviceCode: null,
-      serviceName: `医療保険 ${p.serviceMonth}`,
-      amount: p.userBurden,
-      selfPayAmount: p.userBurden,
-      matchStatus:
-        m.status === "matched" || m.status === "matched_via_history" ? "matched" : "unmatched",
-    };
-  });
+  await recomputeBatchTotal(admin, batchId);
+  // 取込完了 → 確認待ち(preview)。決済実行で completed になる。
+  await admin.from("upload_batches").update({ status: "preview" }).eq("id", batchId);
 
-  return groupByFacility(batchId, previewLines, opts.facilityNames);
+  // バッチ全体（既存その他費用も含む）を読み直して合算プレビューを返す。
+  return buildPreviewForBatch(admin, batchId, opts.facilityNames);
 }
 
 /** 被保険者番号を突合用に正規化（前後空白除去・先頭0除去） */
@@ -379,39 +333,81 @@ function normalizeInsuranceNumber(s: string): string {
 }
 
 /**
- * その他費用（保険外）CSVを既存バッチに**結合**して PreviewResult を返す。
+ * バッチを解決する。batchId 指定時は検証して再利用、未指定なら新規作成する。
+ * 1回のアップロードセッション＝1バッチに集約するための共通処理（create-or-append）。
  *
- * - レセプトで作成済みのバッチ（status=preview）に対し、被保険者番号で入居者へ突合し
- *   statement_lines を cost_kind='other' で1行追加する（amount=self_pay=その他費用合計）。
+ * @throws batchId 指定時にバッチが無い/別merchant/決済実行済み(completed)/エラー のとき
+ */
+export async function ensureBatch(
+  admin: SupabaseClient,
+  opts: {
+    batchId?: string | null;
+    merchantId: string;
+    providerType: "external_provider" | "facility_self";
+    fileName: string;
+  }
+): Promise<string> {
+  if (opts.batchId) {
+    const { data: batch } = await admin
+      .from("upload_batches")
+      .select("id, merchant_id, status")
+      .eq("id", opts.batchId)
+      .maybeSingle();
+    if (!batch) throw new Error("対象のアップロードバッチが見つかりません");
+    if (batch.merchant_id !== opts.merchantId) throw new Error("このバッチを操作する権限がありません");
+    if (batch.status === "completed") {
+      throw new Error("このバッチは決済実行済みのため、追加できません");
+    }
+    if (batch.status === "error") {
+      throw new Error("このバッチはエラー状態のため、追加できません");
+    }
+    return opts.batchId;
+  }
+  const { data: created, error } = await admin
+    .from("upload_batches")
+    .insert({
+      merchant_id: opts.merchantId,
+      provider_type: opts.providerType,
+      file_name: opts.fileName,
+      total_rows: 0,
+      total_amount: 0,
+      status: "processing",
+    })
+    .select("id")
+    .single();
+  if (error || !created) throw new Error(error?.message ?? "バッチ作成に失敗しました");
+  return created.id as string;
+}
+
+/**
+ * その他費用（保険外）CSVをバッチに**結合**して PreviewResult を返す（create-or-append）。
+ *
+ * - batchId 指定時はそのバッチへ追記、未指定なら新規バッチを作成（その他費用のみ／先行も可）。
+ * - 被保険者番号で入居者へ突合し statement_lines を cost_kind='other' で追加（amount=self_pay=合計）。
  * - 既に同バッチへ取り込んだ その他費用行があれば置き換える（再アップロード冪等）。
  * - 決済は self_pay_amount を resident×merchant で合計するため、保険分と自動合算される。
  * - 領収書は cost_kind='other' を区分表示（合算）する。
- *
- * @throws バッチが存在しない/別merchant/決済実行済みのとき
  */
 export async function persistOtherCost(
   admin: SupabaseClient,
   opts: {
     fileBuffer: Buffer;
-    batchId: string;
+    batchId?: string | null;
     merchantId: string;
+    providerType: "external_provider" | "facility_self";
+    fileName: string;
     residents: ResidentWithFacility[];
     facilityNames: Map<string, string>;
     /** 突合を許可する施設ID（provider/facility_staff用）。null は全施設（admin） */
     allowedFacilityIds: string[] | null;
   }
 ): Promise<PreviewResult> {
-  // バッチ検証（merchant一致・未実行）
-  const { data: batch } = await admin
-    .from("upload_batches")
-    .select("id, merchant_id, status")
-    .eq("id", opts.batchId)
-    .maybeSingle();
-  if (!batch) throw new Error("対象のアップロードバッチが見つかりません");
-  if (batch.merchant_id !== opts.merchantId) throw new Error("このバッチを操作する権限がありません");
-  if (batch.status !== "preview") {
-    throw new Error("このバッチは決済実行済みのため、その他費用を追加できません");
-  }
+  const batchId = await ensureBatch(admin, {
+    batchId: opts.batchId,
+    merchantId: opts.merchantId,
+    providerType: opts.providerType,
+    fileName: opts.fileName,
+  });
 
   const { rows } = parseOtherCostCsv(opts.fileBuffer);
 
@@ -428,14 +424,14 @@ export async function persistOtherCost(
   await admin
     .from("statement_lines")
     .delete()
-    .eq("upload_batch_id", opts.batchId)
+    .eq("upload_batch_id", batchId)
     .eq("cost_kind", "other");
 
   const inserts = rows.map((row) => {
     const resident = byNumber.get(normalizeInsuranceNumber(row.insuranceNumber)) ?? null;
     const matched = Boolean(resident);
     return {
-      upload_batch_id: opts.batchId,
+      upload_batch_id: batchId,
       facility_id: resident?.facilityId ?? null,
       resident_id: resident?.id ?? null,
       insurance_number: row.insuranceNumber.slice(0, 10),
@@ -454,14 +450,14 @@ export async function persistOtherCost(
     if (insErr) throw new Error(`その他費用の保存に失敗: ${insErr.message}`);
   }
 
-  // バッチ合計を再計算（self_pay 合計）
-  await recomputeBatchTotal(admin, opts.batchId);
+  await recomputeBatchTotal(admin, batchId);
+  await admin.from("upload_batches").update({ status: "preview" }).eq("id", batchId);
 
-  return buildPreviewForBatch(admin, opts.batchId, opts.facilityNames);
+  return buildPreviewForBatch(admin, batchId, opts.facilityNames);
 }
 
 /** バッチの total_amount を statement_lines の self_pay 合計で再計算する */
-async function recomputeBatchTotal(admin: SupabaseClient, batchId: string): Promise<void> {
+export async function recomputeBatchTotal(admin: SupabaseClient, batchId: string): Promise<void> {
   const { data } = await admin
     .from("statement_lines")
     .select("self_pay_amount, amount")

@@ -8,6 +8,8 @@
  * フォント: public/fonts/NotoSansJP-Regular.ttf を埋め込む。未配置でも生成は動くが
  * 日本語が□表示になる（NEXT_PUBLIC_APP_URL 経由でホストされたフォントを参照）。
  */
+import fs from "fs";
+import path from "path";
 import React from "react";
 import {
   Document,
@@ -39,12 +41,21 @@ let fontRegistered = false;
 
 /**
  * 日本語フォントのソースを解決する（優先順）:
- *   1. RECEIPT_FONT_PATH … ローカルTTFの絶対パス（Vercelでバンドルした場合やNode実行向け）
- *   2. NEXT_PUBLIC_APP_URL … public/fonts/ にホストしたTTFをURL参照
- *   3. 相対 "/fonts/..." … 同一オリジン配信のフォールバック
+ *   1. RECEIPT_FONT_PATH … 環境変数でTTF絶対パスを明示指定（検証・特殊環境向け）
+ *   2. リポジトリ同梱 public/fonts/NotoSansJP-Regular.ttf … 通常の本番経路。
+ *      next.config の outputFileTracingIncludes でサーバーレス関数に同梱され、
+ *      process.cwd() 基準でFS読み込みできる。
+ *   3. NEXT_PUBLIC_APP_URL … URL参照のフォールバック
+ *   4. 相対 "/fonts/..." … 同一オリジン配信の最終フォールバック
  */
 function resolveFontSrc(): string {
   if (process.env.RECEIPT_FONT_PATH) return process.env.RECEIPT_FONT_PATH;
+  const bundled = path.join(process.cwd(), "public", "fonts", "NotoSansJP-Regular.ttf");
+  try {
+    if (fs.existsSync(bundled)) return bundled;
+  } catch {
+    // FS非対応環境はURLにフォールバック
+  }
   if (process.env.NEXT_PUBLIC_APP_URL)
     return `${process.env.NEXT_PUBLIC_APP_URL}/fonts/NotoSansJP-Regular.ttf`;
   return "/fonts/NotoSansJP-Regular.ttf";

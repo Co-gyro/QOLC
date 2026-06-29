@@ -106,16 +106,16 @@ export function UploadHistory({ refreshKey = 0, hideMerchant = false }: UploadHi
   );
 }
 
-/** 状態の凡例 */
+/** 状態の凡例（各状態を1行ずつ縦並びで表示） */
 function StatusLegend() {
   const order = ["processing", "preview", "completed", "error"];
   return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-xs" style={{ color: "var(--qolc-muted)" }}>
+    <div className="flex flex-col gap-1 mb-3 text-xs" style={{ color: "var(--qolc-muted)" }}>
       {order.map((s) => (
-        <span key={s} className="inline-flex items-center gap-1">
-          <StatusChip status={s} />
+        <div key={s} className="flex items-center gap-2">
+          <span className="shrink-0 w-20"><StatusChip status={s} /></span>
           <span>{UPLOAD_STATUS_DESCRIPTION[s]}</span>
-        </span>
+        </div>
       ))}
     </div>
   );

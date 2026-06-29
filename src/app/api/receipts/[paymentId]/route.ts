@@ -16,7 +16,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { generateReceiptPdf } from "@/lib/pdf/receipt-generator";
+import {
+  generateReceiptPdf,
+  uploadReceiptPdf,
+  downloadReceiptPdf,
+} from "@/lib/pdf/receipt-generator";
 import {
   buildReceiptInputFromPayment,
   buildKaigoDetailLines,
@@ -71,6 +75,23 @@ export async function GET(
   const authorized = await isAuthorized(admin, role, user.id, payment);
   if (!authorized) {
     return NextResponse.json(apiError("権限がありません", "FORBIDDEN"), { status: 403 });
+  }
+
+  // 永続化済みの領収書があれば保存PDFを配信（その場再生成しない）。
+  // admin が ?refresh=1 を指定したときのみ再生成して上書きする。
+  const refresh = role === "admin" && req.nextUrl.searchParams.get("refresh") === "1";
+  const { data: existing } = await admin
+    .from("receipts")
+    .select("id, pdf_path")
+    .eq("payment_id", payment.id)
+    .maybeSingle();
+  if (existing?.pdf_path && !refresh) {
+    try {
+      const stored = await downloadReceiptPdf(existing.pdf_path);
+      return pdfResponse(stored, payment.id);
+    } catch {
+      // 保存物が取得できない場合は再生成にフォールバック
+    }
   }
 
   // 関連データ取得（statement_lines は migration026未適用でも動くようフォールバック）
@@ -182,15 +203,59 @@ export async function GET(
     return NextResponse.json(apiError(`領収書PDFの生成に失敗しました: ${message}`, "PDF_ERROR"), { status: 500 });
   }
 
-  const fileName = `receipt-${payment.id}.pdf`;
+  // Storage へ保存し receipts に記録（永続化）。失敗しても配信は継続する。
+  try {
+    const periodIso = payment.captured_at ?? payment.created_at;
+    const { start, end } = monthRange(periodIso);
+    const path = storagePath(periodIso, payment.id);
+    await uploadReceiptPdf(pdf, path, true); // 既存があれば上書き
+    if (existing?.id) {
+      await admin
+        .from("receipts")
+        .update({ pdf_path: path, issued_at: new Date().toISOString() })
+        .eq("id", existing.id);
+    } else {
+      await admin.from("receipts").insert({
+        payment_id: payment.id,
+        resident_id: payment.resident_id,
+        period_start: start,
+        period_end: end,
+        pdf_path: path,
+        issued_at: new Date().toISOString(),
+      });
+    }
+  } catch (e) {
+    // 永続化に失敗してもPDF配信は行う（バケット未作成時など）。
+    console.error("[receipts] 永続化に失敗しました:", e);
+  }
+
+  return pdfResponse(pdf, payment.id);
+}
+
+/** 領収書PDFのHTTPレスポンスを組み立てる */
+function pdfResponse(pdf: Uint8Array, paymentId: string): NextResponse {
   return new NextResponse(pdf as BodyInit, {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${fileName}"`,
+      "Content-Disposition": `inline; filename="receipt-${paymentId}.pdf"`,
       "Cache-Control": "private, no-store",
     },
   });
+}
+
+/** ISO日時の属する月の初日・末日（YYYY-MM-DD）を返す（TZ非依存・先頭10文字基準） */
+function monthRange(iso: string): { start: string; end: string } {
+  const [y, m] = iso.slice(0, 10).split("-").map((s) => Number(s));
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate(); // m は1始まり→当月末日
+  const mm = String(m).padStart(2, "0");
+  return { start: `${y}-${mm}-01`, end: `${y}-${mm}-${String(last).padStart(2, "0")}` };
+}
+
+/** Storage 保存パス receipts/{YYYY}/{MM}/{paymentId}.pdf */
+function storagePath(iso: string, paymentId: string): string {
+  const [y, m] = iso.slice(0, 10).split("-");
+  return `${y}/${m}/${paymentId}.pdf`;
 }
 
 /** ロール別の認可判定 */

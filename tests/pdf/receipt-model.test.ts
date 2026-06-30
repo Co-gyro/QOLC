@@ -78,6 +78,30 @@ describe("buildReceiptModel: 介護保険（kaigo）", () => {
       buildReceiptModel(kaigoInput({ costTotal: undefined, insuranceBenefit: undefined }))
     ).toThrow(/費用総額または給付額/);
   });
+
+  it("公費併用: 公費負担額を独立行で▲表示し、給付額は公費を除いて導出", () => {
+    // 費用総額120,000 = 保険給付100,000 + 公費15,000 + 本人5,000
+    const m = buildReceiptModel(
+      kaigoInput({ userBurden: 5000, costTotal: 120000, koufuBenefit: 15000 })
+    );
+    expect(m.amountDisplay).toBe("5,000"); // 領収額=公費控除後の本人請求
+    // 行: 保険内サービス(本人5,000) / 費用総額120,000 / 介護保険給付額▲100,000 / 公費負担額▲15,000
+    expect(m.itemRows).toHaveLength(4);
+    expect(m.itemRows[0].amount).toBe("5,000円");
+    expect(m.itemRows[1].breakdown).toBe("120,000円");
+    expect(m.itemRows[2].itemName).toContain("介護保険給付額");
+    expect(m.itemRows[2].breakdown).toBe("▲100,000円");
+    expect(m.itemRows[3].itemName).toContain("公費負担額");
+    expect(m.itemRows[3].breakdown).toBe("▲15,000円");
+  });
+
+  it("公費併用で費用総額が給付+公費+本人と一致しないと例外（介護は端数なし）", () => {
+    expect(() =>
+      buildReceiptModel(
+        kaigoInput({ userBurden: 5000, costTotal: 120001, insuranceBenefit: 100000, koufuBenefit: 15000 })
+      )
+    ).toThrow(/一致しません/);
+  });
 });
 
 describe("buildReceiptModel: 介護＋その他費用 合算区分表示（施行規則65条）", () => {

@@ -60,6 +60,12 @@ export interface ReceiptInput {
   costTotal?: number;
   /** 保険給付額（保険系のみ・▲表示）。未指定かつ費用総額があれば 費用総額-userBurden で導出 */
   insuranceBenefit?: number;
+  /**
+   * 公費負担額（公費請求額・▲表示）。公費併用(生活保護・54指定難病等)のとき設定。
+   * 設定すると保険給付額とは独立に「公費負担額」を区分表示する（星さんFB）。
+   * 費用総額 = 保険給付 + 公費負担 + 本人負担。本人請求(userBurden)は公費控除後の最終額。
+   */
+  koufuBenefit?: number;
 
   /** 明細1行目の項目名を上書き（未指定はカテゴリ既定） */
   serviceItemLabel?: string;
@@ -333,8 +339,9 @@ export function buildReceiptModel(input: ReceiptInput): ReceiptModel {
       amount: formatYen(input.userBurden),
     });
   } else {
-    // 保険系: 費用総額・給付額を解決（一方からもう一方を導出）
-    const { costTotal, benefit } = resolveInsuranceAmounts(input, insuranceSelf);
+    // 保険系: 費用総額・給付額を解決（一方からもう一方を導出）。公費は独立控除。
+    const koufu = input.koufuBenefit && input.koufuBenefit > 0 ? input.koufuBenefit : 0;
+    const { costTotal, benefit } = resolveInsuranceAmounts(input, insuranceSelf, koufu);
     insuranceCostTotal = costTotal;
     itemRows.push({
       itemName: serviceItemLabel,
@@ -351,6 +358,14 @@ export function buildReceiptModel(input: ReceiptInput): ReceiptModel {
       breakdown: formatBenefit(benefit),
       amount: null,
     });
+    // 公費負担額（公費請求額）の独立区分行（公費併用時のみ）。
+    if (koufu > 0) {
+      itemRows.push({
+        itemName: "　公費負担額",
+        breakdown: formatBenefit(koufu),
+        amount: null,
+      });
+    }
     // その他費用（保険外）の区分行を追加（施行規則65条の区分記載）。
     if (other) {
       itemRows.push({
@@ -656,7 +671,8 @@ function resolveCardPayment(payment?: ReceiptPayment): {
  */
 function resolveInsuranceAmounts(
   input: ReceiptInput,
-  insuranceSelf: number
+  insuranceSelf: number,
+  koufuBenefit = 0
 ): {
   costTotal: number;
   benefit: number;
@@ -668,23 +684,24 @@ function resolveInsuranceAmounts(
       "保険系の請求書には費用総額または給付額のいずれかが必要です"
     );
   }
+  // 費用総額 = 保険給付 + 公費負担 + 本人負担
   if (costTotal == null && benefit != null) {
-    costTotal = benefit + insuranceSelf;
+    costTotal = benefit + koufuBenefit + insuranceSelf;
   }
   if (benefit == null && costTotal != null) {
-    benefit = costTotal - insuranceSelf;
+    benefit = costTotal - koufuBenefit - insuranceSelf;
   }
   // ここで両方とも数値
   const ct = costTotal as number;
   const bf = benefit as number;
   if (bf < 0) {
-    throw new Error("給付額が負になりました（費用総額 < 本人請求額）");
+    throw new Error("給付額が負になりました（費用総額 < 給付以外の合計）");
   }
   if (input.category === "kaigo") {
     // 介護は端数処理なし → 厳密一致を要求
-    if (ct !== bf + insuranceSelf) {
+    if (ct !== bf + koufuBenefit + insuranceSelf) {
       throw new Error(
-        `費用総額(${ct}) が 給付額(${bf})+本人請求(${insuranceSelf}) と一致しません`
+        `費用総額(${ct}) が 給付額(${bf})+公費(${koufuBenefit})+本人請求(${insuranceSelf}) と一致しません`
       );
     }
   }

@@ -177,7 +177,8 @@ export async function persistKaigoReceipt(
       insurance_number: r.insuranceNumber,
       service_code: null,
       service_name: `介護保険 ${r.serviceMonth}`,
-      amount: r.insuranceClaim + r.userBurden,
+      // 費用総額 = 保険給付 + 公費負担 + 本人負担（公費なしは従来どおり 給付+本人）
+      amount: r.insuranceClaim + r.koufuBenefit + r.userBurden,
       self_pay_amount: r.userBurden,
       match_status: matched ? "matched" : "unmatched",
     };
@@ -195,6 +196,21 @@ export async function persistKaigoReceipt(
     throw new Error(insErr.message);
   }
   const lineIds = (insertedLines as Array<{ id: string }> | null) ?? [];
+
+  // 公費負担額(>0)のみ koufu_amount を更新（migration028）。未適用でも非公費は動くよう
+  // INSERTには含めず、公費がある行だけ後追い更新する。列未適用時は握りつぶす。
+  await Promise.all(
+    matches.map(async (m, i) => {
+      const koufu = m.receipt.koufuBenefit;
+      const lineId = lineIds[i]?.id;
+      if (!koufu || koufu <= 0 || !lineId) return;
+      const { error } = await admin
+        .from("statement_lines")
+        .update({ koufu_amount: koufu })
+        .eq("id", lineId);
+      if (error) console.error("[receipt-flow] koufu_amount更新に失敗(028未適用?):", error.message);
+    })
+  );
 
   // 区分02 サービス明細を各 statement_line に紐づけて保存
   const detailInserts: Array<Record<string, unknown>> = [];

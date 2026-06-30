@@ -29,8 +29,11 @@
  *  [16] 要介護度コード
  *  [30] 給費率 (90/80/70 等)
  *  [34] 合計単位数
- *  [35] 保険請求額（円）
- *  [36] 利用者負担額（円）★QOLCの決済対象金額
+ *  [35] 保険請求額（円）＝介護保険給付額
+ *  [36] 利用者負担額（円・保険分）
+ *  公費ブロック（6幅: 単位数/請求額/本人負担/予備3。仕様書 ⑫公費請求額 ⑬公費分本人負担）:
+ *    公費1=[40..45]（請求額[41]/本人負担[42]）, 公費2=[46..51]（[47]/[48]）, 公費3=[52..57]（[53]/[54]）
+ *  → 公費負担額 = Σ公費請求額([41]+[47]+[53])。決済対象(本人請求) = [36] − 公費負担額。
  *
  * 端数処理: 円単位は Math.floor（Phase 0 慣習）
  */
@@ -70,9 +73,11 @@ export interface KaigoReceiptResident {
   benefitRatePercent: number;
   /** 合計単位数 */
   totalUnits: number;
-  /** 保険請求額（円） */
+  /** 保険請求額（円）＝介護保険給付額 */
   insuranceClaim: number;
-  /** 利用者負担額（円）★ QOLCで決済する金額 */
+  /** 公費負担額（円・公費請求額の合計）。公費なしは0 */
+  koufuBenefit: number;
+  /** 利用者負担額（円）★ QOLCで決済する金額。公費併用時は公費控除後の最終本人負担 */
   userBurden: number;
   /** サービス明細（区分02）。明細書(B案)用。日付・時間はレセプトに無い */
   serviceDetails: KaigoServiceDetail[];
@@ -203,8 +208,14 @@ function parseDetailHeaderRow(
     return null;
   }
 
-  const userBurden = toIntOrZero(row[36]);
-  if (userBurden === 0) {
+  // 利用者負担額(保険分) = 公費負担額 + 公費控除後の最終本人負担
+  const userBurdenRaw = toIntOrZero(row[36]);
+  // 公費負担額 = Σ公費請求額（公費1〜3。各6幅ブロックの請求額位置）
+  const koufuBenefit =
+    toIntOrZero(row[41]) + toIntOrZero(row[47]) + toIntOrZero(row[53]);
+  // 決済対象＝最終本人負担（公費控除後）。負値はガード。
+  const userBurden = Math.max(0, userBurdenRaw - koufuBenefit);
+  if (userBurden === 0 && koufuBenefit === 0) {
     warnings.push({
       line: lineNumber,
       code: "ZERO_USER_BURDEN",
@@ -221,6 +232,7 @@ function parseDetailHeaderRow(
     benefitRatePercent: toIntOrZero(row[30]),
     totalUnits: toIntOrZero(row[34]),
     insuranceClaim: toIntOrZero(row[35]),
+    koufuBenefit,
     userBurden,
     serviceDetails: [],
   };

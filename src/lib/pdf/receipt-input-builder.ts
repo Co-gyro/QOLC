@@ -41,6 +41,8 @@ export interface PaymentReceiptData {
     tax_10_amount?: number | null;
     /** その他費用の8%対象☆額(税込)。任意 */
     tax_8_amount?: number | null;
+    /** 公費負担額(公費請求額・円)。公費併用時のみ>0 */
+    koufu_amount?: number | null;
   }>;
   /** 入居者（宛名） */
   resident: { name_last: string; name_first: string };
@@ -168,6 +170,8 @@ export function buildReceiptInputFromPayment(
   // 保険分の集計（明細が無ければ payment.total_amount を本人負担に）
   const insuranceCostTotal = insuranceLines.reduce((s, l) => s + (l.amount ?? 0), 0);
   const insuranceSelf = insuranceLines.reduce((s, l) => s + (l.self_pay_amount ?? 0), 0);
+  // 公費負担額（公費請求額の合計）。費用総額に内包され、保険給付額とは独立に表示する。
+  const koufuBenefit = insuranceLines.reduce((s, l) => s + (l.koufu_amount ?? 0), 0);
   // その他費用の集計
   const otherTotal = otherLines.reduce((s, l) => s + (l.self_pay_amount ?? 0), 0);
   const otherTax10 = otherLines.reduce((s, l) => s + (l.tax_10_amount ?? 0), 0);
@@ -226,6 +230,7 @@ export function buildReceiptInputFromPayment(
   // 保険系のみ費用総額を渡す（モデルが給付額を導出）。自費は本人負担のみ。
   if (category !== "jihi") {
     input.costTotal = costTotal;
+    if (koufuBenefit > 0) input.koufuBenefit = koufuBenefit;
     // その他費用（保険外）があれば合算区分として付与（施行規則65条の区分記載）。
     if (otherTotal > 0) {
       input.otherCost = {

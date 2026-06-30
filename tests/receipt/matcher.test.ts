@@ -37,6 +37,7 @@ function buildKaigoReceipt(overrides: Partial<KaigoReceiptResident>): KaigoRecei
     benefitRatePercent: 90,
     totalUnits: 0,
     insuranceClaim: 100000,
+    koufuBenefit: 0,
     userBurden: 10000,
     serviceDetails: [],
     ...overrides,

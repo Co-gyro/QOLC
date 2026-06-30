@@ -98,7 +98,7 @@ export async function GET(
   const [linesRes, { data: resident }, { data: merchant }] = await Promise.all([
     admin
       .from("statement_lines")
-      .select("id, amount, self_pay_amount, service_name, quantity, cost_kind, tax_10_amount, tax_8_amount")
+      .select("id, amount, self_pay_amount, service_name, quantity, cost_kind, tax_10_amount, tax_8_amount, koufu_amount")
       .eq("payment_id", payment.id),
     admin
       .from("residents")

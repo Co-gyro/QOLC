@@ -122,17 +122,6 @@ const styles = StyleSheet.create({
   stampNote: { fontSize: 7, color: "#555", marginTop: 3 },
   sealBox: { width: 70, height: 46, border: `0.7px solid ${BORDER}` },
   sealLabel: { fontSize: 7, textAlign: "center", paddingTop: 2, borderBottom: `0.4px solid ${LINE}` },
-  // 受領印（角印風・朱色）。電子発行の受領済みを示す。
-  sealStamp: {
-    width: 52,
-    height: 52,
-    border: `1.6px solid #C0392B`,
-    borderRadius: 4,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sealStampMain: { fontSize: 15, color: "#C0392B", fontWeight: "bold", letterSpacing: 1 },
-  sealStampSub: { fontSize: 6.5, color: "#C0392B", marginTop: 1 },
   footnote: { fontSize: 7, color: "#555", marginTop: 8 },
   // サービス利用明細書（2ページ目）
   detailHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 },
@@ -256,7 +245,7 @@ function providerBox(m: ReceiptModel): React.ReactElement {
   );
 }
 
-/** 領収印（朱色の受領印）＋受領文（カード決済なら「クレジットカードにて領収」） */
+/** 印鑑欄（空欄）＋受領文（カード決済なら「クレジットカードにて領収」） */
 function receivedRow(m: ReceiptModel): React.ReactElement {
   return React.createElement(
     View,
@@ -264,9 +253,8 @@ function receivedRow(m: ReceiptModel): React.ReactElement {
     React.createElement(Text, { style: styles.receivedText }, m.receivedStatement),
     React.createElement(
       View,
-      { style: styles.sealStamp },
-      React.createElement(Text, { style: styles.sealStampMain }, "領収"),
-      React.createElement(Text, { style: styles.sealStampSub }, "QOLC")
+      { style: styles.sealBox },
+      React.createElement(Text, { style: styles.sealLabel }, "印")
     )
   );
 }

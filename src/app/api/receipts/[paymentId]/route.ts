@@ -113,12 +113,22 @@ export async function GET(
   ]);
   let lines = linesRes.data;
   if (linesRes.error) {
-    // cost_kind/tax 列が未適用(026前)のとき従来列のみで再取得
-    const { data } = await admin
+    // 列の段階適用に耐えるよう段階フォールバック。
+    // ① koufu_amount(028)だけ未適用なら、cost_kind/tax(026)は残して再取得。
+    const r026 = await admin
       .from("statement_lines")
-      .select("id, amount, self_pay_amount, service_name, quantity")
+      .select("id, amount, self_pay_amount, service_name, quantity, cost_kind, tax_10_amount, tax_8_amount")
       .eq("payment_id", payment.id);
-    lines = data as typeof lines;
+    if (!r026.error) {
+      lines = r026.data as typeof lines;
+    } else {
+      // ② cost_kind/tax(026)も未適用なら従来列のみで再取得。
+      const { data } = await admin
+        .from("statement_lines")
+        .select("id, amount, self_pay_amount, service_name, quantity")
+        .eq("payment_id", payment.id);
+      lines = data as typeof lines;
+    }
   }
 
   if (!resident || !merchant) {

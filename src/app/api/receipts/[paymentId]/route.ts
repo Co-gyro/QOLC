@@ -129,6 +129,24 @@ export async function GET(
     ? (await admin.from("facilities").select("name, address").eq("id", resident.facility_id).maybeSingle()).data
     : null;
 
+  // 請求先（お支払名義）＝決済オーナー（家族等）の表示名。利用者本人と区別して領収書に表示。
+  let payerName: string | null = null;
+  const { data: ownerAcct } = await admin
+    .from("resident_accounts")
+    .select("user_id")
+    .eq("resident_id", payment.resident_id)
+    .eq("is_payment_owner", true)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (ownerAcct?.user_id) {
+    const { data: ownerProf } = await admin
+      .from("profiles")
+      .select("display_name")
+      .eq("id", ownerAcct.user_id)
+      .maybeSingle();
+    payerName = (ownerProf?.display_name as string | null) ?? null;
+  }
+
   // カテゴリの決定: ?type= 上書き > 加盟店の既定区分(receipt_category) > 給付額からの自動判定
   const typeParam = req.nextUrl.searchParams.get("type");
   const merchantCategory =
@@ -148,6 +166,7 @@ export async function GET(
     },
     lines: lines ?? [],
     resident: { name_last: resident.name_last ?? "", name_first: resident.name_first ?? "" },
+    payerName,
     merchant: { name: merchant.name, address: merchant.address, phone: merchant.phone },
     facility,
     category,

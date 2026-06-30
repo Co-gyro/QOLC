@@ -125,6 +125,32 @@ describe("buildReceiptInputFromPayment: フォールバック", () => {
   });
 });
 
+describe("buildReceiptInputFromPayment: 利用者・請求先・サービス提供月の分離（星さんFB③）", () => {
+  it("ご利用者(入居者)は userLabel、請求先(支払名義)は recipientName に分離する", () => {
+    const input = buildReceiptInputFromPayment(
+      baseData({ payerName: "渡邉 太郎" })
+    );
+    expect(input.recipientName).toBe("渡邉 太郎"); // 請求先＝お支払名義
+    expect(input.userLabel).toBe("渡邉 愛 様分"); // ご利用者＝入居者
+  });
+
+  it("請求先(payerName)が無ければ宛名＝利用者本人、ご利用者も明示する", () => {
+    const input = buildReceiptInputFromPayment(baseData());
+    expect(input.recipientName).toBe("渡邉 愛");
+    expect(input.userLabel).toBe("渡邉 愛 様分");
+  });
+
+  it("サービス提供月は明細 service_name の YYYYMM を優先（決済月ではなく提供月）", () => {
+    const input = buildReceiptInputFromPayment(
+      baseData({
+        payment: { total_amount: 15191, captured_at: "2026-06-03T05:00:00Z", created_at: "2026-06-01T00:00:00Z" },
+        lines: [{ amount: 151904, self_pay_amount: 15191, service_name: "介護保険 202604" }],
+      })
+    );
+    expect(input.billingMonth).toBe("令和8年4月"); // 提供月202604（決済月6月ではない）
+  });
+});
+
 describe("buildReceiptInputFromPayment: 保険＋その他費用 合算区分", () => {
   it("cost_kind=other を分離し、保険費用総額はその他費用を含めず、otherCostに合算", () => {
     const input = buildReceiptInputFromPayment(

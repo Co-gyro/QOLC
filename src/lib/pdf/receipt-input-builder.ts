@@ -44,8 +44,10 @@ export interface PaymentReceiptData {
     /** 公費負担額(公費請求額・円)。公費併用時のみ>0 */
     koufu_amount?: number | null;
   }>;
-  /** 入居者（宛名） */
+  /** 入居者（サービス利用者＝ご利用者） */
   resident: { name_last: string; name_first: string };
+  /** 請求先＝お支払名義（決済オーナーの家族等）の表示名。未指定は利用者本人 */
+  payerName?: string | null;
   /** 提供者（領収者ボックス） */
   merchant: { name: string; address: string | null; phone: string | null };
   /** 施設（宛先住所に使用）。任意 */
@@ -132,6 +134,25 @@ export function buildJihiDetailLines(
   }));
 }
 
+/**
+ * 保険明細の service_name 群から提供年月(YYYYMM)を抽出する。
+ * 例「介護保険 202604」「医療保険 202604」→ "202604"。複数あれば最初の有効値。
+ */
+function extractServiceMonth(serviceNames: Array<string | null>): string | null {
+  for (const name of serviceNames) {
+    const m = (name ?? "").match(/(\d{6})/);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+/** YYYYMM を令和N年M月 に整形（2019=令和元年） */
+function formatWarekiMonthFromYyyymm(yyyymm: string): string {
+  const year = Number(yyyymm.slice(0, 4));
+  const month = Number(yyyymm.slice(4, 6));
+  return `令和${reiwaYear(year)}年${month}月`;
+}
+
 /** ISO文字列(yyyy-mm-dd...) を和暦の年月日に分解（TZ非依存・先頭10文字を使用） */
 function warekiParts(iso: string): { year: number; month: number; day: number } {
   const [y, m, d] = iso.slice(0, 10).split("-").map((s) => Number(s));
@@ -187,15 +208,22 @@ export function buildReceiptInputFromPayment(
   const category: ReceiptCategory =
     data.category ?? (benefit > 0 ? "kaigo" : "jihi");
 
-  // 請求年月は決済（売上計上）月。未計上なら作成月。
+  // サービス提供月: レセプト明細の service_name 内 YYYYMM を優先（実際の提供月）。
+  // 無ければ決済（売上計上）月、未計上なら作成月。
   const periodIso = payment.captured_at ?? payment.created_at;
-  const billingMonth = formatWarekiMonth(periodIso);
+  const serviceMonthYyyymm = extractServiceMonth(insuranceLines.map((l) => l.service_name));
+  const billingMonth = serviceMonthYyyymm
+    ? formatWarekiMonthFromYyyymm(serviceMonthYyyymm)
+    : formatWarekiMonth(periodIso);
   const issuedAt = formatWarekiDate(data.issuedAtIso);
   const settledAt = payment.captured_at
     ? formatWarekiDate(payment.captured_at)
     : undefined;
 
-  const recipientName = `${data.resident.name_last} ${data.resident.name_first}`.trim();
+  // 利用者（サービス利用者＝入居者）と請求先（お支払名義）を明確に分離する（星さんFB③）。
+  const residentName = `${data.resident.name_last} ${data.resident.name_first}`.trim();
+  // 請求先＝お支払名義（決済オーナーの家族等）。未指定は利用者本人（自己負担）。
+  const recipientName = (data.payerName ?? "").trim() || residentName;
 
   const input: ReceiptInput = {
     category,
@@ -203,6 +231,8 @@ export function buildReceiptInputFromPayment(
     issuedAt,
     billingMonth,
     recipientName,
+    // ご利用者（サービスを受けた入居者）を常に明示。請求先と同一でも区別して表示する。
+    userLabel: `${residentName} 様分`,
     recipientAddress: data.facility?.address ?? undefined,
     userBurden,
     provider: {

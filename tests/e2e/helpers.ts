@@ -8,25 +8,25 @@ export const USERS: Record<Role, { email: string; password: string; home: string
     email: process.env.E2E_ADMIN_EMAIL ?? "admin@qolc.test",
     password: process.env.E2E_ADMIN_PASSWORD ?? "QolcAdmin#2026",
     home: "/admin/dashboard",
-    heading: "運営者ダッシュボード",
+    heading: "運営センター",
   },
   facility: {
     email: process.env.E2E_FACILITY_EMAIL ?? "facility@qolc.test",
     password: process.env.E2E_FACILITY_PASSWORD ?? "QolcFacility#2026",
     home: "/facility/dashboard",
-    heading: "施設ダッシュボード",
+    heading: "施設ステーション",
   },
   provider: {
     email: process.env.E2E_PROVIDER_EMAIL ?? "provider@qolc.test",
     password: process.env.E2E_PROVIDER_PASSWORD ?? "QolcProvider#2026",
     home: "/provider/dashboard",
-    heading: "提供者ダッシュボード",
+    heading: "サービスステーション",
   },
   family: {
     email: process.env.E2E_FAMILY_EMAIL ?? "family@qolc.test",
     password: process.env.E2E_FAMILY_PASSWORD ?? "QolcFamily#2026",
     home: "/user/home",
-    heading: "こんにちは",
+    heading: "マイページ",
   },
 };
 

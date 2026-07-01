@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ja" data-variant="a">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JCB総合窓口LP — 案A（実装リファレンス）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Sans+JP:wght@300;400;500;700;900&family=Noto+Serif+JP:wght@300;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+
+</head>
+<body>
+
+
+<!-- ===================== HEADER ===================== -->
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="#top">
+      <span class="logo">Q</span>
+      <span>
+        <span class="b-name">QOLC</span>
+        <span class="b-sub" style="display:block">ライフサポート総合窓口 / JCB × Universal Development</span>
+      </span>
+    </a>
+    <a class="btn btn-green header-cta" href="#form">ご相談</a>
+  </div>
+</header>
+
+<!-- ===================== HERO ===================== -->
+<section class="hero" id="top">
+  <div class="hero-photo"></div>
+  <div class="hero-pattern"></div>
+  <div class="hero-inner">
+    <div class="hero-col">
+      <span class="hero-badge"><span class="dot"></span>JCBカードホルダー様 限定ご案内</span>
+      <h1>将来の暮らしに<br><span class="amp">確かな安心</span>を。</h1>
+      <p class="hero-sub">住まい・健康・資産管理まで。<br>専任コンシェルジュが、ワンストップでご支援します。</p>
+      <div class="hero-actions">
+        <a class="btn btn-gold" href="#form">無料でご相談する<span class="arrow">→</span></a>
+        <span class="hero-note">所要時間 約2分<span class="sep">・</span>秘密厳守</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== TRUST BAR ===================== -->
+<div class="trustbar">
+  <div class="container">
+    <span class="item"><span class="dot"></span>ご相談無料</span>
+    <span class="item"><span class="dot"></span>秘密厳守</span>
+    <span class="item"><span class="dot"></span>専任コンシェルジュ対応</span>
+  </div>
+</div>
+
+<!-- ===================== SERVICES ===================== -->
+<section class="section bg-cream">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Our Support</span>
+      <h2>4つのライフサポート</h2>
+      <p>お客様お一人おひとりの「これから」に寄り添い、暮らしのご相談を総合的に承ります。</p>
+    </div>
+    <div class="svc-grid">
+      <article class="svc-card">
+        <span class="svc-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 11l9-7 9 7"/><path d="M5 10v9h14v-9"/><path d="M10 19v-5h4v5"/></svg>
+        </span>
+        <div>
+          <h3>シニアレジデンスのご紹介</h3>
+          <p>お体の状態やご希望に合った、上質な住まいを厳選してご案内いたします。</p>
+        </div>
+      </article>
+      <article class="svc-card">
+        <span class="svc-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/></svg>
+        </span>
+        <div>
+          <h3>在宅ライフサポート</h3>
+          <p>ご自宅での安心した暮らしを支える、見守り・生活支援サービスをご案内します。</p>
+        </div>
+      </article>
+      <article class="svc-card">
+        <span class="svc-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M10 13h6M10 16h6"/></svg>
+        </span>
+        <div>
+          <h3>相続・資産管理のご相談</h3>
+          <p>ご家族の将来を見据えた、資産管理・相続に関するアドバイスを行います。</p>
+        </div>
+      </article>
+      <article class="svc-card">
+        <span class="svc-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14.5 3.5l6 6-9.5 9.5H5v-6z"/><path d="M12.5 5.5l6 6"/></svg>
+        </span>
+        <div>
+          <h3>住み替え・リフォーム</h3>
+          <p>バリアフリー化や住み替えなど、暮らしやすい住環境づくりをサポートします。</p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== WORRY / EMPATHY ===================== -->
+<section class="section bg-white">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Your Concerns</span>
+      <h2>こんなお悩み、<br>抱えていませんか。</h2>
+    </div>
+    <div class="worry-grid">
+      <div class="worry-card"><span class="dia"></span><p>親の今後の暮らしについて、漠然とした不安がある</p></div>
+      <div class="worry-card"><span class="dia"></span><p>一人暮らしの家族の見守りを検討したい</p></div>
+      <div class="worry-card"><span class="dia"></span><p>将来の住み替え先を、早めに探しておきたい</p></div>
+      <div class="worry-card"><span class="dia"></span><p>相続や資産の整理を、そろそろ考えたい</p></div>
+      <div class="worry-card" style="grid-column:1/-1"><span class="dia"></span><p>何から始めればいいのか分からない</p></div>
+    </div>
+    <div class="worry-cta">
+      <a class="btn btn-gold" href="#form">まずは無料でご相談する<span class="arrow">→</span></a>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FLOW ===================== -->
+<section class="section bg-cream">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Flow</span>
+      <h2>ご相談の流れ</h2>
+      <p>かんたん3ステップ。ご相談はすべて無料です。</p>
+    </div>
+    <div class="flow">
+      <div class="flow-step">
+        <span class="flow-num">1</span>
+        <div><h3>フォームでお気持ちを共有</h3><p>チェックを選ぶだけ。約2分で完了します。</p></div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">2</span>
+        <div><h3>専任コンシェルジュがご連絡</h3><p>ご希望の時間帯に、お電話でていねいにヒアリングいたします。</p></div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">3</span>
+        <div><h3>最適なプランをご提案</h3><p>お一人おひとりに合わせたサービスをご案内します。</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== PROMISE / TRUST ===================== -->
+<section class="section bg-white">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Our Promise</span>
+      <h2>安心のお約束</h2>
+    </div>
+    <div class="promise-grid">
+      <div class="promise-card">
+        <span class="promise-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span>
+        <h3>個人情報の厳重な保護</h3>
+        <p>SSL暗号化通信で、安全に送信されます。</p>
+      </div>
+      <div class="promise-card">
+        <span class="promise-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M9.5 12.5l2 2 3.5-4"/></svg></span>
+        <h3>ご相談は完全無料</h3>
+        <p>何度でも無料で、ご相談いただけます。</p>
+      </div>
+      <div class="promise-card">
+        <span class="promise-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5S20 17 20 21"/></svg></span>
+        <h3>専任コンシェルジュ対応</h3>
+        <p>経験豊富な専任スタッフが、最後まで担当します。</p>
+      </div>
+      <div class="promise-card">
+        <span class="promise-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span>
+        <h3>JCBとの提携サービス</h3>
+        <p>JCBカードホルダー様への、特別なご案内です。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FINAL CTA ===================== -->
+<section class="final" id="form">
+  <div class="final-photo"></div>
+  <div class="final-inner">
+    <span class="eyebrow">Contact</span>
+    <h2>まずはお気軽に<br>ご相談ください。</h2>
+    <p>ご相談は無料・秘密厳守。専任コンシェルジュが、あなたの「これから」に寄り添います。</p>
+    <a class="btn btn-gold" href="#" style="min-width:280px">無料でご相談する<span class="arrow">→</span></a>
+  </div>
+</section>
+
+<!-- ===================== FOOTER ===================== -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-top">
+      <div>
+        <div class="foot-brand">JCB <span>×</span> Universal Development</div>
+        <p class="foot-tag">JCBカードホルダー様向け ライフサポート総合窓口。暮らしのご相談を、ワンストップで承ります。</p>
+      </div>
+      <nav class="foot-nav">
+        <a href="#">プライバシーポリシー</a>
+        <a href="#">特定商取引法に基づく表記</a>
+        <a href="#">会社概要</a>
+      </nav>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 Universal Development Co., Ltd.</span>
+      <span>運営：株式会社ユニバーサル・デベロップメント</span>
+    </div>
+  </div>
+</footer>
+
+
+<script>document.body.setAttribute('data-variant','a');</script>
+</body>
+</html>

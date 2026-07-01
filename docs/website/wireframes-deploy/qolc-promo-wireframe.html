@@ -1,0 +1,1734 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QOLC プロモサイト — ワイヤーフレーム v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Noto+Serif+JP:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #4C986A;
+    --green-dark: #3D7A55;
+    --green-deep: #2D5C40;
+    --green-light: #5FAA7D;
+    --green-pale: #E8F5EE;
+    --green-bg: #F0F9F4;
+    --warm: #E8913A;
+    --warm-light: #F2A75C;
+    --warm-pale: #FFF5EB;
+    --cream: #FAFAF7;
+    --text-dark: #222222;
+    --text-body: #444444;
+    --text-muted: #777777;
+    --text-light: #AAAAAA;
+    --border: #E5E2DC;
+    --border-light: #F0EDE8;
+    --white: #ffffff;
+    --navy: #1B2A4A;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif;
+    color: var(--text-body); font-size: 15px; line-height: 1.8;
+    background: #E5E2DC; -webkit-font-smoothing: antialiased;
+  }
+
+  /* CONTROLS */
+  .wf-controls {
+    position: fixed; top: 0; left: 0; right: 0;
+    background: #2D5C40; color: #fff;
+    padding: 8px 16px; display: flex; align-items: center; gap: 16px;
+    z-index: 1000; font-size: 13px; flex-wrap: wrap;
+  }
+  .wf-controls .wf-title { font-weight: 700; font-size: 14px; }
+  .wf-controls button {
+    background: rgba(255,255,255,0.1); color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 5px 14px; border-radius: 4px; cursor: pointer; font-size: 13px;
+  }
+  .wf-controls button:hover { background: rgba(255,255,255,0.2); }
+  .wf-controls button.active { background: var(--warm); border-color: var(--warm); font-weight: 700; }
+  .wf-controls .wf-device { margin-left: auto; display: flex; gap: 4px; }
+  .wf-controls .wf-note { width: 100%; font-size: 11px; color: rgba(255,255,255,0.5); }
+
+  .device-frame {
+    margin: 60px auto 40px; background: var(--white);
+    transition: max-width 0.3s; min-height: 100vh;
+  }
+  .device-frame.mobile { max-width: 390px; box-shadow: 0 4px 60px rgba(0,0,0,0.15); border-radius: 16px; overflow: hidden; }
+  .device-frame.tablet { max-width: 768px; box-shadow: 0 4px 60px rgba(0,0,0,0.15); border-radius: 16px; overflow: hidden; }
+  .device-frame.desktop { max-width: 100%; box-shadow: none; }
+
+  .section { padding: 48px 24px; }
+  .section-label {
+    font-size: 12px; font-weight: 700; letter-spacing: 2px;
+    color: var(--green); margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+  .section-title {
+    font-size: 22px; font-weight: 900; line-height: 1.6;
+    margin-bottom: 8px; color: var(--text-dark);
+  }
+  .section-sub { font-size: 14px; color: var(--text-muted); margin-bottom: 28px; }
+
+  /* HEADER */
+  .site-header {
+    background: var(--white); padding: 10px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border-light);
+    position: sticky; top: 0; z-index: 10;
+    gap: 8px;
+  }
+  .logo { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .logo-img {
+    height: 32px; width: auto; display: block;
+  }
+  .logo-sub { font-size: 10px; color: var(--text-muted); letter-spacing: 1px; }
+  .header-nav {
+    display: none; /* hidden on mobile, shown on tablet/desktop */
+    align-items: center; gap: 18px;
+  }
+  .header-nav a {
+    font-size: 13px; font-weight: 600; color: var(--text-body);
+    text-decoration: none; white-space: nowrap;
+    transition: color 0.2s;
+  }
+  .header-nav a:hover { color: var(--green); }
+  .header-nav a[target="_blank"]::after {
+    content: ''; display: inline-block; width: 10px; height: 10px;
+    margin-left: 3px; vertical-align: middle; opacity: 0.5;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/%3E%3Cpolyline points='15 3 21 3 21 9'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E");
+    background-size: contain; background-repeat: no-repeat;
+  }
+  .header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .header-cta {
+    background: var(--green); color: #fff; border: none;
+    padding: 8px 16px; border-radius: 6px; font-size: 13px;
+    font-weight: 700; cursor: pointer;
+  }
+  .header-apply {
+    background: var(--warm); color: #fff; border: none;
+    padding: 8px 14px; border-radius: 6px; font-size: 12px;
+    font-weight: 700; cursor: pointer; display: none; /* shown on tablet+ */
+  }
+  .header-login {
+    position: relative;
+  }
+  .header-login-btn {
+    background: transparent; color: var(--text-body); border: 1.5px solid var(--border);
+    padding: 7px 14px; border-radius: 6px; font-size: 13px;
+    font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;
+  }
+  .header-login-btn::after {
+    content: '▾'; font-size: 10px; color: var(--text-muted);
+  }
+  .login-dropdown {
+    display: none; position: absolute; top: 100%; right: 0;
+    margin-top: 6px; background: var(--white);
+    border: 1px solid var(--border-light); border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    min-width: 220px; padding: 8px 0; z-index: 100;
+  }
+  .login-dropdown.open { display: block; }
+  .login-dropdown-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; cursor: pointer; text-decoration: none; color: inherit;
+  }
+  .login-dropdown-item:hover { background: var(--green-bg); }
+  .login-dropdown-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; flex-shrink: 0;
+  }
+  .login-dropdown-text { font-size: 13px; font-weight: 600; color: var(--text-dark); }
+  .login-dropdown-sub { font-size: 11px; color: var(--text-muted); }
+  .login-dropdown-divider { height: 1px; background: var(--border-light); margin: 4px 0; }
+
+  /* Header responsive */
+  .device-frame.tablet .header-nav { display: flex; }
+  .device-frame.tablet .header-apply { display: block; }
+  .device-frame.desktop .header-nav { display: flex; gap: 24px; }
+  .device-frame.desktop .header-apply { display: block; }
+  .device-frame.desktop .site-header { padding: 12px 40px; }
+  .device-frame.tablet .logo-img { height: 34px; }
+  .device-frame.desktop .logo-img { height: 38px; }
+
+  /* ============================
+     HERO — Photo + text
+     ============================ */
+  .hero {
+    position: relative; min-height: 480px;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 0 24px 40px; overflow: hidden;
+  }
+  .hero-bg {
+    position: absolute; inset: 0;
+    background: url('qolc_top_image1.png') center center / cover no-repeat;
+  }
+  .hero-bg::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(to bottom, rgba(45,92,64,0.2) 0%, rgba(45,92,64,0.5) 40%, rgba(45,92,64,0.9) 100%);
+  }
+  .hero-content { position: relative; z-index: 2; color: #fff; }
+  .hero-badge {
+    display: inline-block; background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3); backdrop-filter: blur(4px);
+    font-size: 12px; font-weight: 700; padding: 5px 16px;
+    border-radius: 20px; margin-bottom: 16px;
+  }
+  .hero h1 { font-size: 26px; font-weight: 900; line-height: 1.6; margin-bottom: 14px; }
+  .hero h1 .accent { color: #A8E6C3; }
+  .hero .hero-sub { font-size: 14px; opacity: 0.9; margin-bottom: 24px; line-height: 1.9; }
+  .hero .btn-hero {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #fff; color: var(--green-deep);
+    border: none; padding: 16px 32px; border-radius: 8px;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+    min-height: 52px; text-decoration: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
+  .hero .hero-note { font-size: 12px; opacity: 0.6; margin-top: 10px; }
+  .hero-wf-note {
+    position: absolute; top: 12px; right: 12px; z-index: 3;
+    background: rgba(0,0,0,0.6); color: #fff;
+    padding: 6px 10px; border-radius: 4px; font-size: 10px;
+    max-width: 160px; line-height: 1.4;
+  }
+
+  /* BUTTONS */
+  .btn-green {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--green); color: #fff; border: none;
+    padding: 16px 32px; border-radius: 8px;
+    font-size: 16px; font-weight: 700; cursor: pointer; min-height: 52px;
+    text-decoration: none; box-shadow: 0 2px 8px rgba(76,152,106,0.3);
+  }
+  .btn-warm {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--warm); color: #fff; border: none;
+    padding: 16px 32px; border-radius: 8px;
+    font-size: 16px; font-weight: 700; cursor: pointer; min-height: 52px;
+    text-decoration: none;
+  }
+  .cta-note { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
+
+  /* ============================
+     PHOTO + TEXT SPLIT SECTIONS
+     ============================ */
+  .split { display: flex; flex-direction: column; }
+  .split-img {
+    width: 100%; height: 220px; object-fit: cover;
+  }
+  .split-text { padding: 32px 24px; }
+  .split-text .section-label { text-align: left; }
+  .split-text .section-title { text-align: left; }
+  .split-text .section-sub { text-align: left; }
+
+  /* Pain items */
+  .pain-list { display: flex; flex-direction: column; gap: 10px; }
+  .pain-item {
+    background: var(--white); border-radius: 8px;
+    padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+    font-size: 15px; color: var(--text-dark); font-weight: 500;
+    border: 1px solid var(--border-light);
+  }
+  .pain-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warm); flex-shrink: 0; }
+
+  /* ============================
+     FEATURES — premium icon cards
+     ============================ */
+  .features { background: var(--white); }
+  .feature-grid {
+    display: grid; grid-template-columns: 1fr; gap: 16px;
+  }
+  .feature-card {
+    background: var(--white); border-radius: 14px;
+    border: 1px solid var(--border-light);
+    padding: 28px 24px; position: relative; overflow: hidden;
+    transition: box-shadow 0.2s;
+  }
+  .feature-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--green) 0%, #7BC4A0 100%);
+  }
+  .feature-card-icon {
+    width: 56px; height: 56px; border-radius: 14px;
+    background: linear-gradient(135deg, #E8F5EE 0%, #D0EBD9 100%);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+  }
+  .feature-card-icon svg {
+    width: 28px; height: 28px; stroke: var(--green-deep); fill: none;
+    stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .feature-card h3 {
+    font-size: 17px; font-weight: 700; color: var(--text-dark);
+    margin-bottom: 8px; letter-spacing: 0.3px;
+  }
+  .feature-card p {
+    font-size: 14px; color: var(--text-muted); line-height: 1.8; margin-bottom: 0;
+  }
+  .feature-card-tags {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px;
+  }
+  .feature-card-tag {
+    font-size: 11px; background: var(--green-pale); color: var(--green-deep);
+    padding: 3px 10px; border-radius: 10px; font-weight: 700; letter-spacing: 0.3px;
+  }
+
+  /* Tablet: 2 columns */
+  .device-frame.tablet .feature-grid { grid-template-columns: 1fr 1fr; }
+  /* Desktop: 2 columns wider */
+  .device-frame.desktop .feature-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
+  .device-frame.desktop .feature-card { padding: 32px 28px; }
+
+  /* ============================
+     PERSONA TABS
+     ============================ */
+  .personas { background: var(--cream); }
+  .persona-tabs { display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; }
+  .persona-tab {
+    padding: 8px 18px; border-radius: 20px; font-size: 14px;
+    font-weight: 700; cursor: pointer; border: 2px solid var(--border);
+    background: var(--white); color: var(--text-muted);
+  }
+  .persona-tab.active { background: var(--green); border-color: var(--green); color: #fff; }
+  .persona-card {
+    display: flex; flex-direction: column; border-radius: 12px; overflow: hidden;
+    border: 1px solid var(--border-light); background: var(--white);
+  }
+  .persona-card-img { width: 100%; height: 200px; object-fit: cover; object-position: center top; border-bottom: 3px solid var(--green-bg); }
+  .persona-card-body { padding: 20px; }
+  .persona-card h3 { font-size: 17px; font-weight: 700; color: var(--green-deep); margin-bottom: 12px; }
+  .persona-benefit {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--border-light);
+    font-size: 14px;
+  }
+  .persona-benefit:last-child { border-bottom: none; }
+  .p-check {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--green-pale); color: var(--green);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; flex-shrink: 0; margin-top: 2px;
+  }
+
+  /* ============================
+     STATS — photo bg
+     ============================ */
+  .stats {
+    position: relative; padding: 48px 24px; overflow: hidden;
+  }
+  .stats-bg {
+    position: absolute; inset: 0;
+    background: url('https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=800&q=80') center center / cover no-repeat;
+  }
+  .stats-bg::after {
+    content: ''; position: absolute; inset: 0;
+    background: rgba(45,92,64,0.88);
+  }
+  .stats-content { position: relative; z-index: 2; color: #fff; }
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: center; }
+  .stat-num { font-size: 36px; font-weight: 900; line-height: 1.2; margin-bottom: 4px; }
+  .stat-num span { font-size: 16px; font-weight: 500; }
+  .stat-label { font-size: 12px; opacity: 0.7; }
+
+  /* ============================
+     PRICING
+     ============================ */
+  .pricing { background: var(--white); }
+
+  /* ★ 初期・固定費ゼロ — 目を引くヒーローカード */
+  .pricing-hero {
+    display: flex; gap: 16px; justify-content: center; margin-bottom: 32px; flex-wrap: wrap;
+  }
+  .pricing-zero-card {
+    background: linear-gradient(135deg, #E8F5EE 0%, #D0EBD9 100%);
+    border-radius: 16px; padding: 28px 32px; text-align: center;
+    flex: 1; min-width: 150px; max-width: 220px;
+    border: 2px solid var(--green-pale);
+    position: relative; overflow: hidden;
+  }
+  .pricing-zero-card::before {
+    content: ''; position: absolute; top: -20px; right: -20px;
+    width: 80px; height: 80px; border-radius: 50%;
+    background: rgba(76,152,106,0.1);
+  }
+  .pricing-zero-label {
+    font-size: 13px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px;
+    letter-spacing: 0.5px;
+  }
+  .pricing-zero-num {
+    font-size: 52px; font-weight: 900; color: var(--green); line-height: 1;
+    margin-bottom: 4px;
+  }
+  .pricing-zero-num span { font-size: 22px; }
+  .pricing-zero-sub {
+    font-size: 11px; color: var(--green-deep); font-weight: 600;
+    background: rgba(76,152,106,0.15); border-radius: 20px;
+    display: inline-block; padding: 3px 12px;
+  }
+
+  /* ★ 手数料 — さらっと流すコンパクト表示 */
+  .pricing-fee-section {
+    max-width: 380px; margin: 0 auto;
+    background: var(--cream); border-radius: 12px;
+    padding: 20px; border: 1px solid var(--border-light);
+  }
+  .pricing-fee-header {
+    font-size: 14px; font-weight: 700; color: var(--text-dark);
+    text-align: center; margin-bottom: 4px;
+  }
+  .pricing-fee-main {
+    font-size: 28px; font-weight: 900; color: var(--green);
+    text-align: center; margin-bottom: 8px;
+  }
+  .pricing-fee-main span { font-size: 14px; color: var(--text-muted); }
+  .pricing-fee-note {
+    font-size: 12px; color: var(--text-muted); text-align: center;
+    margin-bottom: 16px; line-height: 1.6;
+  }
+  .pricing-fee-tiers {
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 16px;
+  }
+  .pricing-fee-tier {
+    background: var(--white); border-radius: 8px; padding: 8px 12px;
+    font-size: 12px; color: var(--text-muted); border: 1px solid var(--border-light);
+    text-align: center; flex: 1; min-width: 90px;
+  }
+  .pricing-fee-tier strong {
+    display: block; font-size: 16px; color: var(--green); font-weight: 700;
+  }
+  .pricing-includes {
+    display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: center;
+    padding-top: 14px; border-top: 1px solid var(--border-light);
+  }
+  .pricing-includes-item {
+    font-size: 12px; color: var(--text-muted); white-space: nowrap;
+  }
+  .pricing-includes-item .pf-c { color: var(--green); font-weight: 700; margin-right: 4px; }
+
+  /* ============================
+     FAQ
+     ============================ */
+  .faq { background: var(--cream); }
+  .faq-item {
+    background: var(--white); border-radius: 10px; margin-bottom: 8px;
+    border: 1px solid var(--border-light); overflow: hidden;
+  }
+  .faq-q {
+    padding: 16px 18px; font-size: 15px; font-weight: 700;
+    color: var(--text-dark); display: flex; justify-content: space-between;
+    cursor: pointer;
+  }
+  .faq-q::after { content: '+'; font-size: 20px; color: var(--green); font-weight: 300; }
+  .faq-a { padding: 0 18px 16px; font-size: 14px; color: var(--text-muted); line-height: 1.8; border-top: 1px solid var(--border-light); display: none; }
+  .faq-item.open .faq-q::after { content: '−'; }
+  .faq-item.open .faq-a { display: block; padding-top: 14px; }
+
+  /* ============================
+     FINAL CTA — photo
+     ============================ */
+  .final-cta {
+    position: relative; padding: 56px 24px; text-align: center; overflow: hidden;
+  }
+  .final-cta-bg {
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, #1B3A2A 0%, #2D5C40 50%, #1B3A2A 100%);
+  }
+  .final-cta-bg::after { content: ''; position: absolute; inset: 0; background: rgba(27,58,42,0.15); }
+  .final-cta-concierge {
+    position: absolute; right: -20px; bottom: 0; height: 100%; width: auto;
+    opacity: 0.25; object-fit: contain; object-position: right bottom;
+    pointer-events: none;
+  }
+  .device-frame.tablet .final-cta-concierge { opacity: 0.35; right: 0; }
+  .device-frame.desktop .final-cta-concierge { opacity: 0.45; right: 24px; height: 110%; }
+  .final-cta-content { position: relative; z-index: 2; color: #fff; }
+  .final-cta h2 { font-size: 22px; font-weight: 700; margin-bottom: 12px; line-height: 1.6; }
+  .final-cta p { font-size: 14px; opacity: 0.85; margin-bottom: 24px; }
+  .btn-white {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #fff; color: var(--green-deep); border: none;
+    padding: 16px 32px; border-radius: 8px;
+    font-size: 16px; font-weight: 700; cursor: pointer; min-height: 52px;
+    text-decoration: none; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  }
+
+  /* FOOTER */
+  .site-footer {
+    background: var(--navy); color: rgba(255,255,255,0.5);
+    padding: 32px 20px; font-size: 12px; text-align: center;
+  }
+  .site-footer a { color: rgba(255,255,255,0.5); text-decoration: none; }
+  .footer-logo { margin-bottom: 12px; }
+  .footer-logo img { height: 28px; width: auto; filter: brightness(0) invert(1); opacity: 0.8; }
+  .footer-links { margin-bottom: 12px; }
+  .footer-links a { margin: 0 10px; }
+
+  /* ANNOTATION */
+  .annotation {
+    background: #FFFCE8; border: 1px dashed #D4C77A; border-radius: 6px;
+    padding: 8px 12px; font-size: 12px; color: #7A6D2A;
+    margin: 10px 20px; line-height: 1.6;
+  }
+  .annotation::before { content: '\1F4DD '; }
+
+  /* ============================
+     DESKTOP / TABLET OVERRIDES
+     ============================ */
+  .device-frame.tablet .hero { min-height: 400px; }
+  .device-frame.tablet .split { flex-direction: row; }
+  .device-frame.tablet .split-img { width: 40%; height: auto; min-height: 280px; }
+  .device-frame.tablet .split-text { width: 60%; }
+  /* feature-row removed — now uses feature-grid/feature-card */
+  .device-frame.tablet .persona-card { flex-direction: row; }
+  .device-frame.tablet .persona-card-img { width: 40%; height: auto; min-height: 240px; object-position: center 20%; }
+  .device-frame.tablet .persona-card-body { width: 60%; }
+  .device-frame.tablet .stats-grid { grid-template-columns: repeat(4, 1fr); }
+
+  .device-frame.desktop .hero { min-height: 560px; padding: 0 60px 56px; }
+  .device-frame.desktop .hero h1 { font-size: 36px; }
+  .device-frame.desktop .section { padding: 64px 60px; }
+  .device-frame.desktop .split { flex-direction: row; }
+  .device-frame.desktop .split-img { width: 45%; height: auto; min-height: 320px; }
+  .device-frame.desktop .split-text { width: 55%; padding: 48px 48px; }
+  .device-frame.desktop .split.reverse { flex-direction: row-reverse; }
+  /* feature-row removed — now uses feature-grid/feature-card */
+  .device-frame.desktop .persona-card { flex-direction: row; }
+  .device-frame.desktop .persona-card-img { width: 45%; height: auto; min-height: 280px; object-position: center 20%; }
+  .device-frame.desktop .persona-card-body { width: 55%; }
+  .device-frame.desktop .stats-grid { grid-template-columns: repeat(4, 1fr); }
+  .device-frame.desktop .faq-item { max-width: 680px; margin-left: auto; margin-right: auto; margin-bottom: 8px; }
+  .device-frame.desktop .pricing-fee-section { max-width: 500px; }
+  .device-frame.desktop .pricing-zero-num { font-size: 64px; }
+  .device-frame.desktop .pricing-zero-card { padding: 32px 40px; }
+
+  /* ============================
+     CYCLE DIAGRAM SECTION
+     ============================ */
+  .cycle-section {
+    background: var(--green-bg); padding: 48px 16px 40px;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .cycle-layout {
+    display: flex; flex-direction: column; gap: 24px;
+  }
+  .cycle-text-side { }
+  .cycle-text-side .section-label { text-align: left; }
+  .cycle-text-side .section-title { text-align: left; font-size: 20px; }
+  .cycle-text-side .section-sub { text-align: left; margin-bottom: 16px; }
+  .cycle-points {
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .cycle-point {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: var(--white); border-radius: 10px; padding: 14px 16px;
+    border: 1px solid var(--border-light);
+  }
+  .cycle-point-icon {
+    width: 42px; height: 42px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .cycle-point-title { font-size: 14px; font-weight: 700; color: var(--text-dark); margin-bottom: 2px; }
+  .cycle-point-desc { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+  .cycle-img-side {
+    display: flex; justify-content: center; align-items: center;
+  }
+  .cycle-concept-img {
+    width: 100%; max-width: 480px; height: auto;
+  }
+
+  /* Tablet/Desktop: side by side */
+  .device-frame.tablet .cycle-layout { flex-direction: row; align-items: flex-start; }
+  .device-frame.tablet .cycle-text-side { flex: 1; }
+  .device-frame.tablet .cycle-img-side { flex: 1; padding-top: 180px; }
+  .device-frame.tablet .cycle-concept-img { max-width: 360px; }
+
+  .device-frame.desktop .cycle-layout { flex-direction: row; align-items: flex-start; gap: 40px; }
+  .device-frame.desktop .cycle-text-side { flex: 1; }
+  .device-frame.desktop .cycle-img-side { flex: 1; padding-top: 120px; }
+  .device-frame.desktop .cycle-section { padding: 64px 60px; }
+  .device-frame.desktop .cycle-concept-img { max-width: 480px; }
+
+  /* Cycle diagram animations */
+  @keyframes centerPulse { 0%,100% { opacity: .15 } 50% { opacity: .25 } }
+  @media (prefers-reduced-motion: reduce) {
+    .pulse-ring { animation: none !important; }
+  }
+  .pulse-ring { animation: centerPulse 3s ease-in-out infinite; }
+
+  /* ============================
+     SOLUTION STEP FLOW (改善)
+     ============================ */
+  .solution-steps {
+    display: flex; flex-direction: column; gap: 0; position: relative;
+    padding-left: 20px;
+  }
+  .solution-steps::before {
+    content: ''; position: absolute; left: 35px; top: 28px; bottom: 28px;
+    width: 2px; background: linear-gradient(to bottom, var(--green), var(--green-light));
+  }
+  .solution-step {
+    display: flex; gap: 16px; align-items: flex-start; position: relative;
+    padding: 12px 0;
+  }
+  .solution-step-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--green); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 900; flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(76,152,106,0.3);
+    position: relative; z-index: 1;
+  }
+  .solution-step-content {
+    background: var(--white); border-radius: 10px;
+    padding: 16px 18px; flex: 1;
+    border: 1px solid rgba(76,152,106,0.15);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  }
+  .solution-step-content strong {
+    font-size: 16px; color: var(--text-dark); display: block; margin-bottom: 4px;
+  }
+  .solution-step-content span {
+    font-size: 13px; color: var(--text-muted); line-height: 1.6;
+  }
+  .solution-step-icon {
+    width: 40px; height: 40px; border-radius: 12px;
+    background: linear-gradient(135deg, #E8F5EE 0%, #D0EBD9 100%);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 8px;
+    box-shadow: 0 2px 8px rgba(45,92,64,0.08);
+  }
+  .solution-step-icon svg {
+    width: 22px; height: 22px; stroke: #2D5C40; fill: none;
+    stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .solution-step-arrow {
+    text-align: center; color: var(--green-light); font-size: 18px;
+    padding: 2px 0 2px 14px; line-height: 1;
+  }
+
+  /* ============================
+     TESTIMONIALS (導入事例)
+     ============================ */
+  .testimonials { background: var(--white); }
+  .testimonial-grid { display: flex; flex-direction: column; gap: 16px; }
+  .testimonial-card {
+    background: var(--cream); border-radius: 12px;
+    padding: 24px 20px; position: relative;
+    border: 1px solid var(--border-light);
+  }
+  .testimonial-card::before {
+    content: '"'; position: absolute; top: 12px; left: 16px;
+    font-size: 48px; font-weight: 900; color: var(--green-pale);
+    line-height: 1; font-family: Georgia, serif;
+  }
+  .testimonial-quote {
+    font-size: 15px; color: var(--text-dark); line-height: 1.9;
+    margin-bottom: 14px; padding-left: 4px; font-weight: 500;
+  }
+  .testimonial-author {
+    display: flex; align-items: center; gap: 12px;
+    padding-top: 12px; border-top: 1px solid var(--border-light);
+  }
+  .testimonial-avatar {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--green-pale); color: var(--green);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 14px; flex-shrink: 0;
+    overflow: hidden;
+    border: 2px solid var(--green-pale);
+    box-shadow: 0 2px 8px rgba(45,92,64,0.10);
+  }
+  .testimonial-avatar img {
+    width: 100%; height: 100%; object-fit: cover; object-position: center top;
+    display: block;
+  }
+  .testimonial-name { font-size: 13px; font-weight: 700; color: var(--text-dark); }
+  .testimonial-role { font-size: 12px; color: var(--text-muted); }
+  .testimonial-badge {
+    display: inline-block; background: var(--green-pale);
+    color: var(--green-deep); font-size: 11px; font-weight: 700;
+    padding: 3px 10px; border-radius: 12px; margin-top: 4px;
+  }
+
+  /* ============================
+     ONBOARDING FLOW (導入の流れ)
+     ============================ */
+  .onboarding { background: var(--green-bg); }
+  .onboarding-timeline {
+    display: flex; flex-direction: column; gap: 0;
+    position: relative; padding-left: 16px;
+  }
+  .onboarding-timeline::before {
+    content: ''; position: absolute; left: 31px; top: 24px; bottom: 24px;
+    width: 2px; background: var(--green-pale);
+  }
+  .onboarding-step {
+    display: flex; gap: 14px; align-items: flex-start;
+    position: relative; padding: 10px 0;
+  }
+  .onboarding-step-dot {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--white); border: 3px solid var(--green);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; position: relative; z-index: 1;
+  }
+  .onboarding-step-dot-inner {
+    width: 10px; height: 10px; border-radius: 50%; background: var(--green);
+  }
+  .onboarding-step-body { flex: 1; }
+  .onboarding-step-title {
+    font-size: 15px; font-weight: 700; color: var(--text-dark);
+    margin-bottom: 2px;
+  }
+  .onboarding-step-desc {
+    font-size: 13px; color: var(--text-muted); line-height: 1.6;
+  }
+  .onboarding-step-time {
+    display: inline-block; background: var(--warm-pale);
+    color: var(--warm); font-size: 11px; font-weight: 700;
+    padding: 2px 8px; border-radius: 10px; margin-top: 4px;
+  }
+  .onboarding-note {
+    margin-top: 20px; text-align: center;
+    padding: 16px; background: var(--white); border-radius: 10px;
+    border: 1px solid var(--green-pale);
+  }
+  .onboarding-note-big {
+    font-size: 28px; font-weight: 900; color: var(--green);
+    margin-bottom: 4px;
+  }
+  .onboarding-note-text {
+    font-size: 13px; color: var(--text-muted);
+  }
+
+  /* ============================
+     TABLET/DESKTOP for new sections
+     ============================ */
+  .device-frame.tablet .testimonial-grid { flex-direction: row; gap: 16px; }
+  .device-frame.tablet .testimonial-card { flex: 1; }
+  .device-frame.tablet .onboarding-timeline { max-width: 560px; margin: 0 auto; }
+
+  .device-frame.desktop .testimonial-grid { flex-direction: row; gap: 20px; }
+  .device-frame.desktop .testimonial-card { flex: 1; }
+  .device-frame.desktop .onboarding-timeline { max-width: 600px; margin: 0 auto; }
+  .device-frame.desktop .solution-steps { max-width: 560px; margin-left: auto; margin-right: auto; }
+
+  /* ============================
+     APPLY FORM PAGE
+     ============================ */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .apply-hero {
+    background: var(--green-bg); padding: 32px 24px 24px; text-align: center;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .apply-hero h1 { font-size: 22px; font-weight: 900; color: var(--text-dark); margin-bottom: 8px; }
+  .apply-hero p { font-size: 14px; color: var(--text-muted); line-height: 1.7; }
+
+  .apply-steps-bar {
+    display: flex; align-items: center; justify-content: center; gap: 0;
+    padding: 20px 16px; background: var(--white); border-bottom: 1px solid var(--border-light);
+  }
+  .apply-step-indicator {
+    display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted);
+  }
+  .apply-step-indicator.active { color: var(--green); font-weight: 700; }
+  .apply-step-indicator.active .apply-step-num { background: var(--green); color: #fff; }
+  .apply-step-indicator.done .apply-step-num { background: var(--green-pale); color: var(--green); }
+  .apply-step-num {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--border-light); color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+  }
+  .apply-step-connector {
+    width: 24px; height: 2px; background: var(--border-light); margin: 0 4px;
+  }
+
+  .apply-form { padding: 24px; }
+  .apply-form-group { margin-bottom: 20px; }
+  .apply-form-label {
+    font-size: 13px; font-weight: 700; color: var(--text-dark);
+    margin-bottom: 6px; display: flex; align-items: center; gap: 6px;
+  }
+  .apply-form-required {
+    font-size: 10px; font-weight: 700; color: #fff;
+    background: var(--warm); padding: 1px 6px; border-radius: 4px;
+  }
+  .apply-form-input {
+    width: 100%; padding: 12px 14px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 15px; font-family: inherit;
+    background: var(--white); color: var(--text-dark);
+  }
+  .apply-form-input:focus { border-color: var(--green); outline: none; }
+  .apply-form-hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  .apply-form-row { display: flex; gap: 12px; }
+  .apply-form-row > * { flex: 1; }
+  .apply-form-section {
+    font-size: 15px; font-weight: 700; color: var(--green-deep);
+    padding-bottom: 8px; border-bottom: 2px solid var(--green-pale);
+    margin-bottom: 20px; margin-top: 32px;
+  }
+  .apply-form-section:first-child { margin-top: 0; }
+  .apply-form-radio-group { display: flex; gap: 12px; flex-wrap: wrap; }
+  .apply-form-radio {
+    display: flex; align-items: center; gap: 6px;
+    padding: 10px 16px; border: 1.5px solid var(--border);
+    border-radius: 8px; cursor: pointer; font-size: 14px;
+  }
+  .apply-form-radio.selected {
+    border-color: var(--green); background: var(--green-bg);
+    color: var(--green-deep); font-weight: 600;
+  }
+  .apply-form-radio input[type="radio"] { display: none; }
+  .apply-form-radio-dot {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid var(--border); flex-shrink: 0;
+  }
+  .apply-form-radio.selected .apply-form-radio-dot {
+    border-color: var(--green); background: var(--green);
+    box-shadow: inset 0 0 0 3px #fff;
+  }
+
+  .apply-note {
+    background: var(--green-bg); border-radius: 10px;
+    padding: 16px; margin: 20px 0; font-size: 13px;
+    color: var(--text-body); line-height: 1.7;
+  }
+  .apply-note strong { color: var(--green-deep); }
+
+  .apply-actions {
+    display: flex; gap: 12px; padding: 20px 24px;
+    border-top: 1px solid var(--border-light); background: var(--cream);
+  }
+  .apply-actions .btn-green { flex: 1; justify-content: center; }
+
+  .apply-complete {
+    text-align: center; padding: 48px 24px;
+  }
+  .apply-complete-icon {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: var(--green-pale); color: var(--green);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; margin: 0 auto 20px;
+  }
+</style>
+</head>
+<body>
+
+<div class="wf-controls">
+  <span class="wf-title">QOLC プロモ v3</span>
+  <div style="display:flex;gap:4px;">
+    <button class="active" onclick="showPage('top',this)">トップ</button>
+    <button onclick="showPage('apply',this)">加盟店申請</button>
+    <button onclick="showPage('complete',this)">申請完了</button>
+  </div>
+  <div class="wf-device">
+    <button class="active" onclick="setDevice('mobile',this)">SP</button>
+    <button onclick="setDevice('tablet',this)">Tab</button>
+    <button onclick="setDevice('desktop',this)">PC</button>
+  </div>
+  <div class="wf-note">v3: 導入事例・導入フロー追加 ／ Solution視覚強化 ／ CTA改善 ／ Tab/PC=左右振り</div>
+</div>
+
+<div class="device-frame mobile" id="deviceFrame">
+<div class="page active" id="page-top">
+
+  <header class="site-header">
+    <div class="logo" style="cursor:pointer;" onclick="showPage('top',null)">
+      <img class="logo-img" src="QOLC_rogo2.png" alt="QOLC">
+      <div class="logo-sub">コルク</div>
+    </div>
+    <nav class="header-nav">
+      <a href="#features-section">サービスのご案内</a>
+      <a href="#pricing-section">料金プラン</a>
+      <a href="#faq-section">よくあるご質問</a>
+    </nav>
+    <div class="header-right">
+      <button class="header-apply" onclick="showPage('apply',null)">加盟店申請</button>
+      <div class="header-login">
+        <button class="header-login-btn" onclick="toggleLoginDropdown()">ログイン</button>
+        <div class="login-dropdown" id="loginDropdown">
+          <a class="login-dropdown-item" href="#">
+            <div class="login-dropdown-icon" style="background:#E8F5EE;color:#2D5C40;">🏠</div>
+            <div>
+              <div class="login-dropdown-text">施設ポータル</div>
+              <div class="login-dropdown-sub">介護施設の管理者・スタッフ</div>
+            </div>
+          </a>
+          <a class="login-dropdown-item" href="#">
+            <div class="login-dropdown-icon" style="background:#FFF5EB;color:#C47020;">👨‍👩‍👧</div>
+            <div>
+              <div class="login-dropdown-text">ご家族ポータル</div>
+              <div class="login-dropdown-sub">LINE Login / メールでログイン</div>
+            </div>
+          </a>
+          <a class="login-dropdown-item" href="#">
+            <div class="login-dropdown-icon" style="background:#E8F5EE;color:#2D5C40;">🏥</div>
+            <div>
+              <div class="login-dropdown-text">提供者ポータル</div>
+              <div class="login-dropdown-sub">訪問診療・薬局・タクシー等</div>
+            </div>
+          </a>
+          <div class="login-dropdown-divider"></div>
+          <a class="login-dropdown-item" href="#">
+            <div class="login-dropdown-icon" style="background:#F0EDE8;color:#777;">⚙️</div>
+            <div>
+              <div class="login-dropdown-text">管理者ログイン</div>
+              <div class="login-dropdown-sub">UD運営管理（MFA必須）</div>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ====== HERO ====== -->
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-content">
+      <div class="hero-badge">介護施設向け カード決済管理システム</div>
+      <h1>施設の決済業務を<br><span class="accent">まるごとスマート</span>に</h1>
+      <p class="hero-sub">
+        訪問診療・薬局・タクシーなど<br>
+        入居者様の自己負担額をカード自動決済。<br>
+        ご家族はLINEで明細をリアルタイム確認。
+      </p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <a href="#" class="btn-hero">初期費用0円で始める &rarr;</a>
+      </div>
+      <p class="hero-note">初期費用0円 ・ 月額固定費0円 ・ 最短2週間で導入</p>
+    </div>
+  </section>
+
+  <!-- ====== CYCLE DIAGRAM ====== -->
+  <section class="cycle-section">
+    <div class="cycle-layout">
+      <div class="cycle-text-side">
+        <p class="section-label">How it works</p>
+        <h2 class="section-title">介護施設・ご家族・サービス提供者<br>全員がラクになる仕組み</h2>
+        <p class="section-sub">QOLCが決済業務をまるごとお手伝いします</p>
+
+        <div class="cycle-points">
+          <div class="cycle-point">
+            <div class="cycle-point-icon" style="background:linear-gradient(135deg,#E8F5EE,#D0EBD9);">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D5C40" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+            </div>
+            <div>
+              <div class="cycle-point-title">介護施設</div>
+              <div class="cycle-point-desc">明細を登録するだけ。立替・現金集金がゼロに。事務工数を大幅削減し、問い合わせ対応も減少します。</div>
+            </div>
+          </div>
+          <div class="cycle-point">
+            <div class="cycle-point-icon" style="background:linear-gradient(135deg,#FFF5EB,#FFECDA);">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C47020" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <div>
+              <div class="cycle-point-title">ご家族</div>
+              <div class="cycle-point-desc">LINEで明細をリアルタイム確認。「何に使った？」の不安が解消。明細の透明性が高まり、現金の手間もなくなります。</div>
+            </div>
+          </div>
+          <div class="cycle-point">
+            <div class="cycle-point-icon" style="background:linear-gradient(135deg,#E8F5EE,#D0EBD9);">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D5C40" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+              </svg>
+            </div>
+            <div>
+              <div class="cycle-point-title">サービス提供者</div>
+              <div class="cycle-point-desc">カード決済で未収金ゼロ、確実な入金を実現。明細アップロードだけのシンプル運用。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cycle-img-side">
+        <img class="cycle-concept-img" src="QOLC_concept2.png" alt="QOLCの概念図 — 施設利用者・介護施設・サービス提供者をQOLCがつなぐ循環図">
+      </div>
+    </div><!-- /cycle-layout -->
+  </section>
+
+  <!-- ====== PAIN — image + text split ====== -->
+  <div class="split">
+    <img class="split-img" src="worries1.png" alt="事務作業のイメージ">
+    <div class="split-text">
+      <p class="section-label">Challenges</p>
+      <h2 class="section-title">こんなお悩み<br>ありませんか？</h2>
+      <p class="section-sub">施設の事務スタッフ様のよくあるお声</p>
+      <div class="pain-list">
+        <div class="pain-item"><div class="pain-dot"></div>毎月の立替精算・現金集金が大変</div>
+        <div class="pain-item"><div class="pain-dot"></div>請求明細の作成・郵送に時間がかかる</div>
+        <div class="pain-item"><div class="pain-dot"></div>ご家族から「何に使ったの？」と問い合わせが多い</div>
+        <div class="pain-item"><div class="pain-dot"></div>サービス提供者ごとの入金管理が煩雑</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== SOLUTION — visual step flow ====== -->
+  <section class="section" style="background: var(--green-bg);">
+    <p class="section-label" style="text-align:center;">Solution</p>
+    <h2 class="section-title" style="text-align:center;">QOLCが<br>すべて解決します</h2>
+    <p class="section-sub" style="text-align:center;">たった3ステップでカンタン運用</p>
+
+    <div class="solution-steps">
+      <div class="solution-step">
+        <div class="solution-step-num">1</div>
+        <div class="solution-step-content">
+          <div class="solution-step-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></div>
+          <strong>明細を登録</strong>
+          <span>サービス提供者からの明細をCSVアップロード、または管理画面から手入力。まとめて登録できます。</span>
+        </div>
+      </div>
+      <div class="solution-step">
+        <div class="solution-step-num">2</div>
+        <div class="solution-step-content">
+          <div class="solution-step-icon"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2.5"/><line x1="1" y1="10" x2="23" y2="10"/><line x1="6" y1="15" x2="10" y2="15" stroke-width="1.8"/></svg></div>
+          <strong>自動でカード決済</strong>
+          <span>登録済みのクレジットカードで自動引き落とし。施設の立替・現金集金が不要になります。</span>
+        </div>
+      </div>
+      <div class="solution-step">
+        <div class="solution-step-num">3</div>
+        <div class="solution-step-content">
+          <div class="solution-step-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h4" stroke-width="1.2"/></svg></div>
+          <strong>LINEで自動通知</strong>
+          <span>決済完了と同時にご家族のLINEへ明細を自動送信。「何に使ったの？」の問い合わせが激減します。</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== FEATURES — premium icon cards ====== -->
+  <section class="section features" id="features-section">
+    <p class="section-label" style="text-align:center;">Features</p>
+    <h2 class="section-title" style="text-align:center;">QOLCの特長</h2>
+    <p class="section-sub" style="text-align:center;">安全・簡単・透明な決済管理を実現する6つの機能</p>
+
+    <div class="feature-grid">
+
+      <!-- 1. 現金管理の解消（新規） -->
+      <div class="feature-card">
+        <div class="feature-card-icon">
+          <svg viewBox="0 0 24 24">
+            <ellipse cx="12" cy="6" rx="7.5" ry="3"/>
+            <path d="M4.5 6v6c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3V6"/>
+            <path d="M4.5 12v6c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3v-6"/>
+          </svg>
+        </div>
+        <h3>現金管理の解消</h3>
+        <p>施設での現金の集金・立替・保管が不要に。金銭事故のリスクや、日々の現金管理にかかる手間から解放されます。</p>
+        <div class="feature-card-tags">
+          <span class="feature-card-tag">立替ゼロ</span>
+          <span class="feature-card-tag">金銭事故リスク低減</span>
+        </div>
+      </div>
+
+      <!-- 2. カード決済 -->
+      <div class="feature-card">
+        <div class="feature-card-icon">
+          <svg viewBox="0 0 24 24">
+            <rect x="2" y="5" width="20" height="14" rx="2.5"/>
+            <line x1="2" y1="10" x2="22" y2="10"/>
+            <circle cx="7" cy="15" r="1.2" fill="#3D7A55" stroke="none"/>
+            <circle cx="10.5" cy="15" r="1.2" fill="#3D7A55" stroke="none"/>
+          </svg>
+        </div>
+        <h3>カード決済</h3>
+        <p>ご家族のクレジットカードで自動決済。主要な国際ブランドに幅広く対応し、対面・郵送不要でスムーズにお支払いいただけます。</p>
+        <div class="feature-card-tags">
+          <span class="feature-card-tag">Visa</span>
+          <span class="feature-card-tag">Mastercard</span>
+          <span class="feature-card-tag">JCB</span>
+          <span class="feature-card-tag">アメックス</span>
+          <span class="feature-card-tag">ダイナース</span>
+        </div>
+      </div>
+
+      <!-- 3. レセコン連携（新規） -->
+      <div class="feature-card">
+        <div class="feature-card-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/>
+            <path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/>
+          </svg>
+        </div>
+        <h3>レセコン連携</h3>
+        <p>お使いのレセコンから出力したCSVをアップロードするだけ。QOLCが自動で照合し、利用明細を作成します。請求書・領収書の郵送も不要になります。</p>
+        <div class="feature-card-tags">
+          <span class="feature-card-tag">CSVアップロード</span>
+          <span class="feature-card-tag">自動照合</span>
+          <span class="feature-card-tag">郵送物ゼロ</span>
+        </div>
+      </div>
+
+      <!-- 4. LINE通知 &amp; Webポータル（変更なし） -->
+      <div class="feature-card">
+        <div class="feature-card-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            <path d="M8 9h8M8 13h4" stroke-width="1.2"/>
+          </svg>
+        </div>
+        <h3>LINE通知 &amp; Webポータル</h3>
+        <p>決済完了後、ご家族にLINEで自動通知。スマホから領収書のダウンロードもできます。「何に使ったの？」の問い合わせが激減。</p>
+      </div>
+
+      <!-- 5. セキュリティは万全（変更なし） -->
+      <div class="feature-card">
+        <div class="feature-card-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="M9 12l2 2 4-4" stroke-width="1.8"/>
+          </svg>
+        </div>
+        <h3>セキュリティ万全</h3>
+        <p>SSL暗号化通信・カード番号非保持。USEN FinTechの堅牢な決済インフラで安心してご利用いただけます。</p>
+        <div class="feature-card-tags">
+          <span class="feature-card-tag">カード番号非保持</span>
+          <span class="feature-card-tag">SSL暗号化</span>
+        </div>
+      </div>
+
+      <!-- 6. かんたん導入・専任サポート（変更なし） -->
+      <div class="feature-card">
+        <div class="feature-card-icon">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke-dasharray="2 2"/>
+          </svg>
+        </div>
+        <h3>かんたん導入・専任サポート</h3>
+        <p>既存業務を大きく変えず導入OK。専任のカスタマーサクセスが導入前から運用後まで伴走します。</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ====== PERSONAS — tabbed with photo ====== -->
+  <section class="section personas">
+    <p class="section-label">Benefits</p>
+    <h2 class="section-title" style="text-align:left;">それぞれのメリット</h2>
+    <div class="section-sub"></div>
+
+    <div class="persona-tabs">
+      <div class="persona-tab active" onclick="showPersona(0,this)">施設</div>
+      <div class="persona-tab" onclick="showPersona(1,this)">ご家族</div>
+      <div class="persona-tab" onclick="showPersona(2,this)">サービス提供者</div>
+    </div>
+
+    <div class="persona-card" id="persona-0">
+      <img class="persona-card-img" src="https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&q=80" alt="施設スタッフ">
+      <div class="persona-card-body">
+        <h3>施設運営者様</h3>
+        <div class="persona-benefit"><div class="p-check">✓</div>現金の取り扱い・立替がゼロに</div>
+        <div class="persona-benefit"><div class="p-check">✓</div>明細作成・郵送コストを大幅削減</div>
+        <div class="persona-benefit"><div class="p-check">✓</div>入金管理の自動化で事務工数を削減</div>
+        <div class="persona-benefit"><div class="p-check">✓</div>ご家族からの問い合わせが激減</div>
+        <div class="persona-benefit"><div class="p-check">✓</div>未収リスクがほぼゼロに</div>
+        <div class="persona-benefit"><div class="p-check">✓</div>カード決済対応が、新たな入居者獲得の手段に</div>
+        <div style="display:flex;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border-light);">
+          <a href="#" class="btn-green" style="font-size:13px;padding:10px 18px;min-height:40px;flex:1;justify-content:center;">施設ポータルへ</a>
+          <a href="#" style="font-size:13px;padding:10px 18px;min-height:40px;border:1.5px solid var(--green);border-radius:8px;color:var(--green);font-weight:700;text-decoration:none;display:flex;align-items:center;justify-content:center;flex:1;" onclick="showPage('apply',null);return false;">加盟店申請</a>
+        </div>
+      </div>
+    </div>
+    <div class="persona-card" id="persona-1" style="display:none;">
+      <img class="persona-card-img" src="Family1.png" alt="ご家族">
+      <div class="persona-card-body">
+        <h3>ご家族様</h3>
+        <div class="persona-benefit"><div class="p-check">✓</div>LINEで利用明細をリアルタイム確認</div>
+        <div class="persona-benefit"><div class="p-check">✓</div>何にいくら使ったか一目瞭然</div>
+        <div class="persona-benefit"><div class="p-check">✓</div>スマホから領収書をダウンロード</div>
+        <div class="persona-benefit"><div class="p-check">✓</div>現金のやり取り・振込の手間なし</div>
+        <div class="persona-benefit"><div class="p-check">✓</div>カードポイントが貯まる</div>
+        <div style="display:flex;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border-light);">
+          <a href="#" class="btn-green" style="font-size:13px;padding:10px 18px;min-height:40px;flex:1;justify-content:center;">LINEでログイン</a>
+          <a href="#" style="font-size:13px;padding:10px 18px;min-height:40px;border:1.5px solid var(--green);border-radius:8px;color:var(--green);font-weight:700;text-decoration:none;display:flex;align-items:center;justify-content:center;flex:1;">メールでログイン</a>
+        </div>
+      </div>
+    </div>
+    <div class="persona-card" id="persona-2" style="display:none;">
+      <img class="persona-card-img" src="nursing1.png" alt="サービス提供者">
+      <div class="persona-card-body">
+        <h3>サービス提供者様</h3>
+        <div class="persona-benefit"><div class="p-check">✓</div>請求・入金がカード決済で確実に</div>
+        <div class="persona-benefit"><div class="p-check">✓</div>未収金リスクを解消</div>
+        <div class="persona-benefit"><div class="p-check">✓</div>明細アップロードだけのシンプル運用</div>
+        <div class="persona-benefit"><div class="p-check">✓</div>管理画面で取引先施設を一元管理</div>
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border-light);">
+          <a href="#" class="btn-green" style="font-size:13px;padding:10px 18px;min-height:40px;width:100%;justify-content:center;">提供者ポータルへ</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== STATS — photo bg ====== -->
+  <section class="stats">
+    <div class="stats-bg"></div>
+    <div class="stats-content">
+      <p class="section-label" style="color:rgba(255,255,255,0.5);text-align:center;">Numbers</p>
+      <h2 style="text-align:center;font-size:20px;font-weight:700;color:#fff;margin-bottom:24px;">導入施設の実感</h2>
+      <div class="stats-grid">
+        <div><div class="stat-num">98<span>%</span></div><div class="stat-label">業務削減実感</div></div>
+        <div><div class="stat-num">0<span>円</span></div><div class="stat-label">未収金</div></div>
+        <div><div class="stat-num">24<span>h</span></div><div class="stat-label">明細確認</div></div>
+        <div><div class="stat-num">5<span>分</span></div><div class="stat-label">月次処理</div></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="annotation">数字はサービスイン後の実績ベースに差し替え。ローンチ前はイメージ値 or 非表示。</div>
+
+  <!-- ====== TESTIMONIALS — 導入事例・お客様の声 ====== -->
+  <section class="section testimonials">
+    <p class="section-label" style="text-align:center;">Voice</p>
+    <h2 class="section-title" style="text-align:center;">ご利用者様の声</h2>
+    <p class="section-sub" style="text-align:center;">導入施設の担当者様・ご家族からのお声</p>
+
+    <div class="testimonial-grid">
+      <div class="testimonial-card">
+        <p class="testimonial-quote">現金の集金業務がなくなり、月末の事務作業が劇的に減りました。ご家族からの問い合わせも、LINEで確認できるようになってからほぼゼロです。</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar"><img src="keiri-bucho.png" alt="S様"></div>
+          <div>
+            <div class="testimonial-name">S様</div>
+            <div class="testimonial-role">有料老人ホーム 事務長</div>
+            <div class="testimonial-badge">事務工数 80%削減</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <p class="testimonial-quote">離れて暮らしている母が何にお金を使ったのか、LINEですぐ分かるので安心です。領収書もスマホで見られて助かっています。</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar"><img src="musuko1.png" alt="T様"></div>
+          <div>
+            <div class="testimonial-name">T様</div>
+            <div class="testimonial-role">入居者ご家族（50代）</div>
+            <div class="testimonial-badge">明細確認が即時に</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="annotation">テスト導入施設からの声を掲載予定。ローンチ前は「導入検討中の施設様からの期待の声」としても可。写真は本人許可後に差し替え。</div>
+
+  <!-- ====== PRICING ====== -->
+  <section class="section pricing" id="pricing-section" style="text-align:center;">
+    <p class="section-label">Pricing</p>
+    <h2 class="section-title" style="text-align:center;">ご利用料金</h2>
+    <p class="section-sub" style="text-align:center;">始めやすく、続けやすい料金体系</p>
+
+    <!-- ★ 初期費用・月額固定費 0円 — 大きく目立たせる -->
+    <div class="pricing-hero">
+      <div class="pricing-zero-card">
+        <div class="pricing-zero-label">初期費用</div>
+        <div class="pricing-zero-num">0<span>円</span></div>
+        <div class="pricing-zero-sub">導入費用なし</div>
+      </div>
+      <div class="pricing-zero-card">
+        <div class="pricing-zero-label">月額固定費</div>
+        <div class="pricing-zero-num">0<span>円</span></div>
+        <div class="pricing-zero-sub">ランニングコスト不要</div>
+      </div>
+    </div>
+
+    <!-- ★ 決済手数料 — コンパクトにさらっと -->
+    <div class="pricing-fee-section">
+      <div class="pricing-fee-header">お支払いは決済手数料のみ</div>
+      <div class="pricing-fee-main">1.9<span>%〜</span></div>
+      <div class="pricing-fee-note">取引規模に応じたプランをご用意</div>
+
+      <div class="pricing-fee-tiers">
+        <div class="pricing-fee-tier">
+          <span>〜100万</span>
+          <strong>3.0%</strong>
+        </div>
+        <div class="pricing-fee-tier">
+          <span>100〜500万</span>
+          <strong>2.5%</strong>
+        </div>
+        <div class="pricing-fee-tier">
+          <span>500万〜</span>
+          <strong>1.9%〜</strong>
+        </div>
+      </div>
+
+      <div class="pricing-includes">
+        <span class="pricing-includes-item"><span class="pf-c">✓</span>管理画面</span>
+        <span class="pricing-includes-item"><span class="pf-c">✓</span>LINE通知</span>
+        <span class="pricing-includes-item"><span class="pf-c">✓</span>導入サポート</span>
+        <span class="pricing-includes-item"><span class="pf-c">✓</span>専任CS</span>
+      </div>
+    </div>
+
+    <div style="margin-top:24px;">
+      <a href="#" class="btn-green" style="justify-content:center;">無料で見積りを依頼する &rarr;</a>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:10px;line-height:1.6;">オンラインデモ・導入相談も無料で承ります</p>
+      <p style="font-size:11px;color:var(--text-light);margin-top:4px;">※ 料率は取り扱い規模（入居者数・月間決済額）に応じて変動します。詳しくはお気軽にご相談ください。</p>
+    </div>
+  </section>
+
+  <div class="annotation">料金は段階制を想定。具体的な料率は最終調整中。ここでは1.9%〜3.0%のイメージを表示。月間決済額のほか、入居者数・施設数などの指標でプラン分けも検討中。</div>
+
+  <!-- ====== ONBOARDING FLOW — 導入の流れ ====== -->
+  <section class="section onboarding">
+    <p class="section-label" style="text-align:center;">Flow</p>
+    <h2 class="section-title" style="text-align:center;">導入の流れ</h2>
+    <p class="section-sub" style="text-align:center;">お問い合わせから最短2週間で利用開始</p>
+
+    <div class="onboarding-timeline">
+      <div class="onboarding-step">
+        <div class="onboarding-step-dot"><div class="onboarding-step-dot-inner"></div></div>
+        <div class="onboarding-step-body">
+          <div class="onboarding-step-title">お問い合わせ・ヒアリング</div>
+          <div class="onboarding-step-desc">施設の規模や利用サービスをお聞きし、最適なプランをご提案します。オンラインデモも可能です。</div>
+          <div class="onboarding-step-time">1〜2日</div>
+        </div>
+      </div>
+      <div class="onboarding-step">
+        <div class="onboarding-step-dot"><div class="onboarding-step-dot-inner"></div></div>
+        <div class="onboarding-step-body">
+          <div class="onboarding-step-title">加盟店申請・審査</div>
+          <div class="onboarding-step-desc">JCB・セゾンの包括加盟店契約により、施設様の手続きは最小限。QOLCが申請をサポートします。</div>
+          <div class="onboarding-step-time">約1週間</div>
+        </div>
+      </div>
+      <div class="onboarding-step">
+        <div class="onboarding-step-dot"><div class="onboarding-step-dot-inner"></div></div>
+        <div class="onboarding-step-body">
+          <div class="onboarding-step-title">初期設定・研修</div>
+          <div class="onboarding-step-desc">管理画面の設定、入居者様のカード登録、スタッフ向け操作研修を実施します。</div>
+          <div class="onboarding-step-time">2〜3日</div>
+        </div>
+      </div>
+      <div class="onboarding-step">
+        <div class="onboarding-step-dot"><div class="onboarding-step-dot-inner"></div></div>
+        <div class="onboarding-step-body">
+          <div class="onboarding-step-title">利用開始</div>
+          <div class="onboarding-step-desc">運用開始後も専任のカスタマーサクセスが伴走。困ったことがあればいつでもサポートします。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="onboarding-note">
+      <div class="onboarding-note-big">最短2<span style="font-size:16px;font-weight:500;">週間</span></div>
+      <div class="onboarding-note-text">お問い合わせから利用開始まで</div>
+    </div>
+  </section>
+
+  <!-- ====== FAQ ====== -->
+  <section class="section faq" id="faq-section">
+    <p class="section-label" style="text-align:center;">FAQ</p>
+    <h2 class="section-title" style="text-align:center;">よくあるご質問</h2>
+    <div class="section-sub" style="text-align:center;"></div>
+
+    <!-- FAQ category tabs -->
+    <div class="persona-tabs" style="justify-content:center;margin-bottom:20px;">
+      <div class="persona-tab active" onclick="showFaqCat('all',this)">すべて</div>
+      <div class="persona-tab" onclick="showFaqCat('facility',this)">施設向け</div>
+      <div class="persona-tab" onclick="showFaqCat('family',this)">ご家族向け</div>
+      <div class="persona-tab" onclick="showFaqCat('provider',this)">提供者向け</div>
+      <div class="persona-tab" onclick="showFaqCat('security',this)">セキュリティ</div>
+    </div>
+
+    <!-- 施設向け FAQ -->
+    <div class="faq-item open" data-faq-cat="facility"><div class="faq-q" onclick="toggleFaq(this)">導入にどのくらい時間がかかりますか？</div><div class="faq-a">お申し込みから最短2週間で利用開始可能です。加盟店審査（約1週間）→初期設定・スタッフ研修（2〜3日）の流れになります。</div></div>
+    <div class="faq-item" data-faq-cat="facility"><div class="faq-q" onclick="toggleFaq(this)">既存の業務フローを変える必要がありますか？</div><div class="faq-a">いいえ。既存の明細データをCSVアップロードするだけで利用できます。手入力にも対応しており、特別なシステム連携は不要です。</div></div>
+    <div class="faq-item" data-faq-cat="facility"><div class="faq-q" onclick="toggleFaq(this)">複数施設を一括管理できますか？</div><div class="faq-a">はい。1つの管理アカウントで複数施設の決済状況・明細を一元管理できます。施設ごとに担当者アカウントを発行することも可能です。</div></div>
+    <div class="faq-item" data-faq-cat="facility"><div class="faq-q" onclick="toggleFaq(this)">入居者全員がカードを持っている必要がありますか？</div><div class="faq-a">いいえ。カード決済をご利用いただける入居者様から段階的に導入いただけます。カードをお持ちでない方は従来通りの方法を並行できます。</div></div>
+
+    <!-- ご家族向け FAQ -->
+    <div class="faq-item" data-faq-cat="family"><div class="faq-q" onclick="toggleFaq(this)">LINEで通知を受け取るにはどうすればいいですか？</div><div class="faq-a">施設からお送りするQRコードをLINEで読み取り、友だち追加するだけです。LINEログイン後、ご家族ポータルから明細の確認・領収書のダウンロードもできます。</div></div>
+    <div class="faq-item" data-faq-cat="family"><div class="faq-q" onclick="toggleFaq(this)">登録したカードの変更はできますか？</div><div class="faq-a">はい。ご家族ポータルからいつでもカード情報の変更・更新が可能です。QOLCではカード番号を一切保持しないため安全です。</div></div>
+    <div class="faq-item" data-faq-cat="family"><div class="faq-q" onclick="toggleFaq(this)">利用明細はどのくらい詳しく見られますか？</div><div class="faq-a">サービス提供者名、サービス内容、金額、利用日がすべて確認できます。PDFの領収書もダウンロード可能です。</div></div>
+    <div class="faq-item" data-faq-cat="family"><div class="faq-q" onclick="toggleFaq(this)">LINEを使っていなくても利用できますか？</div><div class="faq-a">はい。メールアドレスでのログインにも対応しています。Webポータルから同様の機能をご利用いただけます。</div></div>
+
+    <!-- 提供者向け FAQ -->
+    <div class="faq-item" data-faq-cat="provider"><div class="faq-q" onclick="toggleFaq(this)">サービス提供者として登録するにはどうすればいいですか？</div><div class="faq-a">取引先の介護施設がQOLCを導入済みであれば、施設経由でアカウントが発行されます。ご自身での加盟店申請は不要です。</div></div>
+    <div class="faq-item" data-faq-cat="provider"><div class="faq-q" onclick="toggleFaq(this)">明細のアップロード方法は？</div><div class="faq-a">管理画面からCSVアップロード、または手入力が可能です。複数施設分の明細をまとめてアップロードすることもできます。</div></div>
+    <div class="faq-item" data-faq-cat="provider"><div class="faq-q" onclick="toggleFaq(this)">入金サイクルはどうなりますか？</div><div class="faq-a">カード会社の締め日・支払日に準じます。JCBは月末締め翌月末払い、セゾンは月末締め翌月末払いが基本です。</div></div>
+
+    <!-- セキュリティ FAQ -->
+    <div class="faq-item" data-faq-cat="security"><div class="faq-q" onclick="toggleFaq(this)">入居者のカード情報は安全ですか？</div><div class="faq-a">QOLCではカード番号を一切保持しません。PCI DSS準拠の決済基盤（USEN FinTech）を利用し、トークン化された情報のみ管理します。カード番号が流出するリスクはありません。</div></div>
+    <div class="faq-item" data-faq-cat="security"><div class="faq-q" onclick="toggleFaq(this)">どのクレジットカードに対応していますか？</div><div class="faq-a">JCB、セゾン（Visa/Mastercard）をはじめ、主要ブランドに対応しています。QOLCはJCB・セゾンの包括加盟店契約を持っているため、施設様の審査がスムーズです。</div></div>
+    <div class="faq-item" data-faq-cat="security"><div class="faq-q" onclick="toggleFaq(this)">データのバックアップ体制は？</div><div class="faq-a">クラウドサーバー上で自動バックアップを実施しています。通信はすべてSSL暗号化され、アクセス制御も厳格に管理しています。</div></div>
+    <div class="faq-item" data-faq-cat="security"><div class="faq-q" onclick="toggleFaq(this)">不正利用への対策はありますか？</div><div class="faq-a">決済ごとに施設の承認が必要なフローのため、第三者による不正利用のリスクを最小限に抑えています。すべての決済履歴は監査ログとして記録されます。</div></div>
+  </section>
+
+  <!-- ====== FINAL CTA — concierge bg ====== -->
+  <section class="final-cta">
+    <div class="final-cta-bg"></div>
+    <img class="final-cta-concierge" src="concierge_2.png" alt="">
+    <div class="final-cta-content">
+      <h2>初期費用0円で<br>始めませんか？</h2>
+      <p>導入事例のご紹介・オンラインデモ・お見積りまで、すべて無料です</p>
+      <a href="#" class="btn-white">無料で相談する &rarr;</a>
+      <p style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:12px;">または</p>
+      <p style="color:rgba(255,255,255,0.85);font-size:15px;font-weight:700;margin-top:4px;">お電話: 03-6281-8882</p>
+      <p class="cta-note" style="color:rgba(255,255,255,0.5);">平日 9:00〜18:00</p>
+    </div>
+  </section>
+
+  <footer class="site-footer" style="padding:32px 20px;">
+    <div class="footer-logo"><img src="QOLC_rogo2.png" alt="QOLC"></div>
+    <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:0;margin-bottom:16px;">
+      <div style="margin:0 16px 8px;">
+        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);margin-bottom:6px;letter-spacing:1px;">SERVICE</div>
+        <div class="footer-links" style="display:flex;flex-direction:column;gap:4px;margin:0;">
+          <a href="#" style="margin:0;font-size:12px;">サービス紹介</a>
+          <a href="#" style="margin:0;font-size:12px;">料金プラン</a>
+          <a href="#" style="margin:0;font-size:12px;" onclick="showPage('apply',null)">加盟店申請</a>
+          <a href="#" style="margin:0;font-size:12px;">FAQ</a>
+        </div>
+      </div>
+      <div style="margin:0 16px 8px;">
+        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);margin-bottom:6px;letter-spacing:1px;">PORTAL</div>
+        <div class="footer-links" style="display:flex;flex-direction:column;gap:4px;margin:0;">
+          <a href="#" style="margin:0;font-size:12px;">施設ポータル</a>
+          <a href="#" style="margin:0;font-size:12px;">ご家族ポータル</a>
+          <a href="#" style="margin:0;font-size:12px;">提供者ポータル</a>
+        </div>
+      </div>
+      <div style="margin:0 16px 8px;">
+        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);margin-bottom:6px;letter-spacing:1px;">COMPANY</div>
+        <div class="footer-links" style="display:flex;flex-direction:column;gap:4px;margin:0;">
+          <a href="ud-corporate-wireframe.html" target="_blank" style="margin:0;font-size:12px;">私たちについて ↗</a>
+          <a href="#" style="margin:0;font-size:12px;">運営会社</a>
+          <a href="#" style="margin:0;font-size:12px;">プライバシーポリシー</a>
+          <a href="#" style="margin:0;font-size:12px;">利用規約</a>
+          <a href="#" style="margin:0;font-size:12px;">お問い合わせ</a>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:12px;">&copy; 2026 Universal Development Co., Ltd. / qolc.jp</p>
+  </footer>
+
+</div>
+
+<!-- ====== PAGE 2: 加盟店申請フォーム ====== -->
+<div class="page" id="page-apply">
+
+  <header class="site-header">
+    <div class="logo" style="cursor:pointer;" onclick="showPage('top',null)">
+      <img class="logo-img" src="QOLC_rogo2.png" alt="QOLC">
+      <div class="logo-sub">コルク</div>
+    </div>
+    <div class="header-right">
+      <button class="header-cta" onclick="showPage('top',null)">トップに戻る</button>
+    </div>
+  </header>
+
+  <div class="apply-hero">
+    <h1>加盟店申請</h1>
+    <p>QOLCのカード決済サービスをご利用いただくための<br>加盟店登録のお申し込みフォームです。</p>
+  </div>
+
+  <!-- ====== 申請プロセス説明 ====== -->
+  <div style="margin:0 20px 16px;background:var(--green-bg);border-radius:12px;padding:20px 20px 18px;border-left:4px solid var(--green);">
+    <div style="font-size:15px;font-weight:700;color:var(--green-deep);margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D5C40" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      お申し込みからご利用開始までの流れ
+    </div>
+    <p style="font-size:13px;color:var(--text-body);line-height:1.8;margin-bottom:14px;">
+      まずはこちらのフォームで基本情報をお送りください。<strong>ここでの入力内容だけで加盟店審査が行われるわけではありません。</strong>フォーム送信後、QOLCの担当スタッフがお電話またはメールにて詳しい内容を聞き取りさせていただきます。ヒアリングの内容をもとに、私たちがカード会社（JCB・セゾン）への正式な申請書類を作成・提出いたしますので、難しい書類作業はございません。
+    </p>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">1</div>
+        <span style="font-size:13px;color:var(--text-body);line-height:1.5;"><strong>フォーム送信</strong> &#8212; 以下の基本情報をご入力ください（3分程度）</span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">2</div>
+        <span style="font-size:13px;color:var(--text-body);line-height:1.5;"><strong>ヒアリング</strong> &#8212; 担当スタッフがお電話・メールで詳細をお伺いします</span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">3</div>
+        <span style="font-size:13px;color:var(--text-body);line-height:1.5;"><strong>審査申請</strong> &#8212; QOLCがカード会社への申請書類を作成・提出します</span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">4</div>
+        <span style="font-size:13px;color:var(--text-body);line-height:1.5;"><strong>審査完了・ご利用開始</strong> &#8212; 初期設定とスタッフ研修を経てサービス開始</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="apply-note" style="margin:0 24px 0;">
+    <strong>ログイン不要</strong>で申請できます。以下の項目をご入力のうえ送信してください。
+  </div>
+
+  <div class="apply-form">
+    <div class="apply-form-section" style="margin-top:0;">事業者区分</div>
+
+    <div class="apply-form-group">
+      <div class="apply-form-label">事業者区分 <span class="apply-form-required">必須</span></div>
+      <div class="apply-form-radio-group">
+        <label class="apply-form-radio selected">
+          <div class="apply-form-radio-dot"></div>
+          <input type="radio" name="corpType" checked> 法人
+        </label>
+        <label class="apply-form-radio">
+          <div class="apply-form-radio-dot"></div>
+          <input type="radio" name="corpType"> 個人事業主
+        </label>
+      </div>
+    </div>
+
+    <div class="apply-form-section">法人情報</div>
+
+    <div class="apply-form-group">
+      <div class="apply-form-label">法人名 <span class="apply-form-required">必須</span></div>
+      <input class="apply-form-input" type="text" placeholder="例：株式会社サンプルケア" maxlength="50" required>
+      <div class="apply-form-hint">全角50文字以内。登記上の正式名称をご入力ください</div>
+    </div>
+
+    <div class="apply-form-group">
+      <div class="apply-form-label">法人番号（13桁）</div>
+      <input class="apply-form-input" type="text" placeholder="1234567890123" maxlength="13" pattern="[0-9]{13}" inputmode="numeric" style="max-width:200px;">
+      <div class="apply-form-hint">半角数字13桁。法人番号をお持ちの場合はご入力ください</div>
+    </div>
+
+    <div class="apply-form-group">
+      <div class="apply-form-label">郵便番号 <span class="apply-form-required">必須</span></div>
+      <input class="apply-form-input" type="text" placeholder="123-4567" maxlength="8" pattern="[0-9]{3}-?[0-9]{4}" inputmode="numeric" required style="max-width:160px;">
+      <div class="apply-form-hint">半角数字7桁（ハイフンあり・なしどちらでも可）</div>
+    </div>
+
+    <div class="apply-form-group">
+      <div class="apply-form-label">所在地 <span class="apply-form-required">必須</span></div>
+      <input class="apply-form-input" type="text" placeholder="東京都千代田区丸の内1-1-1" maxlength="60" required>
+      <div class="apply-form-hint">全角60文字以内。都道府県名から番地・建物名までご入力ください</div>
+    </div>
+
+    <div class="apply-form-group">
+      <div class="apply-form-label">電話番号 <span class="apply-form-required">必須</span></div>
+      <input class="apply-form-input" type="tel" placeholder="03-1234-5678" maxlength="13" pattern="[0-9]{2,4}-[0-9]{2,4}-[0-9]{3,4}" required style="max-width:220px;">
+      <div class="apply-form-hint">半角数字+ハイフン、13文字以内（例：03-1234-5678）</div>
+    </div>
+
+    <div class="apply-form-section">代表者情報</div>
+
+    <div class="apply-form-group">
+      <div class="apply-form-label">代表者氏名 <span class="apply-form-required">必須</span></div>
+      <div class="apply-form-row">
+        <input class="apply-form-input" type="text" placeholder="姓" maxlength="24" required>
+        <input class="apply-form-input" type="text" placeholder="名" maxlength="24" required>
+      </div>
+      <div class="apply-form-hint">全角。姓名合わせて49文字以内</div>
+    </div>
+
+    <div class="apply-form-group">
+      <div class="apply-form-label">代表者 生年月日 <span class="apply-form-required">必須</span></div>
+      <input class="apply-form-input" type="date" required style="max-width:200px;">
+      <div class="apply-form-hint">18歳以上であること。未来の日付は不可</div>
+    </div>
+
+    <div class="apply-form-section">施設情報</div>
+
+    <div class="apply-form-group">
+      <div class="apply-form-label">施設名 <span class="apply-form-required">必須</span></div>
+      <input class="apply-form-input" type="text" placeholder="例：サンプルケア有料老人ホーム東京" maxlength="20" required>
+      <div class="apply-form-hint">全角20文字以内。カード明細に表示される名称となります</div>
+    </div>
+
+    <div class="apply-form-group">
+      <div class="apply-form-label">施設 郵便番号 <span class="apply-form-required">必須</span></div>
+      <input class="apply-form-input" type="text" placeholder="123-4567" maxlength="8" pattern="[0-9]{3}-?[0-9]{4}" inputmode="numeric" required style="max-width:160px;">
+      <div class="apply-form-hint">半角数字7桁</div>
+    </div>
+
+    <div class="apply-form-group">
+      <div class="apply-form-label">施設 所在地 <span class="apply-form-required">必須</span></div>
+      <input class="apply-form-input" type="text" placeholder="東京都千代田区丸の内1-1-1" maxlength="60" required>
+      <div class="apply-form-hint">全角60文字以内。都道府県名から番地・建物名まで</div>
+    </div>
+
+    <div class="apply-form-group">
+      <div class="apply-form-label">施設 電話番号 <span class="apply-form-required">必須</span></div>
+      <input class="apply-form-input" type="tel" placeholder="03-1234-5678" maxlength="13" pattern="[0-9]{2,4}-[0-9]{2,4}-[0-9]{3,4}" required style="max-width:220px;">
+      <div class="apply-form-hint">半角数字+ハイフン、13文字以内</div>
+    </div>
+
+    <div class="apply-form-section">ご担当者情報</div>
+
+    <div class="apply-form-group">
+      <div class="apply-form-label">ご担当者名 <span class="apply-form-required">必須</span></div>
+      <div class="apply-form-row">
+        <input class="apply-form-input" type="text" placeholder="姓" maxlength="10" required>
+        <input class="apply-form-input" type="text" placeholder="名" maxlength="10" required>
+      </div>
+      <div class="apply-form-hint">全角。ヒアリングのご連絡先となる方のお名前</div>
+    </div>
+
+    <div class="apply-form-group">
+      <div class="apply-form-label">メールアドレス <span class="apply-form-required">必須</span></div>
+      <input class="apply-form-input" type="email" placeholder="sample@example.com" required>
+      <div class="apply-form-hint">半角英数字。審査状況のお知らせ・ヒアリングのご連絡に使用します</div>
+    </div>
+
+    <div class="apply-form-group">
+      <div class="apply-form-label">ご連絡先電話番号 <span class="apply-form-required">必須</span></div>
+      <input class="apply-form-input" type="tel" placeholder="090-1234-5678" maxlength="13" pattern="[0-9]{2,4}-[0-9]{2,4}-[0-9]{3,4}" required style="max-width:220px;">
+      <div class="apply-form-hint">半角数字+ハイフン。ヒアリング時のお電話先となります</div>
+    </div>
+
+    <div class="apply-form-group">
+      <div class="apply-form-label">ご連絡希望時間帯</div>
+      <div class="apply-form-radio-group">
+        <label class="apply-form-radio selected">
+          <div class="apply-form-radio-dot"></div>
+          <input type="radio" name="contactTime" checked> いつでも
+        </label>
+        <label class="apply-form-radio">
+          <div class="apply-form-radio-dot"></div>
+          <input type="radio" name="contactTime"> 午前中
+        </label>
+        <label class="apply-form-radio">
+          <div class="apply-form-radio-dot"></div>
+          <input type="radio" name="contactTime"> 午後
+        </label>
+      </div>
+      <div class="apply-form-hint">担当スタッフからお電話を差し上げる際の希望時間帯</div>
+    </div>
+
+    <div class="apply-form-group">
+      <div class="apply-form-label">備考・ご質問</div>
+      <textarea class="apply-form-input" rows="3" placeholder="施設の入居者数、利用予定のサービス、ご質問など" maxlength="500"></textarea>
+      <div class="apply-form-hint">500文字以内。任意</div>
+    </div>
+  </div>
+
+  <!-- ====== 注意書き ====== -->
+  <div style="margin:0 24px;padding:16px 18px;background:#FFF9EF;border-radius:10px;border:1px solid #F0DFC0;">
+    <div style="font-size:13px;font-weight:700;color:#8B6914;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8B6914" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      カード会社審査に関するご注意
+    </div>
+    <p style="font-size:12px;color:#6B5200;line-height:1.7;">
+      加盟店審査はJCB・セゾン各社が行います。審査基準は各社の判断によるため、結果をお約束するものではございません。ヒアリング時に、カナ表記や業種分類など、審査に必要な追加情報をお伺いすることがあります。正確な情報をご提供いただくことで審査がスムーズに進みます。
+    </p>
+  </div>
+
+  <div class="annotation" style="margin:12px 20px 0;">【内部メモ】お客様入力の基本情報を受領後、UDスタッフが電話/メールでヒアリングを実施。カナ表記・業種コード（5桁）・モールコード・端末識別番号・店舗アルファベット名（半角英大文字25文字以内）等の内部項目を補完し、JCB（EC/店頭）・セゾン各社向け申請データを生成して提出する。</div>
+
+  <div class="apply-actions">
+    <a href="#" class="btn-green" onclick="showPage('complete',null);return false;">入力内容を確認する &rarr;</a>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-logo"><img src="QOLC_rogo2.png" alt="QOLC"></div>
+    <p style="font-size:11px;color:rgba(255,255,255,0.3);">&copy; 2026 Universal Development Co., Ltd. / qolc.jp</p>
+  </footer>
+</div>
+
+<!-- ====== PAGE 3: 申請完了 ====== -->
+<div class="page" id="page-complete">
+
+  <header class="site-header">
+    <div class="logo" style="cursor:pointer;" onclick="showPage('top',null)">
+      <img class="logo-img" src="QOLC_rogo2.png" alt="QOLC">
+      <div class="logo-sub">コルク</div>
+    </div>
+    <div class="header-right">
+      <button class="header-cta" onclick="showPage('top',null)">トップに戻る</button>
+    </div>
+  </header>
+
+  <div class="apply-complete" style="min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+    <div class="apply-complete-icon">✓</div>
+    <h2 style="font-size:22px;font-weight:900;color:var(--text-dark);margin-bottom:12px;">お申し込みを受け付けました</h2>
+    <p style="font-size:14px;color:var(--text-muted);line-height:1.8;max-width:400px;margin-bottom:24px;">
+      ご登録いただいたメールアドレスに確認メールをお送りしました。<br>
+      <strong style="color:var(--text-body);">2営業日以内に担当スタッフよりお電話またはメールにてご連絡</strong>いたします。詳しい内容をヒアリングさせていただいたうえで、私たちがカード会社への正式な申請手続きを代行いたします。
+    </p>
+    <div style="background:var(--green-bg);border-radius:10px;padding:20px;max-width:400px;width:100%;text-align:left;margin-bottom:24px;">
+      <div style="font-size:13px;font-weight:700;color:var(--green-deep);margin-bottom:10px;">今後の流れ</div>
+      <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:10px;">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--warm);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">1</div>
+        <div><span style="font-size:13px;font-weight:700;color:var(--text-dark);">ヒアリングのご連絡</span><br><span style="font-size:12px;color:var(--text-muted);">担当スタッフがお電話・メールで詳細をお伺いします</span></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:10px;">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">2</div>
+        <div><span style="font-size:13px;font-weight:700;color:var(--text-dark);">申請書類の作成・提出</span><br><span style="font-size:12px;color:var(--text-muted);">QOLCがJCB・セゾンへの申請を代行します</span></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:10px;">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">3</div>
+        <div><span style="font-size:13px;font-weight:700;color:var(--text-dark);">審査完了のご連絡</span><br><span style="font-size:12px;color:var(--text-muted);">審査には通常1〜2週間程度かかります</span></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-start;">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">4</div>
+        <div><span style="font-size:13px;font-weight:700;color:var(--text-dark);">初期設定・利用開始</span><br><span style="font-size:12px;color:var(--text-muted);">スタッフ研修を経てサービス開始です</span></div>
+      </div>
+    </div>
+    <a href="#" class="btn-green" onclick="showPage('top',null);return false;">トップに戻る</a>
+    <p style="font-size:12px;color:var(--text-muted);margin-top:16px;">ご不明な点は 03-6281-8882 までお問い合わせください</p>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-logo"><img src="QOLC_rogo2.png" alt="QOLC"></div>
+    <p style="font-size:11px;color:rgba(255,255,255,0.3);">&copy; 2026 Universal Development Co., Ltd. / qolc.jp</p>
+  </footer>
+</div>
+
+</div>
+
+<script>
+function showPage(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.wf-controls > div:nth-child(2) button').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  window.scrollTo(0,0);
+}
+function setDevice(d,btn){
+  document.getElementById('deviceFrame').className='device-frame '+d;
+  document.querySelectorAll('.wf-device button').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+}
+function showPersona(i,el){
+  document.querySelectorAll('.persona-card').forEach(c=>c.style.display='none');
+  document.querySelectorAll('.persona-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('persona-'+i).style.display='';
+  el.classList.add('active');
+}
+function toggleFaq(el){el.parentElement.classList.toggle('open');}
+function toggleLoginDropdown(){
+  var dd=document.getElementById('loginDropdown');
+  dd.classList.toggle('open');
+}
+// Close login dropdown when clicking outside
+document.addEventListener('click',function(e){
+  var dd=document.getElementById('loginDropdown');
+  if(dd && !e.target.closest('.header-login')){dd.classList.remove('open');}
+});
+function showFaqCat(cat,el){
+  document.querySelectorAll('.faq-item[data-faq-cat]').forEach(function(item){
+    if(cat==='all'||item.getAttribute('data-faq-cat')===cat){
+      item.style.display='';
+    }else{
+      item.style.display='none';
+    }
+  });
+  // Update active tab
+  el.parentElement.querySelectorAll('.persona-tab').forEach(function(t){t.classList.remove('active');});
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>

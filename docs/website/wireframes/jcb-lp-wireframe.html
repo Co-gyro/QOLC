@@ -1,0 +1,1707 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JCB総合窓口LP — ワイヤーフレーム v3（デザイン案A統合）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Sans+JP:wght@300;400;500;700;900&family=Noto+Serif+JP:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+  /* =========================================================================
+     DESIGN TOKENS — 案A「シティホテル・ラウンジ」
+     Navy 70 / Gold 20 / Cream 10 + Green accent (CTA限定)
+     ========================================================================= */
+  :root {
+    --navy: #1B2A4A;
+    --navy-deep: #0F1D36;
+    --navy-light: #2A3D62;
+    --gold: #C4A265;
+    --gold-light: #D4B87A;
+    --gold-pale: #F5EFE0;
+    --green: #4C986A;
+    --green-deep: #3D7A55;
+    --cream: #FAF8F4;
+    --cream-warm: #F5F0E8;
+    --ink: #1B2A4A;
+    --ink-soft: #41506b;
+    --white: #ffffff;
+    --error: #C0392B;
+    --border: #E8E4DD;
+    --border-light: #F0ECE6;
+    --serif: "Noto Serif JP", "Georgia", serif;
+    --sans: "Noto Sans JP", "Inter", system-ui, sans-serif;
+    --maxw: 1180px;
+    --pad: clamp(20px, 5vw, 64px);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--sans);
+    color: var(--ink);
+    font-size: 17px;
+    line-height: 1.8;
+    background: #e8e6e2;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: inherit; text-decoration: none; }
+
+  /* =========================================================================
+     WIREFRAME CONTROLS (sticky toolbar)
+     ========================================================================= */
+  .wf-controls {
+    position: fixed; top: 0; left: 0; right: 0;
+    background: var(--navy-deep);
+    color: #fff;
+    padding: 8px 16px;
+    display: flex; align-items: center; gap: 16px;
+    z-index: 1000; font-size: 13px; flex-wrap: wrap;
+  }
+  .wf-controls .wf-title { font-weight: 700; font-size: 14px; white-space: nowrap; }
+  .wf-controls .wf-nav { display: flex; gap: 4px; }
+  .wf-controls button {
+    background: rgba(255,255,255,0.1); color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 5px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; white-space: nowrap;
+  }
+  .wf-controls button:hover { background: rgba(255,255,255,0.2); }
+  .wf-controls button.active { background: var(--gold); border-color: var(--gold); color: var(--navy-deep); font-weight: 700; }
+  .wf-controls .wf-device { margin-left: auto; display: flex; gap: 4px; }
+  .wf-controls .wf-note { width: 100%; font-size: 11px; color: rgba(255,255,255,0.5); padding-top: 2px; }
+
+  /* =========================================================================
+     DEVICE FRAME
+     ========================================================================= */
+  .device-frame {
+    margin: 60px auto 40px; background: var(--white);
+    transition: max-width 0.3s; min-height: 100vh;
+  }
+  .device-frame.mobile { max-width: 390px; box-shadow: 0 4px 60px rgba(0,0,0,0.2); border-radius: 16px; overflow: hidden; }
+  .device-frame.tablet { max-width: 768px; box-shadow: 0 4px 60px rgba(0,0,0,0.2); border-radius: 16px; overflow: hidden; }
+  .device-frame.desktop { max-width: 100%; box-shadow: none; border-radius: 0; }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* =========================================================================
+     ANNOTATIONS (wireframe notes)
+     ========================================================================= */
+  .annotation {
+    background: #FFFCE8; border: 1px dashed #D4C77A; border-radius: 6px;
+    padding: 8px 12px; font-size: 12px; color: #7A6D2A;
+    margin: 10px 20px; line-height: 1.6;
+  }
+  .annotation::before { content: '\1F4DD '; }
+  .annotation.warning { background: #FFF0F0; border-color: #D47A7A; color: #8A2A2A; }
+  .annotation.warning::before { content: '\26A0\FE0F '; }
+  .annotation.new { background: #F0F4FF; border-color: #7AA0D4; color: #2A4A7A; }
+  .annotation.new::before { content: '\2728 '; }
+
+  /* =========================================================================
+     BUTTONS (共通)
+     ========================================================================= */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: none; border-radius: 6px;
+    font-size: 17px; font-weight: 700; cursor: pointer;
+    min-height: 52px; padding: 0 28px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    letter-spacing: 0.02em;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn .arrow { transition: transform 0.2s; }
+  .btn:hover .arrow { transform: translateX(3px); }
+  .btn-gold { background: var(--gold); color: var(--navy-deep); }
+  .btn-gold:hover { background: var(--gold-light); }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-green:hover { background: var(--green-deep); }
+  .btn-ghost { background: transparent; border: 1.5px solid #fff; color: #fff; }
+  .btn-outline { background: transparent; border: 2px solid var(--navy); color: var(--navy); }
+  .btn-outline:hover { background: rgba(27,42,74,0.04); }
+
+  /* Eyebrow labels */
+  .eyebrow {
+    font-family: "Inter", var(--serif);
+    font-size: 13px; font-weight: 500;
+    letter-spacing: 3px; text-transform: uppercase;
+    color: var(--gold);
+  }
+
+  /* =========================================================================
+     HEADER (sticky, backdrop-blur)
+     ========================================================================= */
+  .site-header {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(250,248,244,0.86);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(27,42,74,0.08);
+  }
+  .header-inner {
+    max-width: var(--maxw); margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 72px; padding: 0 var(--pad);
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand .logo {
+    width: 42px; height: 42px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--navy), var(--navy-light));
+    color: var(--gold); display: grid; place-items: center;
+    font-family: var(--serif); font-weight: 700; font-size: 20px; flex: none;
+  }
+  .brand .b-name { font-family: var(--serif); font-weight: 700; font-size: 19px; letter-spacing: 0.04em; line-height: 1.2; }
+  .brand .b-sub { font-size: 11px; color: var(--ink-soft); letter-spacing: 0.02em; font-weight: 500; display: block; }
+  .header-cta { min-height: 44px; padding: 0 20px; font-size: 15px; }
+
+  /* =========================================================================
+     HERO — 案A: Photo-forward, 下寄せ
+     ========================================================================= */
+  .hero {
+    position: relative; overflow: hidden; color: #fff;
+    min-height: 88vh; display: flex; align-items: flex-end;
+  }
+  .hero-photo {
+    position: absolute; inset: 0; z-index: 0;
+    background: var(--navy);
+    background-image: url('https://images.unsplash.com/photo-1604328698692-f76ea9498e76?auto=format&fit=crop&w=1600&q=80');
+    background-size: cover;
+    background-position: center 55%;
+  }
+  .hero-photo::after {
+    content: ''; position: absolute; inset: 0;
+    background:
+      linear-gradient(180deg, rgba(13,26,49,0.52) 0%, rgba(13,26,49,0.56) 38%, rgba(13,26,49,0.8) 72%, rgba(13,26,49,0.95) 100%),
+      radial-gradient(95% 90% at 28% 82%, rgba(13,26,49,0.5), transparent 62%),
+      radial-gradient(110% 80% at 82% 8%, rgba(196,162,101,0.22), transparent 54%);
+  }
+  .hero-inner {
+    position: relative; z-index: 2;
+    max-width: var(--maxw); margin: 0 auto;
+    padding: clamp(72px,11vw,150px) var(--pad);
+    width: 100%;
+  }
+  .hero-col { max-width: 680px; }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 9px 18px; border-radius: 999px; margin-bottom: 16px;
+    border: 1px solid var(--gold); color: var(--gold-light);
+    background: rgba(15,29,54,0.4); backdrop-filter: blur(6px);
+    font-size: 14px; font-weight: 500; letter-spacing: 0.04em;
+  }
+  .hero-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); }
+  /* NEW: クレカ訴求バッジ */
+  .hero-credit-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 20px; border-radius: 8px; margin-bottom: 24px;
+    background: rgba(196,162,101,0.18); border: 1px solid rgba(196,162,101,0.4);
+    color: #fff; font-size: 15px; font-weight: 700; letter-spacing: 0.02em;
+    backdrop-filter: blur(6px);
+  }
+  .hero-credit-badge svg { width: 22px; height: 22px; flex: none; }
+
+  .hero h1 {
+    font-family: var(--serif);
+    font-size: clamp(34px,5.4vw,62px); line-height: 1.32;
+    letter-spacing: 0.02em; margin-bottom: 26px;
+    text-shadow: 0 2px 26px rgba(13,26,49,0.9), 0 1px 4px rgba(13,26,49,0.7);
+  }
+  .hero h1 .amp { color: var(--gold-light); }
+  .hero-sub {
+    font-size: clamp(16px,1.6vw,20px); line-height: 1.9;
+    color: rgba(255,255,255,0.9); font-weight: 400;
+    max-width: 34em; margin-bottom: 38px;
+    text-shadow: 0 2px 26px rgba(13,26,49,0.9), 0 1px 4px rgba(13,26,49,0.7);
+  }
+  .hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; }
+  .hero-note { font-size: 14px; color: rgba(255,255,255,0.78); display: flex; align-items: center; gap: 10px; }
+  .hero-note .sep { opacity: 0.5; }
+  .hero-alt-note {
+    position: absolute; top: 12px; right: 12px; z-index: 3;
+    background: rgba(0,0,0,0.7); color: #fff;
+    padding: 6px 10px; border-radius: 4px; font-size: 10px;
+    max-width: 160px; line-height: 1.4;
+  }
+
+  /* =========================================================================
+     TRUST BAR
+     ========================================================================= */
+  .trustbar { background: var(--navy); color: #fff; }
+  .trustbar-inner {
+    max-width: var(--maxw); margin: 0 auto;
+    display: flex; flex-wrap: wrap; justify-content: center;
+    gap: 14px 48px; padding: 22px var(--pad);
+  }
+  .trustbar .item { display: flex; align-items: center; gap: 11px; font-size: 16px; font-weight: 500; }
+  .trustbar .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); flex: none; }
+
+  /* =========================================================================
+     GENERIC SECTION
+     ========================================================================= */
+  .section { padding-block: clamp(64px,9vw,110px); }
+  .section-inner { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--pad); }
+  .section-head { max-width: 720px; margin: 0 auto clamp(40px,6vw,64px); text-align: center; }
+  .section-head h2 {
+    font-family: var(--serif);
+    font-size: clamp(27px,3.6vw,40px); font-weight: 700;
+    line-height: 1.45; margin-bottom: 18px; color: var(--ink);
+  }
+  .section-head p { color: var(--ink-soft); font-size: 17px; }
+  .bg-cream { background: var(--cream); }
+  .bg-warm { background: var(--cream-warm); }
+  .bg-white { background: var(--white); }
+
+  /* =========================================================================
+     SERVICES GRID — 2×2
+     ========================================================================= */
+  .svc-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+  .svc-card {
+    background: #fff; border: 1px solid rgba(196,162,101,0.28); border-radius: 14px;
+    padding: 38px 34px; display: flex; gap: 24px; align-items: flex-start;
+    transition: 0.25s ease;
+  }
+  .svc-card:hover { transform: translateY(-4px); box-shadow: 0 18px 40px -22px rgba(27,42,74,0.35); }
+  .svc-ico {
+    width: 60px; height: 60px; border-radius: 50%; flex: none;
+    border: 1.5px solid var(--gold); color: var(--gold);
+    display: grid; place-items: center; background: var(--gold-pale);
+  }
+  .svc-ico svg { width: 28px; height: 28px; }
+  .svc-card h3 { font-family: var(--serif); font-size: 21px; font-weight: 700; margin-bottom: 10px; color: var(--ink); }
+  .svc-card p { color: var(--ink-soft); font-size: 16px; }
+
+  /* =========================================================================
+     SERVICES SECTION — コンシェルジュ背景型（実写統合レイアウト）
+     人物は左方向を向いている → 右側に配置しコンテンツ方向を見つめる構図
+     PC: コンテンツ=左、人物=右  /  SP: 人物は右下にさりげなく背景
+     ========================================================================= */
+  .svc-section {
+    position: relative; overflow: hidden;
+    min-height: 520px;
+  }
+  .svc-bg-person {
+    position: absolute; inset: 0;
+    z-index: 0;
+    background:
+      url('concierge_2.png')
+      88% center / auto 92% no-repeat;
+    /* 人物=右側配置（左方向を向いている → コンテンツ側を見つめる構図） */
+  }
+  /* 左方向グラデーション: 人物(右)はクリアに、コンテンツ(左)は読みやすく */
+  .svc-bg-person::after {
+    content: ''; position: absolute; inset: 0;
+    background:
+      linear-gradient(
+        to left,
+        rgba(250,248,244,0.0) 0%,
+        rgba(250,248,244,0.10) 22%,
+        rgba(250,248,244,0.50) 38%,
+        rgba(250,248,244,0.78) 52%,
+        rgba(250,248,244,0.92) 100%
+      );
+  }
+  .svc-bg-note {
+    position: absolute; bottom: 12px; right: 12px; z-index: 3;
+    background: rgba(0,0,0,0.6); color: #fff;
+    padding: 5px 9px; border-radius: 4px; font-size: 10px;
+    max-width: 120px; line-height: 1.3; opacity: 0.7;
+  }
+  .svc-section .section-inner { position: relative; z-index: 2; }
+
+  /* PC: テキスト・カードは左寄せ（人物は右側、視線がコンテンツを向く） */
+  .svc-section .section-head {
+    text-align: left;
+    max-width: 520px;
+    margin-left: 0; margin-right: auto;
+  }
+  .svc-section .section-head p {
+    max-width: 420px;
+    margin-left: 0; margin-right: auto;
+  }
+  .svc-section .svc-grid {
+    max-width: 520px;
+    margin-left: 0; margin-right: auto;
+  }
+
+  /* グラスモーフィズムカード — 半透過でコンシェルジュが透けて見える */
+  .svc-section .svc-card {
+    background: rgba(255,255,255,0.52);
+    backdrop-filter: blur(18px) saturate(1.4);
+    -webkit-backdrop-filter: blur(18px) saturate(1.4);
+    border: 1px solid rgba(196,162,101,0.22);
+    box-shadow:
+      0 4px 30px -10px rgba(27,42,74,0.10),
+      inset 0 1px 0 rgba(255,255,255,0.6);
+  }
+  .svc-section .svc-card:hover {
+    background: rgba(255,255,255,0.68);
+    transform: translateY(-4px);
+    box-shadow:
+      0 18px 40px -18px rgba(27,42,74,0.18),
+      inset 0 1px 0 rgba(255,255,255,0.7);
+  }
+
+  /* ─── SP: 人物が右端から覗く構図 ───
+     方式: 人物divを固定幅にし、right: -80pxで右端の外へ押し出す。
+     svc-sectionのoverflow:hiddenでクリップ。
+     background-positionのパーセンテージ問題を回避する確実な方法。 */
+  .device-frame.mobile .svc-section { min-height: auto; }
+  .device-frame.mobile .svc-bg-person {
+    /* inset:0をキャンセルし、右端固定幅配置に切り替え */
+    position: absolute;
+    top: 0; bottom: 0;
+    left: auto; right: -80px;
+    width: 250px;
+    background-image: url('concierge_2.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: 50% -15px;
+    opacity: 1;
+    z-index: 0;
+    /* -15px: 画像を上にずらし、顔が「住み替えトータルサポート」見出しの高さに揃う */
+  }
+  .device-frame.mobile .svc-bg-person::after {
+    /* 人物divは250px幅。左端(テキスト側)はクリームで溶け込み、
+       右端(人物の顔)は透明にして人物をクリアに見せる */
+    background:
+      linear-gradient(
+        to right,
+        rgba(250,248,244,0.82) 0%,
+        rgba(250,248,244,0.35) 45%,
+        rgba(250,248,244,0.0) 85%,
+        rgba(250,248,244,0.0) 100%
+      );
+  }
+  .device-frame.mobile .svc-section .section-inner {
+    padding-top: 0;
+    position: relative; z-index: 2;
+  }
+  .device-frame.mobile .svc-section .section-head {
+    text-align: left;
+    margin: 0 0 20px;
+    max-width: 80%;
+    /* 80%で「住み替えトータルサポート」が1行に収まる */
+  }
+  .device-frame.mobile .svc-section .section-head p {
+    margin: 0; max-width: 100%; font-size: 14px;
+  }
+  .device-frame.mobile .svc-section .svc-grid {
+    max-width: 100%; margin: 0; gap: 12px !important;
+  }
+  /* カード — 半透過でコンシェルジュが透ける */
+  .device-frame.mobile .svc-section .svc-card {
+    background: rgba(255,255,255,0.42) !important;
+    backdrop-filter: blur(12px) saturate(1.3) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(1.3) !important;
+    border: 1px solid rgba(196,162,101,0.18);
+    box-shadow:
+      0 2px 20px -6px rgba(27,42,74,0.08),
+      inset 0 1px 0 rgba(255,255,255,0.55);
+  }
+  .device-frame.mobile .svc-section .svc-card:hover {
+    background: rgba(255,255,255,0.56) !important;
+  }
+
+  /* ─── Tablet: カード全幅 + コンシェルジュ透過レイアウト ───
+     人物は右端から覗く構図（SPと同じ方式）。
+     カードは画面全幅に広げ、グラスモーフィズムで人物が透ける。
+     間延びしない密度の高いレイアウト。 */
+  .device-frame.tablet .svc-section { min-height: auto; }
+  .device-frame.tablet .svc-bg-person {
+    position: absolute;
+    top: 0; bottom: 0;
+    left: auto; right: -40px;
+    width: 420px;
+    background-image: url('concierge_2.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: 50% -10px;
+    opacity: 1;
+    z-index: 0;
+  }
+  .device-frame.tablet .svc-bg-person::after {
+    /* カードが全幅なので、グラデーションを薄くして人物をより見せる */
+    background:
+      linear-gradient(
+        to right,
+        rgba(250,248,244,0.75) 0%,
+        rgba(250,248,244,0.20) 40%,
+        rgba(250,248,244,0.0) 70%,
+        rgba(250,248,244,0.0) 100%
+      );
+  }
+  .device-frame.tablet .svc-section .section-head {
+    max-width: 55%;
+    margin-left: 0; margin-right: auto;
+    text-align: left;
+  }
+  .device-frame.tablet .svc-section .svc-grid {
+    max-width: 100% !important;
+    margin: 0;
+    gap: 16px !important;
+  }
+  /* タブレットカード — 全幅グラスモーフィズム */
+  .device-frame.tablet .svc-section .svc-card {
+    background: rgba(255,255,255,0.42) !important;
+    backdrop-filter: blur(12px) saturate(1.3) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(1.3) !important;
+    border: 1px solid rgba(196,162,101,0.18);
+    box-shadow:
+      0 3px 24px -8px rgba(27,42,74,0.08),
+      inset 0 1px 0 rgba(255,255,255,0.55);
+  }
+  .device-frame.tablet .svc-section .svc-card:hover {
+    background: rgba(255,255,255,0.56) !important;
+  }
+
+  /* =========================================================================
+     提携施設紹介 (NEW — 6/24要件)
+     ========================================================================= */
+  .facilities-section { background: var(--cream-warm); }
+  .fac-carousel-wrap { position: relative; overflow: hidden; }
+  .fac-carousel {
+    display: flex; gap: 20px; overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 16px;
+    scrollbar-width: none;
+  }
+  .fac-carousel::-webkit-scrollbar { display: none; }
+  .fac-card {
+    flex: 0 0 280px; scroll-snap-align: start;
+    background: #fff; border-radius: 14px; overflow: hidden;
+    border: 1px solid rgba(196,162,101,0.2);
+    transition: 0.25s ease;
+  }
+  .fac-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px -18px rgba(27,42,74,0.3); }
+  .fac-photo {
+    height: 180px; background: var(--cream);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--ink-soft); font-size: 14px;
+    border-bottom: 1px solid var(--border-light);
+    position: relative;
+  }
+  .fac-photo .placeholder-icon { font-size: 36px; opacity: 0.3; }
+  .fac-photo .fac-illust { width: 74px; height: 74px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.25)); }
+  .fac-brand {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+    color: var(--gold); margin-bottom: 5px;
+  }
+  .fac-brand::before { content: ""; width: 16px; height: 1.5px; background: var(--gold); display: inline-block; }
+  .fac-badge {
+    position: absolute; top: 12px; left: 12px;
+    background: var(--gold); color: var(--navy-deep);
+    font-size: 11px; font-weight: 700; padding: 4px 10px;
+    border-radius: 4px; letter-spacing: 0.02em;
+  }
+  .fac-info { padding: 20px; }
+  .fac-info h3 { font-family: var(--serif); font-size: 18px; font-weight: 700; margin-bottom: 6px; color: var(--ink); }
+  .fac-info .fac-loc { font-size: 14px; color: var(--ink-soft); margin-bottom: 8px; display: flex; align-items: center; gap: 4px; }
+  .fac-info .fac-desc { font-size: 14px; color: var(--ink-soft); line-height: 1.7; }
+  .fac-info .fac-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .fac-tag {
+    font-size: 12px; padding: 3px 10px; border-radius: 999px;
+    background: var(--gold-pale); color: var(--gold); font-weight: 500;
+    border: 1px solid rgba(196,162,101,0.2);
+  }
+  /* Carousel dots */
+  .fac-dots { display: flex; justify-content: center; gap: 8px; margin-top: 16px; }
+  .fac-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border); cursor: pointer; transition: 0.2s;
+  }
+  .fac-dot.active { background: var(--gold); width: 24px; border-radius: 4px; }
+
+  /* 全デバイスで横スクロール（序列を感じさせない） */
+
+  /* =========================================================================
+     WORRY / EMPATHY
+     ========================================================================= */
+  .worry-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 960px; margin: 0 auto; }
+  .worry-card {
+    background: #fff; border-left: 4px solid var(--gold); border-radius: 10px;
+    padding: 24px 28px; display: flex; gap: 18px; align-items: flex-start;
+    box-shadow: 0 8px 26px -20px rgba(27,42,74,0.4);
+  }
+  .worry-card .dia {
+    width: 16px; height: 16px; flex: none; margin-top: 6px;
+    transform: rotate(45deg); background: var(--gold); border-radius: 3px;
+  }
+  .worry-card p { font-size: 17px; font-weight: 500; }
+  .worry-cta { text-align: center; margin-top: 44px; }
+
+  /* =========================================================================
+     FLOW STEPS
+     ========================================================================= */
+  .flow { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+  .flow-step {
+    display: flex; gap: 26px; align-items: flex-start;
+    background: #fff; border-radius: 14px; padding: 30px 34px;
+    box-shadow: 0 10px 30px -24px rgba(27,42,74,0.5);
+  }
+  .flow-num {
+    width: 56px; height: 56px; border-radius: 50%; flex: none;
+    background: var(--navy); color: var(--gold);
+    display: grid; place-items: center;
+    font-family: var(--serif); font-weight: 700; font-size: 24px;
+  }
+  .flow-step h3 { font-family: var(--serif); font-size: 20px; font-weight: 700; margin-bottom: 8px; color: var(--ink); }
+  .flow-step p { color: var(--ink-soft); font-size: 16px; }
+
+  /* =========================================================================
+     PROMISE / TRUST — 4列
+     ========================================================================= */
+  .promise-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+  .promise-card { text-align: center; padding: 14px; }
+  .promise-ico {
+    width: 74px; height: 74px; border-radius: 50%; margin: 0 auto 20px;
+    background: var(--navy); display: grid; place-items: center;
+  }
+  .promise-ico svg { width: 34px; height: 34px; color: var(--gold); }
+  .promise-card h3 { font-family: var(--serif); font-size: 18px; font-weight: 700; margin-bottom: 10px; color: var(--ink); }
+  .promise-card p { color: var(--ink-soft); font-size: 15px; }
+
+  /* =========================================================================
+     FINAL CTA
+     ========================================================================= */
+  .final { position: relative; overflow: hidden; color: #fff; text-align: center; }
+  .final-photo {
+    position: absolute; inset: 0;
+    background: url('https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=1900&q=80') center center / cover no-repeat;
+  }
+  .final-photo::after { content: ''; position: absolute; inset: 0; background: rgba(15,29,54,0.88); }
+  .final-inner {
+    position: relative; z-index: 2;
+    padding: clamp(72px,10vw,128px) var(--pad);
+    max-width: 740px; margin: 0 auto;
+  }
+  .final .eyebrow { color: var(--gold-light); margin-bottom: 18px; display: inline-block; }
+  .final h2 {
+    font-family: var(--serif);
+    font-size: clamp(28px,4vw,46px); font-weight: 700;
+    margin-bottom: 22px; color: #fff; line-height: 1.45;
+  }
+  .final p { color: rgba(255,255,255,0.85); font-size: 18px; margin-bottom: 38px; }
+
+  /* =========================================================================
+     FOOTER
+     ========================================================================= */
+  .site-footer { background: var(--navy-deep); color: rgba(255,255,255,0.7); }
+  .footer-inner { max-width: var(--maxw); margin: 0 auto; padding: 54px var(--pad); }
+  .foot-top {
+    display: flex; flex-wrap: wrap; justify-content: space-between; gap: 32px; align-items: flex-start;
+    padding-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.12);
+  }
+  .foot-brand { font-family: var(--serif); font-weight: 700; font-size: 20px; color: #fff; letter-spacing: 0.04em; }
+  .foot-brand span { color: var(--gold); }
+  .foot-tag { font-size: 14px; margin-top: 8px; max-width: 30em; }
+  .foot-nav { display: flex; flex-wrap: wrap; gap: 14px 28px; font-size: 15px; }
+  .foot-nav a { color: rgba(255,255,255,0.7); }
+  .foot-nav a:hover { color: var(--gold-light); }
+  .foot-bottom { padding-top: 24px; font-size: 13px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+
+  /* =========================================================================
+     FORM PAGE
+     ========================================================================= */
+  .form-page { background: var(--cream); }
+  .form-progress {
+    display: flex; justify-content: center; gap: 8px; padding: 20px 20px 0;
+  }
+  .prog-step { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink-soft); opacity: 0.5; }
+  .prog-step.active { opacity: 1; color: var(--navy); font-weight: 700; }
+  .prog-step.done { opacity: 1; color: var(--green); }
+  .prog-num {
+    width: 24px; height: 24px; border: 2px solid var(--border);
+    border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 11px; font-weight: 700;
+  }
+  .prog-step.active .prog-num { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .prog-step.done .prog-num { background: var(--green); border-color: var(--green); color: #fff; }
+  .prog-arrow { color: var(--border); font-size: 14px; display: flex; align-items: center; }
+
+  .form-container { max-width: 520px; margin: 0 auto; padding: 20px; }
+  .form-section {
+    background: var(--white); border-radius: 14px;
+    padding: 28px 24px; margin-bottom: 16px;
+    border: 1px solid rgba(196,162,101,0.15);
+    box-shadow: 0 4px 16px -12px rgba(27,42,74,0.15);
+  }
+  .form-section-title {
+    font-family: var(--serif);
+    font-size: 18px; font-weight: 700; color: var(--navy);
+    margin-bottom: 20px; padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .form-group { margin-bottom: 20px; }
+  .form-group:last-child { margin-bottom: 0; }
+  .form-label { display: block; font-size: 15px; font-weight: 700; margin-bottom: 8px; color: var(--navy); }
+  .form-label .req {
+    background: var(--navy); color: var(--gold); font-size: 10px;
+    padding: 2px 6px; border-radius: 3px; margin-left: 6px; font-weight: 700;
+    vertical-align: middle;
+  }
+  .form-label .opt {
+    background: var(--ink-soft); color: #fff; font-size: 10px;
+    padding: 2px 6px; border-radius: 3px; margin-left: 6px; font-weight: 700;
+    vertical-align: middle;
+  }
+  .form-input, .form-select, .form-textarea {
+    width: 100%; padding: 12px 14px;
+    border: 1px solid var(--border); border-radius: 8px;
+    font-size: 16px; font-family: inherit;
+    background: var(--white); min-height: 48px; color: var(--ink);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    outline: none; border-color: var(--navy);
+    box-shadow: 0 0 0 3px rgba(27,42,74,0.08);
+  }
+  .form-input::placeholder { color: var(--ink-soft); font-size: 14px; opacity: 0.6; }
+  .form-textarea { min-height: 120px; resize: vertical; }
+  .form-inline { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .form-radio, .form-check {
+    display: flex; align-items: center; gap: 10px;
+    padding: 13px 14px; border: 1px solid var(--border);
+    border-radius: 8px; cursor: pointer; font-size: 15px;
+    min-height: 48px; transition: all 0.15s;
+  }
+  .form-radio:hover, .form-check:hover { border-color: var(--navy); background: rgba(27,42,74,0.02); }
+  .form-radio.selected, .form-check.selected { border-color: var(--navy); background: rgba(27,42,74,0.04); }
+  .form-radio input, .form-check input { width: 20px; height: 20px; accent-color: var(--navy); flex-shrink: 0; }
+
+  /* Dynamic form toggle */
+  .form-toggle-group {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px;
+  }
+  .form-toggle-btn {
+    padding: 16px; border: 2px solid var(--border); border-radius: 10px;
+    background: var(--white); cursor: pointer; text-align: center;
+    transition: all 0.2s; min-height: 56px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  }
+  .form-toggle-btn:hover { border-color: var(--navy); }
+  .form-toggle-btn.active {
+    border-color: var(--navy); background: var(--navy); color: #fff;
+  }
+  .form-toggle-btn .toggle-icon { font-size: 22px; }
+  .form-toggle-btn .toggle-label { font-size: 15px; font-weight: 700; }
+  .form-toggle-btn.active .toggle-label { color: var(--gold); }
+
+  .dynamic-fields { display: none; }
+  .dynamic-fields.show { display: block; }
+
+  /* Privacy */
+  .privacy-box {
+    background: var(--cream); border-radius: 8px;
+    padding: 16px; margin-bottom: 14px; font-size: 13px;
+    color: var(--ink-soft); max-height: 120px; overflow-y: auto;
+    line-height: 1.8; border: 1px solid var(--border-light);
+  }
+  .privacy-agree {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px; background: var(--cream); border-radius: 8px;
+    margin-bottom: 20px; font-size: 15px; font-weight: 700; color: var(--navy);
+  }
+  .privacy-agree input { width: 22px; height: 22px; accent-color: var(--navy); }
+
+  /* =========================================================================
+     THANKS PAGE
+     ========================================================================= */
+  .thanks-page { background: var(--cream); min-height: 100vh; }
+  .thanks-hero {
+    position: relative; padding: 48px 24px 40px; text-align: center; overflow: hidden;
+  }
+  .thanks-hero-bg {
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+  }
+  .thanks-hero-content { position: relative; z-index: 2; color: #fff; }
+  .thanks-icon {
+    width: 60px; height: 60px; border: 2px solid var(--gold);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 28px; margin: 0 auto 14px; color: var(--gold);
+  }
+  .thanks-hero h1 { font-family: var(--serif); font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+  .thanks-hero p { font-size: 14px; opacity: 0.8; }
+
+  .thanks-content { max-width: 520px; margin: 0 auto; padding: 20px; }
+  .card {
+    background: var(--white); border-radius: 14px;
+    padding: 24px 20px; margin-bottom: 14px;
+    border: 1px solid rgba(196,162,101,0.15);
+    box-shadow: 0 4px 16px -12px rgba(27,42,74,0.15);
+  }
+  .receipt-label { font-size: 13px; color: var(--ink-soft); margin-bottom: 4px; }
+  .receipt-number {
+    font-family: var(--serif);
+    font-size: 24px; font-weight: 700; color: var(--navy);
+    letter-spacing: 2px; margin-bottom: 16px;
+  }
+  .receipt-info { font-size: 14px; color: var(--ink-soft); line-height: 1.8; }
+  .card h3 { font-family: var(--serif); font-size: 17px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+  .card .card-sub { font-size: 13px; color: var(--ink-soft); margin-bottom: 16px; }
+
+  .time-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .time-slot {
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px; text-align: center; cursor: pointer;
+    font-size: 14px; min-height: 48px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .time-slot:hover { border-color: var(--navy); background: rgba(27,42,74,0.03); }
+  .time-slot.selected { border-color: var(--navy); background: var(--navy); color: var(--gold); font-weight: 700; }
+
+  .note-card {
+    background: var(--white); border-radius: 14px;
+    padding: 20px; margin-bottom: 14px;
+    border-left: 3px solid var(--gold);
+    border-top: 1px solid rgba(196,162,101,0.15);
+    border-right: 1px solid rgba(196,162,101,0.15);
+    border-bottom: 1px solid rgba(196,162,101,0.15);
+  }
+  .note-card h4 { font-family: var(--serif); font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 10px; }
+  .note-card ul { font-size: 14px; color: var(--ink-soft); line-height: 2; padding-left: 20px; }
+
+  .tel-card {
+    text-align: center; background: var(--white); border-radius: 14px;
+    padding: 24px 20px; margin-bottom: 14px;
+    border: 1px solid rgba(196,162,101,0.15);
+  }
+  .tel-card .tel-label { font-size: 13px; color: var(--ink-soft); margin-bottom: 6px; }
+  .tel-card .tel-num { font-family: var(--serif); font-size: 24px; font-weight: 700; color: var(--navy); letter-spacing: 1px; }
+  .tel-card .tel-hours { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+
+  /* =========================================================================
+     SP (mobile) — .device-frame.mobile 配下
+     ========================================================================= */
+  .device-frame.mobile .section { padding: 48px 20px; }
+  .device-frame.mobile .section-inner { padding: 0; }
+  .device-frame.mobile .section-head { margin-bottom: 28px; }
+  .device-frame.mobile .section-head h2 { font-size: 24px; }
+  .device-frame.mobile .section-head p { font-size: 15px; }
+  /* Header */
+  .device-frame.mobile .header-inner { height: 60px; padding: 0 16px; }
+  .device-frame.mobile .brand .b-sub { display: none; }
+  .device-frame.mobile .brand .logo { width: 36px; height: 36px; font-size: 17px; }
+  .device-frame.mobile .brand .b-name { font-size: 17px; }
+  /* Hero */
+  .device-frame.mobile .hero { min-height: 520px; }
+  .device-frame.mobile .hero-inner { padding: 0 20px 40px; }
+  .device-frame.mobile .hero h1 { font-size: 28px; margin-bottom: 18px; }
+  .device-frame.mobile .hero-sub { font-size: 15px; margin-bottom: 28px; }
+  .device-frame.mobile .hero-badge { font-size: 12px; padding: 7px 14px; margin-bottom: 12px; }
+  .device-frame.mobile .hero-credit-badge { font-size: 13px; padding: 8px 14px; margin-bottom: 18px; }
+  .device-frame.mobile .hero-actions { flex-direction: column; align-items: stretch; gap: 12px; }
+  .device-frame.mobile .hero-actions .btn { width: 100%; justify-content: center; font-size: 16px; }
+  .device-frame.mobile .hero-note { justify-content: center; font-size: 13px; }
+  /* Trust bar */
+  .device-frame.mobile .trustbar-inner { flex-direction: column; align-items: flex-start; gap: 10px; padding: 16px 20px; }
+  .device-frame.mobile .trustbar .item { font-size: 14px; }
+  /* Services */
+  .device-frame.mobile .svc-grid { grid-template-columns: 1fr !important; max-width: 100% !important; }
+  .device-frame.mobile .svc-card { padding: 22px 18px; gap: 14px; }
+  .device-frame.mobile .svc-ico { width: 46px; height: 46px; }
+  .device-frame.mobile .svc-ico svg { width: 22px; height: 22px; }
+  .device-frame.mobile .svc-card h3 { font-size: 17px; }
+  .device-frame.mobile .svc-card p { font-size: 14px; }
+  /* Facilities carousel */
+  .device-frame.mobile .fac-card { flex: 0 0 260px; }
+  .device-frame.mobile .fac-photo { height: 150px; }
+  .device-frame.mobile .fac-info { padding: 16px; }
+  .device-frame.mobile .fac-info h3 { font-size: 16px; }
+  /* Worry */
+  .device-frame.mobile .worry-grid { grid-template-columns: 1fr; gap: 10px; }
+  .device-frame.mobile .worry-card { padding: 16px 18px; gap: 12px; }
+  .device-frame.mobile .worry-card .dia { width: 12px; height: 12px; margin-top: 4px; }
+  .device-frame.mobile .worry-card p { font-size: 15px; }
+  .device-frame.mobile .worry-cta { margin-top: 28px; }
+  .device-frame.mobile .worry-cta .btn { width: 100%; justify-content: center; font-size: 15px; padding: 0 20px; }
+  /* Flow */
+  .device-frame.mobile .flow { gap: 14px; }
+  .device-frame.mobile .flow-step { padding: 20px 18px; gap: 14px; }
+  .device-frame.mobile .flow-num { width: 42px; height: 42px; font-size: 18px; }
+  .device-frame.mobile .flow-step h3 { font-size: 17px; }
+  .device-frame.mobile .flow-step p { font-size: 14px; }
+  /* Promise — SP: 横並び（アイコン+テキスト） */
+  .device-frame.mobile .promise-grid { grid-template-columns: 1fr; gap: 16px; }
+  .device-frame.mobile .promise-card { display: flex; align-items: center; gap: 16px; text-align: left; padding: 0; }
+  .device-frame.mobile .promise-ico { width: 52px; height: 52px; margin: 0; flex: none; }
+  .device-frame.mobile .promise-ico svg { width: 24px; height: 24px; }
+  .device-frame.mobile .promise-card h3 { font-size: 15px; margin-bottom: 2px; }
+  .device-frame.mobile .promise-card br { display: none; }
+  .device-frame.mobile .promise-card p { font-size: 13px; }
+  /* Final CTA */
+  .device-frame.mobile .final-inner { padding: 56px 20px; }
+  .device-frame.mobile .final h2 { font-size: 24px; }
+  .device-frame.mobile .final p { font-size: 15px; margin-bottom: 24px; }
+  .device-frame.mobile .final .btn { width: 100%; justify-content: center; }
+  /* Footer */
+  .device-frame.mobile .footer-inner { padding: 28px 20px; }
+  .device-frame.mobile .foot-top { flex-direction: column; gap: 20px; padding-bottom: 20px; }
+  .device-frame.mobile .foot-nav { gap: 10px 20px; font-size: 13px; }
+  .device-frame.mobile .foot-bottom { font-size: 11px; }
+  /* Annotation */
+  .device-frame.mobile .annotation { margin: 8px 16px; font-size: 11px; }
+
+  /* =========================================================================
+     TABLET — .device-frame.tablet 配下
+     ========================================================================= */
+  .device-frame.tablet .svc-grid { grid-template-columns: 1fr !important; max-width: 100% !important; }
+  .device-frame.tablet .worry-grid { grid-template-columns: 1fr; }
+  .device-frame.tablet .promise-grid { grid-template-columns: repeat(2, 1fr); }
+  .device-frame.tablet .fac-card { flex: 0 0 260px; }
+  .device-frame.tablet .hero-inner { padding: 80px var(--pad); }
+
+  /* =========================================================================
+     DESKTOP — .device-frame.desktop 配下
+     ========================================================================= */
+  .device-frame.desktop .form-container { max-width: 600px; }
+  .device-frame.desktop .time-slots { grid-template-columns: 1fr 1fr 1fr; }
+  .device-frame.desktop .form-toggle-group { max-width: 400px; margin-left: auto; margin-right: auto; }
+  .device-frame.desktop .fac-card { flex: 0 0 320px; }
+  .device-frame.desktop .worry-grid { max-width: 800px; }
+</style>
+</head>
+<body>
+
+<!-- Wireframe Controls -->
+<div class="wf-controls">
+  <span class="wf-title">JCB総合窓口LP v3</span>
+  <div class="wf-nav">
+    <button class="active" onclick="showPage('lp', this)">LP</button>
+    <button onclick="showPage('form', this)">フォーム</button>
+    <button onclick="showPage('thanks', this)">完了画面</button>
+  </div>
+  <div class="wf-device">
+    <button class="active" onclick="setDevice('mobile', this)">SP</button>
+    <button onclick="setDevice('tablet', this)">Tab</button>
+    <button onclick="setDevice('desktop', this)">PC</button>
+  </div>
+  <div class="wf-note">v3: 案A統合 + 6/24要件 ／ 表現NG:「介護」「老人ホーム」「終活」 ／ フォント最小14px ／ ボタン最小44px</div>
+</div>
+
+<div class="device-frame mobile" id="deviceFrame">
+
+<!-- ========================================
+     PAGE 1: LANDING PAGE
+     ======================================== -->
+<div class="page active" id="page-lp">
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#top">
+        <span class="logo">Q</span>
+        <span>
+          <span class="b-name">QOLC</span>
+          <span class="b-sub">シニアの住まいの相談窓口 / JCB &times; Universal Development</span>
+        </span>
+      </a>
+      <a class="btn btn-green header-cta" href="#" onclick="showPage('form', document.querySelector('.wf-nav button:nth-child(2)')); return false;">ご相談</a>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero" id="top">
+    <div class="hero-photo"></div>
+    <div class="hero-alt-note">WF: Unsplash仮画像<br>本番は高級レジデンス<br>ロビー or コンシェルジュ</div>
+    <div class="hero-inner">
+      <div class="hero-col">
+        <span class="hero-badge"><span class="dot"></span>JCBカードホルダー様 限定ご案内</span>
+        <!-- NEW: クレジットカード払い訴求 -->
+        <div class="hero-credit-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+          クレジットカード決済対応のシニアレジデンスをご紹介
+        </div>
+        <h1>将来の暮らしに<br><span class="amp">確かな安心</span>を。</h1>
+        <p class="hero-sub">
+          住み替えのご不安に、寄り添います。
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-gold" href="#" onclick="showPage('form', document.querySelector('.wf-nav button:nth-child(2)')); return false;">
+            無料でご相談する <span class="arrow">&rarr;</span>
+          </a>
+          <span class="hero-note">所要時間 約2分<span class="sep">&middot;</span>秘密厳守</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRUST BAR -->
+  <div class="trustbar">
+    <div class="trustbar-inner">
+      <span class="item"><span class="dot"></span>ご相談無料</span>
+      <span class="item"><span class="dot"></span>秘密厳守</span>
+      <span class="item"><span class="dot"></span>専任コンシェルジュ対応</span>
+    </div>
+  </div>
+
+  <div class="annotation new">
+    【v3 変更点】サービス名「シニアの住まいの相談窓口QOLC」に更新。ヒーローに「クレジットカード決済対応」訴求バッジを追加。提携施設紹介セクション新設。フォーム動的切り替え（ご自身/ご家族）対応。デザイン案Aのトークン・タイポグラフィ・カードスタイルを全面統合。
+  </div>
+
+  <!-- SERVICES（コンシェルジュ背景型） -->
+  <section class="section bg-cream svc-section">
+    <div class="svc-bg-person"></div>
+    <div class="svc-bg-note">WF: concierge_2.png<br>実写コンシェルジュ画像</div>
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="eyebrow">Relocation Support</span>
+        <h2>住み替えトータルサポート</h2>
+        <p>「どこに相談すればいいか分からない」という不安に、<br>専任コンシェルジュが寄り添います。</p>
+      </div>
+      <div class="svc-grid" style="grid-template-columns: 1fr;">
+        <article class="svc-card">
+          <span class="svc-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 11l9-7 9 7"/><path d="M5 10v9h14v-9"/><path d="M10 19v-5h4v5"/></svg>
+          </span>
+          <div>
+            <h3>シニアレジデンスのご紹介</h3>
+            <p>お体の状態やご希望に合った、上質な住まいを厳選してご案内いたします。見学の手配もお任せください。</p>
+          </div>
+        </article>
+        <article class="svc-card">
+          <span class="svc-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><path d="M9 5a2 2 0 012-2h2a2 2 0 012 2v0a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/><path d="M9 12h6M9 16h6"/></svg>
+          </span>
+          <div>
+            <h3>住み替えプランニング</h3>
+            <p>時期・エリア・ご予算など、漠然としたお悩みの段階からご一緒に整理いたします。</p>
+          </div>
+        </article>
+        <article class="svc-card">
+          <span class="svc-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-7-10a4 4 0 017-2.5A4 4 0 0119 11c0 5.5-7 10-7 10z"/></svg>
+          </span>
+          <div>
+            <h3>住み替え後のアフターフォロー</h3>
+            <p>お引っ越しの手配から、新しい暮らしに安心して馴染めるまでの見守り・生活サポートを継続的にご提供します。</p>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 提携施設紹介 (NEW — 6/24要件) -->
+  <section class="section facilities-section">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="eyebrow">Partner Residences</span>
+        <h2>提携シニアレジデンス</h2>
+        <p>クレジットカード決済に対応した、厳選の提携施設をご紹介します。</p>
+      </div>
+
+      <div class="annotation new">
+        【原案】提携シニアレジデンス候補5件を掲載（東急不動産・東急電鉄・大和証券・野村不動産・三井不動産系ブランド）。写真はイメージ図で実写差し替え予定、所在地・タグ・説明は代表例で確定前。SP=カルーセル（横スワイプ）、PC=横並び表示。施設掲載にはQOLC導入（広告費100万円程度の協賛提案）が前提。
+      </div>
+
+      <div class="fac-carousel-wrap">
+        <!-- 建物イラスト（イメージ図・全カード共通） -->
+        <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+          <symbol id="ico-residence" viewBox="0 0 64 64">
+            <rect x="12" y="12" width="24" height="44" rx="1.5" fill="rgba(255,255,255,0.14)" stroke="rgba(255,255,255,0.6)" stroke-width="1.4"/>
+            <rect x="36" y="26" width="16" height="30" rx="1.5" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.5)" stroke-width="1.4"/>
+            <g fill="rgba(255,255,255,0.72)">
+              <rect x="16" y="17" width="4" height="4" rx="0.5"/><rect x="22" y="17" width="4" height="4" rx="0.5"/><rect x="28" y="17" width="4" height="4" rx="0.5"/>
+              <rect x="16" y="25" width="4" height="4" rx="0.5"/><rect x="22" y="25" width="4" height="4" rx="0.5"/><rect x="28" y="25" width="4" height="4" rx="0.5"/>
+              <rect x="16" y="33" width="4" height="4" rx="0.5"/><rect x="22" y="33" width="4" height="4" rx="0.5"/><rect x="28" y="33" width="4" height="4" rx="0.5"/>
+              <rect x="16" y="41" width="4" height="4" rx="0.5"/><rect x="22" y="41" width="4" height="4" rx="0.5"/><rect x="28" y="41" width="4" height="4" rx="0.5"/>
+              <rect x="40" y="31" width="3.5" height="3.5" rx="0.5"/><rect x="46" y="31" width="3.5" height="3.5" rx="0.5"/>
+              <rect x="40" y="38" width="3.5" height="3.5" rx="0.5"/><rect x="46" y="38" width="3.5" height="3.5" rx="0.5"/>
+              <rect x="40" y="45" width="3.5" height="3.5" rx="0.5"/><rect x="46" y="45" width="3.5" height="3.5" rx="0.5"/>
+            </g>
+            <rect x="10" y="54" width="44" height="2.5" rx="1" fill="rgba(255,255,255,0.5)"/>
+          </symbol>
+        </svg>
+        <div class="fac-carousel" id="facCarousel">
+          <!-- 施設1: 東急不動産 グランクレール -->
+          <div class="fac-card">
+            <div class="fac-photo" style="background: linear-gradient(140deg,#0F1D36,#2A3D62);">
+              <svg class="fac-illust" aria-hidden="true"><use href="#ico-residence"/></svg>
+              <span class="fac-badge">カード決済対応</span>
+            </div>
+            <div class="fac-info">
+              <span class="fac-brand">東急不動産</span>
+              <h3>グランクレール</h3>
+              <div class="fac-loc">📍 東京都世田谷区 ほか東急沿線</div>
+              <p class="fac-desc">東急沿線を中心に展開。自立の方から介護まで、切れ目なく支える上質なレジデンス。</p>
+              <div class="fac-tags">
+                <span class="fac-tag">自立型</span>
+                <span class="fac-tag">介護対応</span>
+              </div>
+            </div>
+          </div>
+          <!-- 施設2: 東急電鉄 ヴェリナ -->
+          <div class="fac-card">
+            <div class="fac-photo" style="background: linear-gradient(140deg,#12293F,#2E7D96);">
+              <svg class="fac-illust" aria-hidden="true"><use href="#ico-residence"/></svg>
+              <span class="fac-badge">カード決済対応</span>
+            </div>
+            <div class="fac-info">
+              <span class="fac-brand">東急電鉄</span>
+              <h3>ヴェリナ</h3>
+              <div class="fac-loc">📍 東京都大田区 ほか東急沿線</div>
+              <p class="fac-desc">駅近の利便性と東急グループの安心。都市で快適に暮らすシニアレジデンス。</p>
+              <div class="fac-tags">
+                <span class="fac-tag">駅近</span>
+                <span class="fac-tag">都市型</span>
+              </div>
+            </div>
+          </div>
+          <!-- 施設3: 大和証券 プラテシア -->
+          <div class="fac-card">
+            <div class="fac-photo" style="background: linear-gradient(140deg,#1A2740,#4A5A7A);">
+              <svg class="fac-illust" aria-hidden="true"><use href="#ico-residence"/></svg>
+              <span class="fac-badge">カード決済対応</span>
+            </div>
+            <div class="fac-info">
+              <span class="fac-brand">大和証券</span>
+              <h3>プラテシア</h3>
+              <div class="fac-loc">📍 千葉県浦安市 ほか</div>
+              <p class="fac-desc">資産・生活・健康をトータルに支える、大和証券グループの安心の住まい。</p>
+              <div class="fac-tags">
+                <span class="fac-tag">自立型</span>
+                <span class="fac-tag">生活サポート</span>
+              </div>
+            </div>
+          </div>
+          <!-- 施設4: 野村不動産 オーカス -->
+          <div class="fac-card">
+            <div class="fac-photo" style="background: linear-gradient(140deg,#2B2412,#8A713F);">
+              <svg class="fac-illust" aria-hidden="true"><use href="#ico-residence"/></svg>
+              <span class="fac-badge">カード決済対応</span>
+            </div>
+            <div class="fac-info">
+              <span class="fac-brand">野村不動産</span>
+              <h3>オーカス</h3>
+              <div class="fac-loc">📍 東京都国立市 ほか</div>
+              <p class="fac-desc">アクティブシニアのための、上質なサービスと自由な暮らしの自立型レジデンス。</p>
+              <div class="fac-tags">
+                <span class="fac-tag">自立型</span>
+                <span class="fac-tag">アクティブシニア</span>
+              </div>
+            </div>
+          </div>
+          <!-- 施設5: 三井不動産 パークウエルステート -->
+          <div class="fac-card">
+            <div class="fac-photo" style="background: linear-gradient(140deg,#101D2E,#33566B);">
+              <svg class="fac-illust" aria-hidden="true"><use href="#ico-residence"/></svg>
+              <span class="fac-badge">カード決済対応</span>
+            </div>
+            <div class="fac-info">
+              <span class="fac-brand">三井不動産</span>
+              <h3>パークウエルステート</h3>
+              <div class="fac-loc">📍 東京都杉並区（浜田山）ほか</div>
+              <p class="fac-desc">ホテルライクな設えと医療連携。三井不動産が贈る最上級のシニアレジデンス。</p>
+              <div class="fac-tags">
+                <span class="fac-tag">ハイクラス</span>
+                <span class="fac-tag">医療連携</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="fac-dots" id="facDots">
+          <span class="fac-dot active"></span>
+          <span class="fac-dot"></span>
+          <span class="fac-dot"></span>
+          <span class="fac-dot"></span>
+          <span class="fac-dot"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WORRY / EMPATHY -->
+  <section class="section bg-white">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="eyebrow">Your Concerns</span>
+        <h2>こんなお悩み、<br>抱えていませんか。</h2>
+      </div>
+      <div class="worry-grid">
+        <div class="worry-card"><span class="dia"></span><p>親の今後の暮らしについて、漠然とした不安がある</p></div>
+        <div class="worry-card"><span class="dia"></span><p>一人暮らしの家族が心配で、住み替えを検討したい</p></div>
+        <div class="worry-card"><span class="dia"></span><p>将来の住み替え先を、早めに探しておきたい</p></div>
+        <div class="worry-card"><span class="dia"></span><p>引っ越しや片付けなど、住み替えの段取りが大変そう</p></div>
+        <div class="worry-card" style="grid-column:1/-1"><span class="dia"></span><p>何から始めればいいのか分からない</p></div>
+      </div>
+      <div class="worry-cta">
+        <a class="btn btn-gold" href="#" onclick="showPage('form', document.querySelector('.wf-nav button:nth-child(2)')); return false;">
+          まずは無料でご相談する <span class="arrow">&rarr;</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FLOW -->
+  <section class="section bg-cream">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="eyebrow">Flow</span>
+        <h2>ご相談の流れ</h2>
+        <p>かんたん3ステップ。ご相談はすべて無料です。</p>
+      </div>
+      <div class="flow">
+        <div class="flow-step">
+          <span class="flow-num">1</span>
+          <div>
+            <h3>フォームでお気持ちを共有</h3>
+            <p>チェックを選ぶだけ。約2分で完了します。</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <span class="flow-num">2</span>
+          <div>
+            <h3>専任コンシェルジュがご連絡</h3>
+            <p>ご希望の時間帯に、お電話でていねいにヒアリングいたします。</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <span class="flow-num">3</span>
+          <div>
+            <h3>最適なプランをご提案</h3>
+            <p>お一人おひとりに合わせたサービスをご案内します。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROMISE / TRUST -->
+  <section class="section bg-white">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="eyebrow">Our Promise</span>
+        <h2>安心のお約束</h2>
+      </div>
+      <div class="promise-grid">
+        <div class="promise-card">
+          <span class="promise-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span>
+          <h3>個人情報の<br>厳重な保護</h3>
+          <p>SSL暗号化通信で、安全に送信されます。</p>
+        </div>
+        <div class="promise-card">
+          <span class="promise-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M9.5 12.5l2 2 3.5-4"/></svg></span>
+          <h3>ご相談は<br>完全無料</h3>
+          <p>何度でも無料で、ご相談いただけます。</p>
+        </div>
+        <div class="promise-card">
+          <span class="promise-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5S20 17 20 21"/></svg></span>
+          <h3>専任コンシェルジュ<br>対応</h3>
+          <p>経験豊富な専任スタッフが、最後まで担当します。</p>
+        </div>
+        <div class="promise-card">
+          <span class="promise-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span>
+          <h3>JCBとの<br>提携サービス</h3>
+          <p>JCBカードホルダー様への、特別なご案内です。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="annotation">
+    フィルタリング: フォーム回答から「高級レジデンス適合者」と「一般施設紹介対象者（全体の3〜4割）」を判別。どちらにも適切なサービスを提案。基準はJCBデータ受領後に詳細設計。
+  </div>
+
+  <!-- FINAL CTA -->
+  <section class="final" id="form-section">
+    <div class="final-photo"></div>
+    <div class="final-inner">
+      <span class="eyebrow">Contact</span>
+      <h2>まずはお気軽に<br>ご相談ください。</h2>
+      <p>ご相談は無料・秘密厳守。専任コンシェルジュが、あなたの「これから」に寄り添います。</p>
+      <a class="btn btn-gold" href="#" style="min-width:280px; justify-content:center;" onclick="showPage('form', document.querySelector('.wf-nav button:nth-child(2)')); return false;">
+        無料でご相談する <span class="arrow">&rarr;</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="foot-top">
+        <div>
+          <div class="foot-brand">JCB <span>&times;</span> Universal Development</div>
+          <p class="foot-tag">JCBカードホルダー様向け シニアの住まいの相談窓口。暮らしのご相談を、ワンストップで承ります。</p>
+        </div>
+        <nav class="foot-nav">
+          <a href="#">プライバシーポリシー</a>
+          <a href="#">特定商取引法に基づく表記</a>
+          <a href="#">会社概要</a>
+        </nav>
+      </div>
+      <div class="foot-bottom">
+        <span>&copy; 2026 Universal Development Co., Ltd.</span>
+        <span>運営：株式会社ユニバーサルデベロップメント</span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- ========================================
+     PAGE 2: FORM（動的切り替え対応）
+     ======================================== -->
+<div class="page" id="page-form">
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#">
+        <span class="logo">Q</span>
+        <span>
+          <span class="b-name">QOLC</span>
+          <span class="b-sub">無料ご相談フォーム</span>
+        </span>
+      </a>
+    </div>
+  </header>
+
+  <div class="form-page">
+    <div class="form-progress">
+      <div class="prog-step done"><div class="prog-num">1</div> LP</div>
+      <span class="prog-arrow">&rarr;</span>
+      <div class="prog-step active"><div class="prog-num">2</div> フォーム</div>
+      <span class="prog-arrow">&rarr;</span>
+      <div class="prog-step"><div class="prog-num">3</div> 完了</div>
+    </div>
+
+    <div class="form-container">
+      <div class="annotation">
+        全フィールド font-size: 16px以上（iOS自動ズーム防止）、タップ領域 min-height: 48px（シニア対応）。
+      </div>
+
+      <!-- WHO: ご自身 or ご家族（動的切り替え） -->
+      <div class="form-section">
+        <h3 class="form-section-title">どなたのご相談ですか？</h3>
+
+        <div class="annotation new">
+          【6/24要件】「ご自身」か「ご家族」かの選択で後続の入力項目が動的に切り替わります。ユーザーの入力負担を軽減し、より適切な情報を収集。
+        </div>
+
+        <div class="form-toggle-group">
+          <div class="form-toggle-btn active" onclick="toggleFormType('self', this)">
+            <span class="toggle-icon">👤</span>
+            <span class="toggle-label">ご自身のこと</span>
+          </div>
+          <div class="form-toggle-btn" onclick="toggleFormType('family', this)">
+            <span class="toggle-icon">👨‍👩‍👦</span>
+            <span class="toggle-label">ご家族のこと</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SELF: ご自身用フィールド -->
+      <div class="dynamic-fields show" id="fields-self">
+        <div class="form-section">
+          <h3 class="form-section-title">ご本人の情報</h3>
+
+          <div class="form-group">
+            <label class="form-label">お名前 <span class="req">必須</span></label>
+            <div class="form-inline">
+              <input type="text" class="form-input" placeholder="姓">
+              <input type="text" class="form-input" placeholder="名">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">ご年齢 <span class="req">必須</span></label>
+            <select class="form-select">
+              <option value="" disabled selected>選択してください</option>
+              <option>60歳未満</option><option>60〜64歳</option><option>65〜69歳</option>
+              <option>70〜74歳</option><option>75〜79歳</option><option>80歳以上</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">お電話番号 <span class="req">必須</span></label>
+            <input type="tel" class="form-input" placeholder="090-1234-5678">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">メールアドレス <span class="opt">任意</span></label>
+            <input type="email" class="form-input" placeholder="example@email.com">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">お住まいの地域 <span class="req">必須</span></label>
+            <select class="form-select">
+              <option value="" disabled selected>都道府県を選択</option>
+              <option>東京都</option><option>神奈川県</option><option>千葉県</option><option>埼玉県</option><option>...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">現在のお住まいの状況 <span class="opt">任意</span></label>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <label class="form-radio"><input type="radio" name="self-living"> 一人暮らし</label>
+              <label class="form-radio"><input type="radio" name="self-living"> ご夫婦でお住まい</label>
+              <label class="form-radio"><input type="radio" name="self-living"> ご家族と同居</label>
+              <label class="form-radio"><input type="radio" name="self-living"> その他</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FAMILY: ご家族用フィールド -->
+      <div class="dynamic-fields" id="fields-family">
+        <div class="form-section">
+          <h3 class="form-section-title">ご相談者（あなた）の情報</h3>
+
+          <div class="form-group">
+            <label class="form-label">お名前 <span class="req">必須</span></label>
+            <div class="form-inline">
+              <input type="text" class="form-input" placeholder="姓">
+              <input type="text" class="form-input" placeholder="名">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">ご年代 <span class="req">必須</span></label>
+            <select class="form-select">
+              <option value="" disabled selected>選択してください</option>
+              <option>30代以下</option><option>40代</option><option>50代</option><option>60代</option><option>70代以上</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">お電話番号 <span class="req">必須</span></label>
+            <input type="tel" class="form-input" placeholder="090-1234-5678">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">メールアドレス <span class="opt">任意</span></label>
+            <input type="email" class="form-input" placeholder="example@email.com">
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3 class="form-section-title">対象のご家族について</h3>
+
+          <div class="form-group">
+            <label class="form-label">ご関係 <span class="req">必須</span></label>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              <label class="form-radio" style="flex:1; min-width:90px;"><input type="radio" name="relation"> 父</label>
+              <label class="form-radio" style="flex:1; min-width:90px;"><input type="radio" name="relation"> 母</label>
+              <label class="form-radio" style="flex:1; min-width:90px;"><input type="radio" name="relation"> 配偶者</label>
+              <label class="form-radio" style="flex:1; min-width:90px;"><input type="radio" name="relation"> その他</label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">対象の方のご年齢 <span class="req">必須</span></label>
+            <select class="form-select">
+              <option value="" disabled selected>選択してください</option>
+              <option>60歳未満</option><option>60〜64歳</option><option>65〜69歳</option>
+              <option>70〜74歳</option><option>75〜79歳</option><option>80〜84歳</option><option>85歳以上</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">お住まいの地域 <span class="req">必須</span></label>
+            <select class="form-select">
+              <option value="" disabled selected>都道府県を選択</option>
+              <option>東京都</option><option>神奈川県</option><option>千葉県</option><option>埼玉県</option><option>...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">現在のお住まいの状況 <span class="req">必須</span></label>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <label class="form-radio"><input type="radio" name="fam-living"> 一人暮らし</label>
+              <label class="form-radio"><input type="radio" name="fam-living"> ご夫婦でお住まい</label>
+              <label class="form-radio"><input type="radio" name="fam-living"> ご家族と同居</label>
+              <label class="form-radio"><input type="radio" name="fam-living"> 施設に入居中</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMMON: 住み替え・ご相談内容（共通） -->
+      <div class="form-section">
+        <h3 class="form-section-title">住み替えについて</h3>
+
+        <div class="form-group">
+          <label class="form-label">住み替えの検討時期 <span class="req">必須</span></label>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <label class="form-radio"><input type="radio" name="timing"> すぐにでも（〜3ヶ月以内）</label>
+            <label class="form-radio"><input type="radio" name="timing"> 半年以内</label>
+            <label class="form-radio"><input type="radio" name="timing"> 1年以内</label>
+            <label class="form-radio"><input type="radio" name="timing"> まだ先（情報収集中）</label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">ご希望エリア <span class="opt">任意</span></label>
+          <input type="text" class="form-input" placeholder="例：東京都内、神奈川県湘南エリア">
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3 class="form-section-title">ご相談内容</h3>
+
+        <div class="annotation warning">
+          フィルタリング最重要ポイント。チェック内容からリードの優先度・適合サービスを判定。
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">お困りごと（複数選択可） <span class="req">必須</span></label>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <label class="form-check"><input type="checkbox"> シニアレジデンス（住まい）を探している</label>
+            <label class="form-check"><input type="checkbox"> 住み替えの時期やエリアについて相談したい</label>
+            <label class="form-check"><input type="checkbox"> 住み替え後のサポート（見守り・生活支援）を知りたい</label>
+            <label class="form-check"><input type="checkbox"> まだ具体的ではないが情報を集めたい</label>
+            <label class="form-check"><input type="checkbox"> その他（下記にご記入ください）</label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">詳しい状況やご要望 <span class="opt">任意</span></label>
+          <textarea class="form-textarea" placeholder="例：母が一人暮らしをしており、そろそろ住み替えを考えています。東京都内で、なるべく静かな環境を希望しています。（500文字まで）" maxlength="500"></textarea>
+          <p style="font-size: 12px; color: var(--ink-soft); text-align: right; margin-top: 4px; opacity:0.6;">0 / 500文字</p>
+        </div>
+      </div>
+
+      <!-- Contact Preference -->
+      <div class="form-section">
+        <h3 class="form-section-title">ご連絡について</h3>
+
+        <div class="form-group">
+          <label class="form-label">ご希望の連絡方法 <span class="req">必須</span></label>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <label class="form-radio"><input type="radio" name="contact-method"> メール</label>
+            <label class="form-radio"><input type="radio" name="contact-method"> お電話</label>
+            <label class="form-radio"><input type="radio" name="contact-method"> どちらでも可</label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">ご都合の良い時間帯 <span class="opt">任意</span></label>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <label class="form-check"><input type="checkbox"> 午前（9:00〜12:00）</label>
+            <label class="form-check"><input type="checkbox"> 午後（12:00〜17:00）</label>
+            <label class="form-check"><input type="checkbox"> 夕方以降（17:00〜19:00）</label>
+            <label class="form-check"><input type="checkbox"> いつでも可</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Privacy & Submit -->
+      <div class="form-section">
+        <h3 class="form-section-title">個人情報の取り扱い</h3>
+        <div class="privacy-box">
+          株式会社ユニバーサルデベロップメント（以下「当社」）は、お客様からお預かりした個人情報を、以下の目的でのみ利用いたします。<br><br>
+          1. ご相談内容への回答およびサービスのご案内<br>
+          2. 電話・メール等によるご連絡<br>
+          3. サービス向上のための統計データの作成（個人を特定しない形式）<br><br>
+          お預かりした個人情報は、お客様の同意なく第三者に提供することはありません。
+        </div>
+        <label class="privacy-agree">
+          <input type="checkbox"> 個人情報の取り扱いに同意する
+        </label>
+        <button class="btn btn-gold" style="width: 100%; justify-content: center;" onclick="showPage('thanks', document.querySelector('.wf-nav button:nth-child(3)'))">
+          この内容で送信する <span class="arrow">&rarr;</span>
+        </button>
+        <p style="font-size: 14px; color: var(--ink-soft); margin-top: 10px; text-align: center;">送信後、担当コンシェルジュよりご連絡いたします</p>
+      </div>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="foot-bottom">
+        <span><a href="#" style="color:rgba(255,255,255,0.5)">プライバシーポリシー</a> &nbsp; <a href="#" style="color:rgba(255,255,255,0.5)">会社概要</a></span>
+        <span>&copy; 2026 Universal Development Co., Ltd.</span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- ========================================
+     PAGE 3: THANKS
+     ======================================== -->
+<div class="page" id="page-thanks">
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#">
+        <span class="logo">Q</span>
+        <span>
+          <span class="b-name">QOLC</span>
+          <span class="b-sub">受付完了</span>
+        </span>
+      </a>
+    </div>
+  </header>
+
+  <div class="thanks-page">
+    <section class="thanks-hero">
+      <div class="thanks-hero-bg"></div>
+      <div class="thanks-hero-content">
+        <div class="thanks-icon">&#10003;</div>
+        <h1>ご相談を受け付けました</h1>
+        <p>お送りいただきありがとうございます</p>
+      </div>
+    </section>
+
+    <div class="form-progress" style="padding: 20px 20px 0;">
+      <div class="prog-step done"><div class="prog-num">1</div> LP</div>
+      <span class="prog-arrow">&rarr;</span>
+      <div class="prog-step done"><div class="prog-num">2</div> フォーム</div>
+      <span class="prog-arrow">&rarr;</span>
+      <div class="prog-step active"><div class="prog-num">3</div> 完了</div>
+    </div>
+
+    <div class="thanks-content">
+      <div class="card">
+        <p class="receipt-label">受付番号</p>
+        <p class="receipt-number">20260715-0042</p>
+        <div class="receipt-info">
+          受付日時：2026年7月15日 14:32<br>
+          お名前：山田 太郎 様<br>
+          ご連絡先：090-****-5678
+        </div>
+      </div>
+
+      <div class="annotation">
+        受付番号 YYYYMMDD-連番。Supabase jcb_inquiries テーブルに保存。送信完了時にUDスタッフへ自動メール通知。
+      </div>
+
+      <!-- Callback -->
+      <div class="card">
+        <h3>コールバックのご予約</h3>
+        <p class="card-sub">ご希望の日時がございましたらお選びください（任意）</p>
+        <div class="form-group">
+          <label class="form-label">ご希望日</label>
+          <select class="form-select">
+            <option value="" disabled selected>日付を選択</option>
+            <option>7月16日（水）</option><option>7月17日（木）</option><option>7月18日（金）</option>
+            <option>7月22日（火）</option><option>7月23日（水）</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-top: 12px;">
+          <label class="form-label">ご希望時間帯</label>
+          <div class="time-slots">
+            <div class="time-slot">9:00〜10:00</div>
+            <div class="time-slot">10:00〜11:00</div>
+            <div class="time-slot">11:00〜12:00</div>
+            <div class="time-slot selected">13:00〜14:00</div>
+            <div class="time-slot">14:00〜15:00</div>
+            <div class="time-slot">15:00〜16:00</div>
+          </div>
+        </div>
+        <button class="btn btn-outline" style="margin-top: 16px; width: 100%; justify-content: center;">予約を確定する</button>
+      </div>
+
+      <!-- Next Steps -->
+      <div class="note-card">
+        <h4>今後のながれ</h4>
+        <ul>
+          <li>2営業日以内に、担当コンシェルジュよりお電話いたします</li>
+          <li>お電話では、お困りごとを詳しくお伺いします（約15〜20分）</li>
+          <li>ヒアリング内容をもとに、最適なサービスやプランをご提案します</li>
+        </ul>
+      </div>
+
+      <div class="tel-card">
+        <p class="tel-label">お急ぎの方はこちら</p>
+        <p class="tel-num">03-6281-8882</p>
+        <p class="tel-hours">受付時間: 平日 9:00〜18:00</p>
+      </div>
+
+      <div class="annotation">
+        電話番号は仮（UD代表）。JCB LP専用番号を別途用意するか要確認。
+      </div>
+
+      <button class="btn btn-outline" style="margin-top: 8px; width: 100%; justify-content: center;" onclick="showPage('lp', document.querySelector('.wf-nav button:nth-child(1)'))">トップページに戻る</button>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="foot-bottom">
+        <span><a href="#" style="color:rgba(255,255,255,0.5)">プライバシーポリシー</a> &nbsp; <a href="#" style="color:rgba(255,255,255,0.5)">会社概要</a></span>
+        <span>&copy; 2026 Universal Development Co., Ltd.</span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+</div><!-- /device-frame -->
+
+<script>
+/* Page / Device switching */
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelectorAll('.wf-nav button').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('deviceFrame').scrollTo(0, 0);
+  window.scrollTo(0, 0);
+}
+function setDevice(d, btn) {
+  document.getElementById('deviceFrame').className = 'device-frame ' + d;
+  document.querySelectorAll('.wf-device button').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+/* Form dynamic toggle: ご自身 / ご家族 */
+function toggleFormType(type, el) {
+  document.querySelectorAll('.form-toggle-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.dynamic-fields').forEach(f => f.classList.remove('show'));
+  document.getElementById('fields-' + type).classList.add('show');
+}
+
+/* Time slot selection */
+document.addEventListener('click', function(e) {
+  if (e.target.classList.contains('time-slot')) {
+    e.target.parentElement.querySelectorAll('.time-slot').forEach(s => s.classList.remove('selected'));
+    e.target.classList.add('selected');
+  }
+});
+
+/* 施設カードをランダム並び替え（序列回避） */
+(function() {
+  var carousel = document.getElementById('facCarousel');
+  if (!carousel) return;
+  var cards = Array.from(carousel.children);
+  // Fisher-Yates シャッフル
+  for (var i = cards.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    carousel.appendChild(cards[j]);
+    cards.splice(j, 1, cards[i]);
+    cards[i] = carousel.lastElementChild;
+  }
+})();
+
+/* Carousel dot tracking */
+(function() {
+  var carousel = document.getElementById('facCarousel');
+  var dots = document.querySelectorAll('#facDots .fac-dot');
+  if (!carousel || !dots.length) return;
+  function updateDots() {
+    var scrollLeft = carousel.scrollLeft;
+    var card = carousel.querySelector('.fac-card');
+    if (!card) return;
+    var cardWidth = card.offsetWidth + 20; // card + gap
+    var idx = Math.round(scrollLeft / cardWidth);
+    idx = Math.max(0, Math.min(idx, dots.length - 1));
+    dots.forEach(function(d, i) { d.classList.toggle('active', i === idx); });
+  }
+  carousel.addEventListener('scroll', updateDots);
+  dots.forEach(function(dot, i) {
+    dot.addEventListener('click', function() {
+      var card = carousel.querySelector('.fac-card');
+      if (!card) return;
+      var cardWidth = card.offsetWidth + 20;
+      carousel.scrollTo({ left: i * cardWidth, behavior: 'smooth' });
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -80,8 +80,8 @@ src/
 │   │   ├── pricing/         ← 料金プラン
 │   │   ├── apply/           ← 加盟店申請フォーム（公開・ログイン不要）★
 │   │   └── contact/         ← お問い合わせ
-│   ├── (jcb)/               ← JCB総合窓口LP（公開）【新規】
-│   │   └── lp/jcb/          ← LP・フォーム・完了画面
+│   ├── (jcb)/               ← JCB総合窓口LP（公開・qolc.jp の子サイト）【新規】
+│   │   └── jcb/             ← LP・フォーム・完了画面（URL: qolc.jp/jcb）
 │   ├── admin/
 │   │   ├── dashboard/       ← 管理ダッシュボード【page.tsxを発展】
 │   │   ├── facilities/      ← 施設管理【新規】
@@ -191,6 +191,19 @@ USEN_API_BASE_URL=https://inet-uketsuke1.netmove.jp
 USEN_TOKEN_API_BASE_URL=https://inet-uketsuke1.netmove.jp
 NEXT_PUBLIC_APP_URL=https://app.qolc.jp
 ```
+
+## ドメイン構成（確定・2026-07-01）
+
+| ドメイン | 役割 | 実体 | 認証 |
+|---|---|---|---|
+| `qolc.jp`（親・公開サイト） | QOLCプロモ ＋ **JCBサイト（子: `qolc.jp/jcb`）** ＋ 加盟店申請 | Next.js `(marketing)` / `(jcb)` | 不要（Cookieなし・エッジキャッシュ） |
+| `app.qolc.jp`（アプリ） | 4ポータル（admin/facility/provider/user） | 同一Next.jsプロジェクト | 認証Cookie（appサブドメインに限定） |
+| `uni-dev.jp` | UDコーポレートサイト | **別リポジトリ／別デプロイ**（本プロジェクト外） | 不要 |
+
+- **1つのNext.jsプロジェクト**でVercelに2ドメイン（`qolc.jp` / `app.qolc.jp`）を向け、middlewareでホスト名分岐。
+- JCBは**サブドメインでなくパス**（`qolc.jp/jcb`）＝親ドメインにSEO集約・共通コンポーネント共有のため。
+- 公開サイトの本番はVercel。`docs/website/wireframes-deploy/` のNetlifyは**原案プレビュー専用**として当面併用。
+- 詳細な原案・設計判断は [docs/website/README.md](docs/website/README.md)。
 
 ## 4ポータルのルーティングと認証
 

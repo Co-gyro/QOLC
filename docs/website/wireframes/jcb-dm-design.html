@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JCB DM デザイン案 — 封筒 + A4三つ折りリーフレット + QRカード</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Noto+Serif+JP:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #1A2744;
+    --navy-mid: #2A3D62;
+    --navy-light: #3B5182;
+    --gold: #C4A265;
+    --gold-light: #D4B87A;
+    --gold-pale: #F5EFE0;
+    --accent: #2E7D96;
+    --text-dark: #1a1a1a;
+    --text-body: #3D3D3D;
+    --text-muted: #777777;
+    --white: #ffffff;
+    --cream: #FAF8F3;
+    --border: #E0DEE0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    color: var(--text-body); font-size: 14px; line-height: 1.7;
+    background: #D8D8DC; -webkit-font-smoothing: antialiased;
+  }
+
+  /* CONTROLS */
+  .controls {
+    position: fixed; top: 0; left: 0; right: 0;
+    background: var(--navy); color: #fff;
+    padding: 10px 20px; display: flex; align-items: center; gap: 16px;
+    z-index: 1000; font-size: 13px; flex-wrap: wrap;
+  }
+  .controls .title { font-weight: 700; font-size: 14px; color: var(--gold); }
+  .controls .nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  .controls button {
+    background: rgba(255,255,255,0.1); color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 12px;
+  }
+  .controls button:hover { background: rgba(255,255,255,0.2); }
+  .controls button.active { background: var(--gold); color: var(--navy); font-weight: 700; border-color: var(--gold); }
+  .controls .note { width: 100%; font-size: 11px; color: rgba(255,255,255,0.4); }
+
+  .view { display: none; margin: 60px auto 40px; }
+  .view.active { display: block; }
+
+  /* ===== ENVELOPE ===== */
+  .envelope-container {
+    max-width: 600px; margin: 0 auto; padding: 20px;
+  }
+  .envelope {
+    background: var(--navy);
+    border-radius: 4px; padding: 48px 40px;
+    position: relative; overflow: hidden;
+    aspect-ratio: 235 / 120; /* 長3封筒比率 */
+    display: flex; flex-direction: column; justify-content: center;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+  }
+  .envelope::before {
+    content: ''; position: absolute; top: 0; right: 0;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle at 100% 0%, rgba(196,162,101,0.08) 0%, transparent 70%);
+  }
+  .envelope-border {
+    position: absolute; inset: 8px;
+    border: 1px solid rgba(196,162,101,0.25);
+    border-radius: 2px;
+  }
+  .envelope-logo {
+    display: flex; align-items: center; gap: 14px; margin-bottom: 24px;
+  }
+  .envelope-logo .jcb-mark {
+    width: 48px; height: 30px; background: linear-gradient(135deg, #0064A0, #007940, #C8102E);
+    border-radius: 4px; display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 11px; font-weight: 900; letter-spacing: 1px;
+  }
+  .envelope-logo .qolc-mark {
+    color: var(--gold); font-family: 'Noto Serif JP', serif;
+    font-size: 14px; font-weight: 600; letter-spacing: 1px;
+  }
+  .envelope h2 {
+    font-family: 'Noto Serif JP', serif;
+    color: var(--gold); font-size: 18px; font-weight: 600;
+    line-height: 1.6; margin-bottom: 12px;
+  }
+  .envelope .subtitle {
+    color: rgba(255,255,255,0.5); font-size: 11px; letter-spacing: 2px;
+  }
+  .envelope .stamp {
+    position: absolute; top: 20px; right: 20px;
+    background: rgba(196,162,101,0.12); border: 1px solid rgba(196,162,101,0.3);
+    padding: 6px 14px; border-radius: 3px;
+    color: var(--gold); font-size: 10px; font-weight: 700; letter-spacing: 1px;
+  }
+  .env-annotation {
+    background: #FFFCE8; border: 1px dashed #D4C77A; border-radius: 6px;
+    padding: 10px 14px; margin: 16px 0; font-size: 12px; color: #7A6D2A; line-height: 1.6;
+  }
+  .env-annotation::before { content: '📝 '; }
+
+  /* ===== LEAFLET ===== */
+  .leaflet-container {
+    max-width: 900px; margin: 0 auto; padding: 20px;
+  }
+  .leaflet-label {
+    text-align: center; font-size: 12px; color: var(--text-muted);
+    margin-bottom: 12px; letter-spacing: 2px;
+  }
+  .leaflet {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    background: var(--white); border-radius: 4px; overflow: hidden;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.15);
+    margin-bottom: 32px;
+  }
+  .panel {
+    padding: 28px 20px; border-right: 1px dashed var(--border);
+    min-height: 440px; display: flex; flex-direction: column;
+  }
+  .panel:last-child { border-right: none; }
+
+  /* Panel 1: Cover */
+  .panel-cover {
+    background: var(--navy); color: #fff; justify-content: center; align-items: center;
+    text-align: center; position: relative; overflow: hidden;
+  }
+  .panel-cover::before {
+    content: ''; position: absolute; inset: 0;
+    background-image: url('https://images.unsplash.com/photo-1604328698692-f76ea9498e76?auto=format&fit=crop&w=800&q=80');
+    background-size: cover; background-position: center 55%;
+  }
+  .panel-cover::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(26,39,68,0.82) 0%, rgba(26,39,68,0.75) 50%, rgba(26,39,68,0.88) 100%);
+  }
+  .panel-cover .inner { position: relative; z-index: 3; }
+  .panel-cover .jcb-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.08); padding: 6px 16px; border-radius: 20px;
+    margin-bottom: 16px; border: 1px solid rgba(196,162,101,0.2);
+  }
+  .panel-cover .jcb-badge .jcb-sm {
+    width: 32px; height: 20px; background: linear-gradient(135deg, #0064A0, #007940, #C8102E);
+    border-radius: 3px; display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 8px; font-weight: 900;
+  }
+  .panel-cover .jcb-badge span { color: rgba(255,255,255,0.6); font-size: 10px; }
+  .panel-cover h1 {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 20px; font-weight: 600; line-height: 1.7;
+    color: var(--gold); margin-bottom: 12px;
+  }
+  .panel-cover .catch { font-size: 12px; color: rgba(255,255,255,0.5); line-height: 1.6; }
+  .panel-cover .qr-note {
+    margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);
+    font-size: 10px; color: rgba(255,255,255,0.4);
+  }
+
+  /* Panel 2: Problem + Solution */
+  .panel-main { justify-content: flex-start; }
+  .panel-main h3 {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 14px; font-weight: 600; color: var(--navy);
+    margin-bottom: 12px; padding-bottom: 6px;
+    border-bottom: 2px solid var(--gold-pale);
+  }
+  .worry-item {
+    display: flex; align-items: flex-start; gap: 8px;
+    margin-bottom: 8px; font-size: 12px; color: var(--text-body);
+  }
+  .worry-item .icon { color: var(--gold); font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .solution-box {
+    background: var(--gold-pale); border-radius: 8px; padding: 14px;
+    margin-top: 14px;
+  }
+  .solution-box h4 {
+    font-size: 12px; font-weight: 700; color: var(--navy); margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .solution-item {
+    display: flex; align-items: flex-start; gap: 6px;
+    font-size: 11px; color: var(--text-body); margin-bottom: 4px;
+  }
+  .solution-item .check { color: var(--accent); font-weight: 700; }
+
+  /* Panel 3: Service + CTA */
+  .panel-cta { justify-content: flex-start; position: relative; overflow: hidden; }
+  .panel-cta::before {
+    content: ''; position: absolute; inset: 0;
+    background-image: url('https://images.unsplash.com/photo-1604328698692-f76ea9498e76?auto=format&fit=crop&w=800&q=80');
+    background-size: cover; background-position: center 40%;
+    opacity: 0.06;
+  }
+  .panel-cta > * { position: relative; z-index: 2; }
+  .panel-cta h3 {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 14px; font-weight: 600; color: var(--navy);
+    margin-bottom: 14px; padding-bottom: 6px;
+    border-bottom: 2px solid var(--gold-pale);
+  }
+  .service-card {
+    background: var(--cream); border-radius: 8px; padding: 12px;
+    margin-bottom: 8px; border-left: 3px solid var(--gold);
+  }
+  .service-card h5 { font-size: 12px; font-weight: 700; color: var(--navy); margin-bottom: 2px; }
+  .service-card p { font-size: 10px; color: var(--text-muted); }
+  .cta-section {
+    margin-top: auto; text-align: center; padding-top: 16px;
+  }
+  .qr-box {
+    background: var(--white); border: 2px solid var(--navy);
+    border-radius: 8px; padding: 12px; display: inline-block;
+  }
+  .qr-placeholder {
+    width: 80px; height: 80px; background: #f0f0f0;
+    border: 1px solid var(--border); margin: 0 auto 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: var(--text-muted);
+  }
+  .qr-label { font-size: 10px; color: var(--navy); font-weight: 700; }
+  .phone-number {
+    margin-top: 10px; font-size: 14px; font-weight: 700; color: var(--navy);
+  }
+  .phone-note { font-size: 9px; color: var(--text-muted); }
+
+  /* ===== QR CARD ===== */
+  .qrcard-container {
+    max-width: 400px; margin: 0 auto; padding: 20px;
+  }
+  .qr-card {
+    background: var(--navy); border-radius: 8px; overflow: hidden;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.2);
+    aspect-ratio: 91 / 55; /* 名刺サイズ比率 */
+  }
+  .qr-card-inner {
+    padding: 20px; display: flex; height: 100%;
+    align-items: center; justify-content: space-between;
+    position: relative;
+  }
+  .qr-card-inner::before {
+    content: ''; position: absolute; inset: 6px;
+    border: 1px solid rgba(196,162,101,0.15); border-radius: 4px;
+  }
+  .qr-card-left { flex: 1; position: relative; z-index: 2; }
+  .qr-card-left .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-bottom: 10px;
+  }
+  .qr-card-left .badge .jcb-tiny {
+    width: 28px; height: 18px; background: linear-gradient(135deg, #0064A0, #007940, #C8102E);
+    border-radius: 3px;
+  }
+  .qr-card-left h4 {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 13px; color: var(--gold); font-weight: 600; line-height: 1.5;
+    margin-bottom: 8px;
+  }
+  .qr-card-left .url {
+    font-size: 9px; color: rgba(255,255,255,0.4); letter-spacing: 0.5px;
+  }
+  .qr-card-right {
+    position: relative; z-index: 2;
+    background: var(--white); border-radius: 6px; padding: 10px;
+    text-align: center;
+  }
+  .qr-card-right .qr-sq {
+    width: 60px; height: 60px; background: #f0f0f0; border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; color: var(--text-muted);
+  }
+  .qr-card-right .scan { font-size: 8px; color: var(--navy); font-weight: 700; margin-top: 4px; }
+
+  /* ===== BACK PANEL ===== */
+  .panel-back-1 {
+    background: var(--cream); justify-content: flex-start;
+  }
+  .panel-back-1 h3 {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 14px; font-weight: 600; color: var(--navy);
+    margin-bottom: 10px;
+  }
+  .step-item {
+    display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start;
+  }
+  .step-num {
+    width: 24px; height: 24px; background: var(--navy); color: var(--gold);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; flex-shrink: 0;
+  }
+  .step-text h5 { font-size: 12px; font-weight: 700; color: var(--navy); }
+  .step-text p { font-size: 10px; color: var(--text-muted); }
+
+  .faq-item { margin-bottom: 10px; }
+  .faq-q { font-size: 11px; font-weight: 700; color: var(--navy); display: flex; gap: 4px; }
+  .faq-a { font-size: 10px; color: var(--text-muted); padding-left: 18px; }
+
+  .panel-back-2 { justify-content: flex-start; }
+  .panel-back-2 h3 {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 14px; font-weight: 600; color: var(--navy);
+    margin-bottom: 10px;
+  }
+  .voice-card {
+    background: var(--cream); border-radius: 8px; padding: 12px; margin-bottom: 10px;
+  }
+  .voice-card .quote { font-size: 11px; color: var(--text-body); font-style: italic; margin-bottom: 6px; }
+  .voice-card .who { font-size: 10px; color: var(--text-muted); text-align: right; }
+
+  .panel-back-3 {
+    background: var(--navy); color: #fff; justify-content: center; align-items: center;
+    text-align: center; position: relative; overflow: hidden;
+  }
+  .panel-back-3::before {
+    content: ''; position: absolute; inset: 0;
+    background-image: url('https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=800&q=80');
+    background-size: cover; background-position: center center;
+  }
+  .panel-back-3::after {
+    content: ''; position: absolute; inset: 0;
+    background: rgba(26,39,68,0.88);
+  }
+  .panel-back-3 .inner { position: relative; z-index: 3; }
+  .panel-back-3 .corp-info { font-size: 10px; color: rgba(255,255,255,0.4); line-height: 1.8; margin-top: 16px; }
+  .panel-back-3 .legal { font-size: 8px; color: rgba(255,255,255,0.25); margin-top: 12px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <span class="title">JCB DM デザイン案</span>
+  <div class="nav">
+    <button class="active" onclick="showView('envelope',this)">封筒</button>
+    <button onclick="showView('leaflet-front',this)">リーフレット（表）</button>
+    <button onclick="showView('leaflet-back',this)">リーフレット（裏）</button>
+    <button onclick="showView('qrcard',this)">QRカード</button>
+  </div>
+  <div class="note">DM案A: スタンダード封筒 — 封筒 + A4三つ折りリーフレット + QRカード（2枚入り）</div>
+</div>
+
+<!-- ======== 封筒 ======== -->
+<div class="view active" id="view-envelope">
+  <div class="envelope-container">
+    <div class="env-annotation">封筒デザイン: 長3定型封筒（120×235mm）/ ネイビー上質紙 / ゴールド箔押し / マット加工</div>
+
+    <div class="envelope">
+      <div class="envelope-border"></div>
+      <div class="stamp">SPECIAL INVITATION</div>
+      <div class="envelope-logo">
+        <div class="jcb-mark">JCB</div>
+        <div class="qolc-mark">× QOLCの安心相談窓口</div>
+      </div>
+      <h2>JCBカードホルダー様への<br>特別なご案内</h2>
+      <p class="subtitle">大切なご家族の、安心の暮らしのために</p>
+    </div>
+
+    <div class="env-annotation">
+      仕様メモ:<br>
+      ・ネイビーの上質紙（180kg以上）にゴールド箔押し<br>
+      ・「JCBカードホルダー様への 特別なご案内」をメインコピーに<br>
+      ・JCBロゴは3色グラデーション使用（JCBブランドガイドライン準拠）<br>
+      ・封筒裏面にUD社名・住所を記載（ここでは省略）<br>
+      ・送付数: 約30,000通 / 予算: 約300万円
+    </div>
+  </div>
+</div>
+
+<!-- ======== リーフレット（表面） ======== -->
+<div class="view" id="view-leaflet-front">
+  <div class="leaflet-container">
+    <div class="env-annotation">A4三つ折りリーフレット（表面）: 297×210mm を3パネルに折り。左から Panel 1（表紙）→ Panel 2（課題提起）→ Panel 3（サービス＋CTA）</div>
+    <p class="leaflet-label">▼ A4三つ折り — 表面（開いた状態）</p>
+    <div class="leaflet">
+
+      <!-- Panel 1: 表紙 -->
+      <div class="panel panel-cover">
+        <div class="inner">
+          <div class="jcb-badge">
+            <div class="jcb-sm">JCB</div>
+            <span>会員限定</span>
+          </div>
+          <h1>QOLCの<br>安心相談窓口</h1>
+          <p class="catch">
+            介護施設での暮らしに関わる<br>
+            お悩みを、専任コンシェルジュが<br>
+            ワンストップでサポート
+          </p>
+          <div class="qr-note">※本サービスはJCBカードホルダー様限定です</div>
+        </div>
+      </div>
+
+      <!-- Panel 2: 課題提起 + 解決策 -->
+      <div class="panel panel-main">
+        <h3>こんなお悩みはありませんか？</h3>
+        <div class="worry-item"><span class="icon">▶</span><span>施設からの請求内容が分かりにくい。何に使われているのか不安…</span></div>
+        <div class="worry-item"><span class="icon">▶</span><span>毎月の振込手続きが面倒。もっと簡単にできないか</span></div>
+        <div class="worry-item"><span class="icon">▶</span><span>訪問診療や薬局の自己負担額を、離れた家族が確認したい</span></div>
+        <div class="worry-item"><span class="icon">▶</span><span>施設への支払いをクレジットカードでまとめたい</span></div>
+
+        <div class="solution-box">
+          <h4>✦ QOLCがすべて解決します</h4>
+          <div class="solution-item"><span class="check">✓</span><span>利用明細をLINEやWebでリアルタイム確認</span></div>
+          <div class="solution-item"><span class="check">✓</span><span>JCBカードで自動決済。振込の手間ゼロ</span></div>
+          <div class="solution-item"><span class="check">✓</span><span>専任コンシェルジュが施設との窓口に</span></div>
+          <div class="solution-item"><span class="check">✓</span><span>JCBポイントが貯まる（Oki Dokiポイント）</span></div>
+        </div>
+      </div>
+
+      <!-- Panel 3: サービス詳細 + CTA -->
+      <div class="panel panel-cta">
+        <h3>サービス内容</h3>
+
+        <div class="service-card">
+          <h5>💳 クレジットカード決済</h5>
+          <p>施設利用料・医療費・薬代をJCBカードでまとめてお支払い</p>
+        </div>
+        <div class="service-card">
+          <h5>📱 利用明細のリアルタイム確認</h5>
+          <p>LINEまたはWebで、いつでもどこでも明細を確認</p>
+        </div>
+        <div class="service-card">
+          <h5>🤝 専任コンシェルジュ</h5>
+          <p>施設とのやり取りを代行。お悩みをワンストップで解決</p>
+        </div>
+
+        <div class="cta-section">
+          <p style="font-size:12px; font-weight:700; color:var(--navy); margin-bottom:8px;">まずはお気軽にご相談ください</p>
+          <div class="qr-box">
+            <div class="qr-placeholder">QRコード</div>
+            <p class="qr-label">Webでのご相談</p>
+          </div>
+          <p class="phone-number">☎ 03-6281-8882</p>
+          <p class="phone-note">平日 9:00〜18:00（土日祝除く）</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======== リーフレット（裏面） ======== -->
+<div class="view" id="view-leaflet-back">
+  <div class="leaflet-container">
+    <div class="env-annotation">A4三つ折りリーフレット（裏面）: 左から Panel 4（ご利用の流れ）→ Panel 5（お客様の声）→ Panel 6（会社情報）</div>
+    <p class="leaflet-label">▼ A4三つ折り — 裏面（開いた状態）</p>
+    <div class="leaflet">
+
+      <!-- Panel 4: ご利用の流れ + FAQ -->
+      <div class="panel panel-back-1">
+        <h3>ご利用の流れ</h3>
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-text">
+            <h5>QRコードまたはお電話でご相談</h5>
+            <p>お悩みやご要望をお聞かせください</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-text">
+            <h5>コンシェルジュがご提案</h5>
+            <p>最適なプランとサービスをご案内します</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">3</div>
+          <div class="step-text">
+            <h5>カード登録・サービス開始</h5>
+            <p>簡単な登録でサービスがスタート</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">4</div>
+          <div class="step-text">
+            <h5>LINEで明細確認</h5>
+            <p>毎月の明細をLINEでお知らせします</p>
+          </div>
+        </div>
+
+        <div style="margin-top:auto; padding-top:14px; border-top:1px solid var(--border);">
+          <h3 style="font-size:13px; margin-bottom:8px;">よくあるご質問</h3>
+          <div class="faq-item">
+            <div class="faq-q"><span style="color:var(--gold);">Q.</span> 費用はかかりますか？</div>
+            <div class="faq-a">ご相談・お問い合わせは無料です。サービス利用料は施設との契約に含まれます。</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q"><span style="color:var(--gold);">Q.</span> どのカードが使えますか？</div>
+            <div class="faq-a">JCBプロパーカードがご利用いただけます。</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel 5: お客様の声 -->
+      <div class="panel panel-back-2">
+        <h3>ご利用者様の声</h3>
+        <div class="voice-card">
+          <p class="quote">「毎月の振込が不要になり、明細もLINEで確認できるので安心です。離れて暮らす母の施設費用が一目でわかります。」</p>
+          <p class="who">— 60代女性（W会員）</p>
+        </div>
+        <div class="voice-card">
+          <p class="quote">「コンシェルジュの方が施設との連絡を代わりにしてくれるので、仕事中でも安心。ポイントも貯まって一石二鳥です。」</p>
+          <p class="who">— 50代男性（G会員）</p>
+        </div>
+        <div class="voice-card">
+          <p class="quote">「父の入居先を探す時から相談に乗ってもらいました。一人で悩まなくてよかった。」</p>
+          <p class="who">— 40代女性（P会員）</p>
+        </div>
+
+        <div style="margin-top:auto; background:var(--gold-pale); border-radius:8px; padding:14px; text-align:center;">
+          <p style="font-size:12px; font-weight:700; color:var(--navy); margin-bottom:4px;">ご相談件数</p>
+          <p style="font-size:28px; font-weight:900; color:var(--gold); font-family:'Noto Serif JP',serif;">500<span style="font-size:14px;">件以上</span></p>
+          <p style="font-size:10px; color:var(--text-muted);">※2026年実績（見込み）</p>
+        </div>
+      </div>
+
+      <!-- Panel 6: 会社情報 -->
+      <div class="panel panel-back-3">
+        <div class="inner">
+          <div style="margin-bottom:16px;">
+            <div class="jcb-badge" style="display:inline-flex; background:rgba(255,255,255,0.05); padding:6px 14px; border-radius:20px; border:1px solid rgba(196,162,101,0.15); gap:8px; align-items:center;">
+              <div style="width:32px; height:20px; background:linear-gradient(135deg,#0064A0,#007940,#C8102E); border-radius:3px;"></div>
+              <span style="color:rgba(255,255,255,0.5); font-size:10px;">×</span>
+              <span style="color:var(--gold); font-size:11px; font-weight:600;">QOLC</span>
+            </div>
+          </div>
+          <h2 style="font-family:'Noto Serif JP',serif; font-size:16px; color:var(--gold); margin-bottom:6px;">QOLCの安心相談窓口</h2>
+          <p style="font-size:11px; color:rgba(255,255,255,0.5); margin-bottom:16px;">大切なご家族の暮らしに、安心を。</p>
+
+          <div style="background:var(--white); border-radius:6px; padding:10px; display:inline-block;">
+            <div class="qr-placeholder" style="width:70px; height:70px; margin:0 auto 4px;">QRコード</div>
+            <p style="font-size:9px; font-weight:700; color:var(--navy);">今すぐご相談</p>
+          </div>
+
+          <div class="corp-info">
+            運営: 株式会社ユニバーサル・デベロップメント<br>
+            〒105-0004 東京都港区新橋1-1-13<br>
+            アーバンネット内幸町ビル5F<br>
+            TEL: 03-6281-8882
+          </div>
+          <div class="legal">
+            ※本DMはJCBカードホルダー様にお送りしています。<br>
+            ※サービス内容は変更される場合があります。<br>
+            ※QRコードは(株)デンソーウェーブの登録商標です。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======== QRカード ======== -->
+<div class="view" id="view-qrcard">
+  <div class="qrcard-container">
+    <div class="env-annotation">QRカード: 名刺サイズ（91×55mm）/ 厚手コート紙 / ネイビー×ゴールド / 封筒に同封</div>
+    <p class="leaflet-label" style="margin-top:12px;">▼ QRカード（表面）</p>
+    <div class="qr-card">
+      <div class="qr-card-inner">
+        <div class="qr-card-left">
+          <div class="badge">
+            <div class="jcb-tiny"></div>
+          </div>
+          <h4>QOLCの<br>安心相談窓口</h4>
+          <p class="url">qolc.jp/jcb</p>
+        </div>
+        <div class="qr-card-right">
+          <div class="qr-sq">QR</div>
+          <p class="scan">スキャンで相談</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="env-annotation" style="margin-top:20px;">
+      仕様メモ:<br>
+      ・名刺サイズ（91×55mm）厚手コート紙 両面カラー<br>
+      ・QRコードは個別ID入りURL（例: qolc.jp/jcb?id=XXX）<br>
+      ・裏面はシンプルに電話番号 + 営業時間 + UD社名を記載<br>
+      ・DMからの流入をQRコード個別IDで追跡可能<br>
+      ・JCBセグメント（W/G/P/C）×地域の反応率を計測
+    </div>
+  </div>
+</div>
+
+<script>
+function showView(id, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>

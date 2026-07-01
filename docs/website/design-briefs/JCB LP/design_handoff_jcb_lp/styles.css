@@ -1,0 +1,258 @@
+/* =========================================================================
+   JCB 総合窓口LP — 共通スタイル + 3デザイン案（data-variant=a|b|c）
+   ラグジュアリーコンシェルジュ / シニアフレンドリー
+   ========================================================================= */
+
+/* ---- Tokens -------------------------------------------------------------*/
+:root{
+  --navy:#1B2A4A;
+  --navy-deep:#0F1D36;
+  --navy-light:#2A3D62;
+  --gold:#C4A265;
+  --gold-light:#D4B87A;
+  --gold-pale:#F5EFE0;
+  --green:#4C986A;
+  --green-deep:#3D7A55;
+  --cream:#FAF8F4;
+  --cream-warm:#F5F0E8;
+  --ink:#1B2A4A;
+  --ink-soft:#41506b;
+
+  --maxw:1180px;
+  --pad:clamp(20px,5vw,64px);
+
+  --serif:"Noto Serif JP",serif;
+  --sans:"Noto Sans JP","Inter",system-ui,sans-serif;
+  --label:"Inter","Noto Serif JP",serif;
+
+  /* variant-overridable */
+  --page-bg:var(--cream);
+  --accent:var(--gold);
+  --accent-soft:var(--gold-pale);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--sans);
+  font-weight:400;
+  font-size:17px;
+  line-height:1.8;
+  color:var(--ink);
+  background:var(--page-bg);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+img{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+
+/* English / section labels */
+.eyebrow{
+  font-family:var(--label);
+  font-weight:500;
+  letter-spacing:3px;
+  text-transform:uppercase;
+  font-size:13px;
+  color:var(--accent);
+}
+h1,h2,h3{font-family:var(--serif);font-weight:700;line-height:1.45;letter-spacing:.01em}
+.amp{color:var(--accent)}
+
+.container{max-width:var(--maxw);margin:0 auto;padding-inline:var(--pad)}
+
+/* ---- Buttons ------------------------------------------------------------*/
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:.6em;
+  min-height:52px;padding:0 28px;border-radius:6px;
+  font-family:var(--sans);font-weight:700;font-size:17px;line-height:1.2;
+  cursor:pointer;border:none;transition:.2s ease;
+}
+.btn-gold{background:var(--gold);color:var(--navy-deep)}
+.btn-gold:hover{background:var(--gold-light);transform:translateY(-1px)}
+.btn-green{background:var(--green);color:#fff}
+.btn-green:hover{background:var(--green-deep)}
+.btn-ghost{background:transparent;border:1.5px solid rgba(255,255,255,.5);color:#fff}
+.btn-ghost:hover{border-color:#fff;background:rgba(255,255,255,.08)}
+.btn .arrow{font-size:1.1em;transition:transform .2s}
+.btn:hover .arrow{transform:translateX(3px)}
+
+/* =========================================================================
+   HEADER (sticky)
+   ========================================================================= */
+.site-header{
+  position:sticky;top:0;z-index:50;
+  background:rgba(250,248,244,.86);backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(27,42,74,.08);
+}
+.site-header .container{display:flex;align-items:center;justify-content:space-between;height:72px}
+.brand{display:flex;align-items:center;gap:14px}
+.brand .logo{
+  width:42px;height:42px;border-radius:9px;
+  background:linear-gradient(135deg,var(--navy),var(--navy-light));
+  color:var(--gold);display:grid;place-items:center;
+  font-family:var(--serif);font-weight:700;font-size:20px;flex:none;
+}
+.brand .b-name{font-family:var(--serif);font-weight:700;font-size:19px;letter-spacing:.04em;line-height:1.2}
+.brand .b-sub{font-size:11px;color:var(--ink-soft);letter-spacing:.02em;font-weight:500}
+.header-cta{min-height:44px;padding:0 20px;font-size:15px}
+
+/* =========================================================================
+   HERO
+   ========================================================================= */
+.hero{position:relative;overflow:hidden;color:#fff}
+.hero-photo{
+  position:absolute;inset:0;z-index:0;
+  background-size:cover;background-position:center;
+}
+.hero-photo::after{content:"";position:absolute;inset:0}
+.hero-inner{position:relative;z-index:2;max-width:var(--maxw);margin:0 auto;padding:clamp(72px,11vw,150px) var(--pad)}
+.hero-col{max-width:680px}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:9px;
+  padding:9px 18px;border-radius:999px;margin-bottom:28px;
+  border:1px solid var(--gold);color:var(--gold-light);
+  background:rgba(15,29,54,.4);backdrop-filter:blur(6px);
+  font-size:14px;font-weight:500;letter-spacing:.04em;
+}
+.hero-badge .dot{width:7px;height:7px;border-radius:50%;background:var(--gold)}
+.hero h1{font-size:clamp(34px,5.4vw,62px);line-height:1.32;letter-spacing:.02em;margin-bottom:26px}
+.hero-sub{font-size:clamp(16px,1.6vw,20px);line-height:1.9;color:rgba(255,255,255,.9);font-weight:400;max-width:34em;margin-bottom:38px}
+.hero-actions{display:flex;flex-wrap:wrap;align-items:center;gap:18px}
+.hero-note{font-size:14px;color:rgba(255,255,255,.78);display:flex;align-items:center;gap:10px}
+.hero-note .sep{opacity:.5}
+
+/* geometric pattern layer (variant B) */
+.hero-pattern{position:absolute;inset:0;z-index:1;opacity:0;pointer-events:none}
+
+/* =========================================================================
+   TRUST BAR
+   ========================================================================= */
+.trustbar{background:var(--navy);color:#fff}
+.trustbar .container{display:flex;flex-wrap:wrap;justify-content:center;gap:14px 48px;padding-block:22px}
+.trustbar .item{display:flex;align-items:center;gap:11px;font-size:16px;font-weight:500}
+.trustbar .dot{width:8px;height:8px;border-radius:50%;background:var(--gold);flex:none}
+
+/* =========================================================================
+   GENERIC SECTION
+   ========================================================================= */
+.section{padding-block:clamp(64px,9vw,110px)}
+.section-head{max-width:720px;margin:0 auto clamp(40px,6vw,64px);text-align:center}
+.section-head .eyebrow{display:inline-block;margin-bottom:16px}
+.section-head h2{font-size:clamp(27px,3.6vw,40px);margin-bottom:18px}
+.section-head p{color:var(--ink-soft);font-size:17px}
+.bg-cream{background:var(--cream)}
+.bg-warm{background:var(--cream-warm)}
+.bg-white{background:#fff}
+
+/* Services grid */
+.svc-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}
+.svc-card{
+  background:#fff;border:1px solid rgba(196,162,101,.28);border-radius:14px;
+  padding:38px 34px;display:flex;gap:24px;align-items:flex-start;
+  transition:.25s ease;
+}
+.svc-card:hover{transform:translateY(-4px);box-shadow:0 18px 40px -22px rgba(27,42,74,.35)}
+.svc-ico{
+  width:60px;height:60px;border-radius:50%;flex:none;
+  border:1.5px solid var(--gold);color:var(--gold);
+  display:grid;place-items:center;background:var(--gold-pale);
+}
+.svc-ico svg{width:28px;height:28px}
+.svc-card h3{font-size:21px;margin-bottom:10px}
+.svc-card p{color:var(--ink-soft);font-size:16px}
+
+/* Worry / empathy */
+.worry-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;max-width:960px;margin:0 auto}
+.worry-card{
+  background:#fff;border-left:4px solid var(--gold);border-radius:10px;
+  padding:24px 28px;display:flex;gap:18px;align-items:flex-start;
+  box-shadow:0 8px 26px -20px rgba(27,42,74,.4);
+}
+.worry-card .dia{width:16px;height:16px;flex:none;margin-top:6px;transform:rotate(45deg);background:var(--gold);border-radius:3px}
+.worry-card p{font-size:17px;font-weight:500}
+.worry-cta{text-align:center;margin-top:44px}
+
+/* Flow steps */
+.flow{max-width:780px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+.flow-step{
+  display:flex;gap:26px;align-items:flex-start;
+  background:#fff;border-radius:14px;padding:30px 34px;
+  box-shadow:0 10px 30px -24px rgba(27,42,74,.5);
+}
+.flow-num{
+  width:56px;height:56px;border-radius:50%;flex:none;
+  background:var(--navy);color:var(--gold);
+  display:grid;place-items:center;font-family:var(--serif);font-weight:700;font-size:24px;
+}
+.flow-step h3{font-size:20px;margin-bottom:8px}
+.flow-step p{color:var(--ink-soft);font-size:16px}
+
+/* Trust / promise */
+.promise-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
+.promise-card{text-align:center;padding:14px}
+.promise-ico{
+  width:74px;height:74px;border-radius:50%;margin:0 auto 20px;
+  background:var(--navy);display:grid;place-items:center;
+}
+.promise-ico svg{width:34px;height:34px;color:var(--gold)}
+.promise-card h3{font-size:18px;margin-bottom:10px}
+.promise-card p{color:var(--ink-soft);font-size:15px}
+
+/* Final CTA */
+.final{position:relative;overflow:hidden;color:#fff;text-align:center}
+.final-photo{position:absolute;inset:0;background-size:cover;background-position:center}
+.final-photo::after{content:"";position:absolute;inset:0;background:rgba(15,29,54,.88)}
+.final-inner{position:relative;z-index:2;padding:clamp(72px,10vw,128px) var(--pad);max-width:740px;margin:0 auto}
+.final .eyebrow{color:var(--gold-light);margin-bottom:18px;display:inline-block}
+.final h2{font-size:clamp(28px,4vw,46px);margin-bottom:22px;color:#fff}
+.final p{color:rgba(255,255,255,.85);font-size:18px;margin-bottom:38px}
+
+/* Footer */
+.site-footer{background:var(--navy-deep);color:rgba(255,255,255,.7)}
+.site-footer .container{padding-block:54px}
+.foot-top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:32px;align-items:flex-start;
+  padding-bottom:30px;border-bottom:1px solid rgba(255,255,255,.12)}
+.foot-brand{font-family:var(--serif);font-weight:700;font-size:20px;color:#fff;letter-spacing:.04em}
+.foot-brand span{color:var(--gold)}
+.foot-tag{font-size:14px;margin-top:8px;max-width:30em}
+.foot-nav{display:flex;flex-wrap:wrap;gap:14px 28px;font-size:15px}
+.foot-nav a:hover{color:var(--gold-light)}
+.foot-bottom{padding-top:24px;font-size:13px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
+
+/* =========================================================================
+   案A — シティホテル・ラウンジ（photo-forward / navy 70・gold 20・cream 10）
+   ========================================================================= */
+[data-variant="a"]{--page-bg:var(--cream);--accent:var(--gold);--accent-soft:var(--gold-pale)}
+[data-variant="a"] .hero{min-height:88vh;display:flex;align-items:flex-end}
+[data-variant="a"] .hero-photo{
+  background-image:url("https://images.unsplash.com/photo-1604328698692-f76ea9498e76?auto=format&fit=crop&w=1600&q=80");
+  background-color:var(--navy);
+  background-position:center 55%;
+}
+[data-variant="a"] .hero-photo::after{
+  background:
+    linear-gradient(180deg,rgba(13,26,49,.52) 0%,rgba(13,26,49,.56) 38%,rgba(13,26,49,.8) 72%,rgba(13,26,49,.95) 100%),
+    radial-gradient(95% 90% at 28% 82%,rgba(13,26,49,.5),transparent 62%),
+    radial-gradient(110% 80% at 82% 8%,rgba(196,162,101,.22),transparent 54%);
+}
+[data-variant="a"] .hero h1,[data-variant="a"] .hero-sub{text-shadow:0 2px 26px rgba(13,26,49,.9),0 1px 4px rgba(13,26,49,.7)}
+[data-variant="a"] .final-photo{
+  background-image:url("https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=1900&q=80");
+}
+
+/* =========================================================================
+   RESPONSIVE
+   ========================================================================= */
+@media(max-width:768px){
+  body{font-size:16px}
+  .svc-grid,.worry-grid,.promise-grid{grid-template-columns:1fr}
+  .promise-grid{gap:32px}
+  .trustbar .container{flex-direction:column;align-items:flex-start;gap:14px}
+  .foot-top{flex-direction:column}
+  .svc-card{padding:30px 26px}
+}
+@media(max-width:430px){
+  .brand .b-sub{display:none}
+  .hero-actions{flex-direction:column;align-items:stretch}
+  .hero-actions .btn{width:100%}
+}

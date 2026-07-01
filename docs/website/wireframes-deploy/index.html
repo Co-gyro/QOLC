@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QOLC — ワイヤーフレーム一覧</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: #F5F5F0;
+    color: #333;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 900;
+    color: #1A2744;
+    margin-bottom: 8px;
+  }
+  .subtitle {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 40px;
+  }
+  .cards {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    max-width: 520px;
+  }
+  a.card {
+    display: block;
+    background: #fff;
+    border-radius: 16px;
+    padding: 28px 32px;
+    text-decoration: none;
+    color: inherit;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    border: 2px solid transparent;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+  }
+  a.card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+  }
+  .card-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #fff;
+    background: var(--accent);
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+  }
+  .card-title {
+    font-size: 20px;
+    font-weight: 900;
+    margin-bottom: 6px;
+  }
+  .card-desc {
+    font-size: 13px;
+    color: #888;
+    line-height: 1.6;
+  }
+
+  /* Per-card accent */
+  .card-jcb { --accent: #1A2744; }
+  .card-qolc { --accent: #4C986A; }
+  .card-ud { --accent: #2E7D96; }
+
+  .footer {
+    margin-top: 48px;
+    font-size: 12px;
+    color: #bbb;
+  }
+</style>
+</head>
+<body>
+
+  <h1>ワイヤーフレーム一覧</h1>
+  <p class="subtitle">デザインレビュー用 — SP / タブレット / PC 切替対応</p>
+
+  <div class="cards">
+
+    <a class="card card-jcb" href="jcb-lp-wireframe.html">
+      <span class="card-label">JCB</span>
+      <div class="card-title">JCB 総合窓口 LP</div>
+      <div class="card-desc">シニアレジデンス向け決済サービスのランディングページ。<br>LP・申込フォーム・完了画面の3ページ構成。</div>
+    </a>
+
+    <a class="card card-qolc" href="qolc-promo-wireframe.html">
+      <span class="card-label">QOLC</span>
+      <div class="card-title">QOLC プロモサイト</div>
+      <div class="card-desc">介護施設向けカード決済SaaS「QOLC（コルク）」の<br>サービス紹介・プロモーションサイト。（v7: ヘッダーナビ丁寧表現・UD導線追加）</div>
+    </a>
+
+    <a class="card card-ud" href="ud-corporate-wireframe.html">
+      <span class="card-label">UD</span>
+      <div class="card-title">UD コーポレートサイト</div>
+      <div class="card-desc">株式会社ユニバーサル・デベロップメントの企業サイト。<br>トップ・会社概要・サービス・お問い合わせの4ページ。</div>
+    </a>
+
+  </div>
+
+  <p class="footer">株式会社ユニバーサル・デベロップメント</p>
+
+</body>
+</html>

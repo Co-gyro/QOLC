@@ -6,9 +6,6 @@ import FeatureCards from "./_components/FeatureCards";
 import FaqSection from "./_components/FaqSection";
 import SiteFooter from "./_components/SiteFooter";
 
-/** アプリ本体のベースURL（未設定時は本番相当のデフォルト）。 */
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.qolc.jp";
-
 /**
  * QOLC 紹介サイト トップ（qolc.jp）。
  * ワイヤーフレーム(qolc-promo-wireframe.html)を忠実に移植した本番ページ。

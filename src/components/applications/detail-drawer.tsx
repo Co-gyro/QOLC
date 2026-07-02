@@ -14,7 +14,6 @@ import { EditForm } from "./detail-edit-form";
 import {
   fetchApplicationDetail,
   patchApplication,
-  type ApplicationFilters,
 } from "@/lib/applications/client";
 import { SOURCE_LABELS } from "@/lib/applications/labels";
 import type { ApplicationDetail, AssigneeOption, ApplicationPatch } from "@/lib/applications/types";

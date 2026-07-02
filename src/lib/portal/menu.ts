@@ -13,6 +13,7 @@ export interface MenuItem {
 export const PORTAL_MENUS: Record<PortalType, MenuItem[]> = {
   admin: [
     { href: "/admin/dashboard", label: "ダッシュボード", icon: "LayoutDashboard" },
+    { href: "/admin/applications", label: "申請・タスク", icon: "Inbox" },
     { href: "/admin/facilities", label: "介護施設管理", icon: "Building2" },
     { href: "/admin/merchants", label: "加盟店管理", icon: "Store" },
     { href: "/admin/payments", label: "決済管理", icon: "CreditCard" },

@@ -10,6 +10,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseMiddlewareClient } from "@/lib/supabase/middleware-client";
 import type { UserRole, PortalType } from "@/types";
 
+/**
+ * 紹介サイト（マーケ）として扱うホスト名。該当ホストのアクセスは実装セグメント
+ * `/site/*` へ rewrite する。app.qolc.jp（アプリ本体）や未知ホストはこの分岐に
+ * 入らず、従来どおりの認証フローで処理される（挙動不変）。
+ * 既定は本番ドメイン。Vercel の env `MARKETING_HOSTS`（カンマ区切り）で上書き可能。
+ */
+const MARKETING_HOSTS = (process.env.MARKETING_HOSTS ?? "qolc.jp,www.qolc.jp")
+  .split(",")
+  .map((h) => h.trim().toLowerCase())
+  .filter(Boolean);
+
 /** ロールごとに許可するパスのプレフィックス */
 const ROLE_PORTAL_MAP: Record<UserRole, PortalType> = {
   admin: "admin",
@@ -58,6 +69,27 @@ function getPortalFromPath(pathname: string): PortalType | null {
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // --- ホスト名によるサイト分岐（紹介サイト qolc.jp）--------------------------
+  // マーケ用ホストは実装セグメント /site/* へ rewrite し、アプリの認証処理には
+  // 一切入らせない（公開サイトのため）。app.qolc.jp・未知ホストはこの分岐を通らず
+  // 従来どおり処理されるため、既存アプリの挙動は変わらない。
+  const host = (request.headers.get("host") ?? "").split(":")[0].toLowerCase();
+  if (MARKETING_HOSTS.includes(host)) {
+    // API（フォーム送信等）と Next 静的アセットは rewrite せず素通し
+    if (
+      pathname.startsWith("/api") ||
+      pathname.startsWith("/_next") ||
+      pathname === "/site" ||
+      pathname.startsWith("/site/")
+    ) {
+      return NextResponse.next();
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = pathname === "/" ? "/site" : `/site${pathname}`;
+    return NextResponse.rewrite(url);
+  }
+  // --------------------------------------------------------------------------
 
   // レスポンスはここで初期化（Supabaseクライアントが cookies を書き込む対象）
   const response = NextResponse.next({ request: { headers: request.headers } });

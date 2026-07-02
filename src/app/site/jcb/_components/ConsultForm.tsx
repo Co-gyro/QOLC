@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { JSX } from "react";
 import { SelfFields, FamilyFields } from "./ConsultFormFields";
 import ThanksView from "./ThanksView";
@@ -37,12 +37,73 @@ export default function ConsultForm({
 }): JSX.Element {
   const [formType, setFormType] = useState<FormType>("self");
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleSubmit = (): void => {
-    // TODO: 送信APIに接続
-    setSubmitted(true);
-    window.scrollTo(0, 0);
+  /**
+   * フォームDOMから入力値を name 指定で収集する（非制御フィールドを確実に取得）。
+   * ラジオ/チェックは value を優先し、無ければラベル文言でフォールバック。
+   * @returns 各フィールドを name キーで格納したペイロード
+   */
+  const collectPayload = (): Record<string, unknown> => {
+    const root = containerRef.current;
+    const data: Record<string, string> = {};
+    if (root) {
+      const fields = root.querySelectorAll<
+        HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+      >("input[name], select[name], textarea[name]");
+      fields.forEach((el) => {
+        const name = el.getAttribute("name");
+        if (!name) return;
+        if (el instanceof HTMLInputElement && (el.type === "radio" || el.type === "checkbox")) {
+          if (!el.checked) return;
+          const label = el.value || el.parentElement?.textContent?.trim() || "";
+          data[name] =
+            el.type === "checkbox" && data[name] ? `${data[name]}, ${label}` : label;
+        } else if (el.value && el.value.trim()) {
+          data[name] = el.value.trim();
+        }
+      });
+    }
+    return { formType, ...data, note };
+  };
+
+  const handleSubmit = async (): Promise<void> => {
+    setError(null);
+    setSubmitting(true);
+    try {
+      const payload = collectPayload();
+      const lastName = (payload.self_last_name as string) || (payload.fam_last_name as string) || "";
+      const firstName =
+        (payload.self_first_name as string) || (payload.fam_first_name as string) || "";
+      const name = `${lastName} ${firstName}`.trim();
+      const email = (payload.self_email as string) || (payload.fam_email as string) || "";
+      const phone = (payload.self_phone as string) || (payload.fam_phone as string) || "";
+      const res = await fetch("/api/applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: "jcb_consult",
+          applicant_name: name || undefined,
+          applicant_email: email || undefined,
+          applicant_phone: phone || undefined,
+          message: note || undefined,
+          payload,
+        }),
+      });
+      if (!res.ok) {
+        setError("送信に失敗しました。時間をおいて再度お試しください。");
+        return;
+      }
+      setSubmitted(true);
+      window.scrollTo(0, 0);
+    } catch {
+      setError("通信エラーが発生しました。時間をおいて再度お試しください。");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -65,7 +126,7 @@ export default function ConsultForm({
         </div>
       </div>
 
-      <div className="form-container">
+      <div className="form-container" ref={containerRef}>
         {/* WHO: ご自身 or ご家族（動的切り替え） */}
         <div className="form-section">
           <h3 className="form-section-title">どなたのご相談ですか？</h3>
@@ -205,10 +266,17 @@ export default function ConsultForm({
             type="button"
             className="btn btn-gold"
             style={{ width: "100%", justifyContent: "center" }}
-            onClick={handleSubmit}
+            onClick={() => void handleSubmit()}
+            disabled={submitting}
           >
-            この内容で送信する <span className="arrow">&rarr;</span>
+            {submitting ? "送信中..." : "この内容で送信する"}{" "}
+            {!submitting && <span className="arrow">&rarr;</span>}
           </button>
+          {error && (
+            <p className="form-submit-note" style={{ color: "#C0392B", fontWeight: 600 }}>
+              {error}
+            </p>
+          )}
           <p className="form-submit-note">
             送信後、担当コンシェルジュよりご連絡いたします
           </p>

@@ -7,6 +7,7 @@ const PREFS = ["東京都", "神奈川県", "千葉県", "埼玉県", "..."] as 
 
 /**
  * 「ご自身のこと」選択時に表示するご本人情報フィールド群。
+ * 各入力に name を付与し、送信時に name 指定で確実に収集できるようにしている。
  */
 export function SelfFields(): JSX.Element {
   return (
@@ -18,8 +19,8 @@ export function SelfFields(): JSX.Element {
           お名前 <span className="req">必須</span>
         </label>
         <div className="form-inline">
-          <input type="text" className="form-input" placeholder="姓" />
-          <input type="text" className="form-input" placeholder="名" />
+          <input type="text" name="self_last_name" className="form-input" placeholder="姓" />
+          <input type="text" name="self_first_name" className="form-input" placeholder="名" />
         </div>
       </div>
 
@@ -27,7 +28,7 @@ export function SelfFields(): JSX.Element {
         <label className="form-label">
           ご年齢 <span className="req">必須</span>
         </label>
-        <select className="form-select" defaultValue="">
+        <select name="self_age" className="form-select" defaultValue="">
           <option value="" disabled>
             選択してください
           </option>
@@ -44,21 +45,21 @@ export function SelfFields(): JSX.Element {
         <label className="form-label">
           お電話番号 <span className="req">必須</span>
         </label>
-        <input type="tel" className="form-input" placeholder="090-1234-5678" />
+        <input type="tel" name="self_phone" className="form-input" placeholder="090-1234-5678" />
       </div>
 
       <div className="form-group">
         <label className="form-label">
           メールアドレス <span className="opt">任意</span>
         </label>
-        <input type="email" className="form-input" placeholder="example@email.com" />
+        <input type="email" name="self_email" className="form-input" placeholder="example@email.com" />
       </div>
 
       <div className="form-group">
         <label className="form-label">
           お住まいの地域 <span className="req">必須</span>
         </label>
-        <select className="form-select" defaultValue="">
+        <select name="self_pref" className="form-select" defaultValue="">
           <option value="" disabled>
             都道府県を選択
           </option>
@@ -76,7 +77,7 @@ export function SelfFields(): JSX.Element {
           {["一人暮らし", "ご夫婦でお住まい", "ご家族と同居", "その他"].map(
             (v) => (
               <label className="form-radio" key={v}>
-                <input type="radio" name="self-living" /> {v}
+                <input type="radio" name="self_living" value={v} /> {v}
               </label>
             ),
           )}
@@ -88,6 +89,7 @@ export function SelfFields(): JSX.Element {
 
 /**
  * 「ご家族のこと」選択時に表示するご相談者情報＋対象家族フィールド群。
+ * 各入力に name を付与し、送信時に name 指定で確実に収集できるようにしている。
  */
 export function FamilyFields(): JSX.Element {
   return (
@@ -100,8 +102,8 @@ export function FamilyFields(): JSX.Element {
             お名前 <span className="req">必須</span>
           </label>
           <div className="form-inline">
-            <input type="text" className="form-input" placeholder="姓" />
-            <input type="text" className="form-input" placeholder="名" />
+            <input type="text" name="fam_last_name" className="form-input" placeholder="姓" />
+            <input type="text" name="fam_first_name" className="form-input" placeholder="名" />
           </div>
         </div>
 
@@ -109,7 +111,7 @@ export function FamilyFields(): JSX.Element {
           <label className="form-label">
             ご年代 <span className="req">必須</span>
           </label>
-          <select className="form-select" defaultValue="">
+          <select name="fam_applicant_age" className="form-select" defaultValue="">
             <option value="" disabled>
               選択してください
             </option>
@@ -125,7 +127,7 @@ export function FamilyFields(): JSX.Element {
           <label className="form-label">
             お電話番号 <span className="req">必須</span>
           </label>
-          <input type="tel" className="form-input" placeholder="090-1234-5678" />
+          <input type="tel" name="fam_phone" className="form-input" placeholder="090-1234-5678" />
         </div>
 
         <div className="form-group">
@@ -134,6 +136,7 @@ export function FamilyFields(): JSX.Element {
           </label>
           <input
             type="email"
+            name="fam_email"
             className="form-input"
             placeholder="example@email.com"
           />
@@ -150,7 +153,7 @@ export function FamilyFields(): JSX.Element {
           <div className="radio-wrap">
             {["父", "母", "配偶者", "その他"].map((v) => (
               <label className="form-radio" key={v}>
-                <input type="radio" name="relation" /> {v}
+                <input type="radio" name="relation" value={v} /> {v}
               </label>
             ))}
           </div>
@@ -160,7 +163,7 @@ export function FamilyFields(): JSX.Element {
           <label className="form-label">
             対象の方のご年齢 <span className="req">必須</span>
           </label>
-          <select className="form-select" defaultValue="">
+          <select name="fam_target_age" className="form-select" defaultValue="">
             <option value="" disabled>
               選択してください
             </option>
@@ -178,7 +181,7 @@ export function FamilyFields(): JSX.Element {
           <label className="form-label">
             お住まいの地域 <span className="req">必須</span>
           </label>
-          <select className="form-select" defaultValue="">
+          <select name="fam_pref" className="form-select" defaultValue="">
             <option value="" disabled>
               都道府県を選択
             </option>
@@ -200,7 +203,7 @@ export function FamilyFields(): JSX.Element {
               "施設に入居中",
             ].map((v) => (
               <label className="form-radio" key={v}>
-                <input type="radio" name="fam-living" /> {v}
+                <input type="radio" name="fam_living" value={v} /> {v}
               </label>
             ))}
           </div>

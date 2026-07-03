@@ -27,13 +27,19 @@ const CONTACT_TIMES = [
 
 /**
  * 無料相談フォーム。ご自身／ご家族で入力項目を動的切替。
- * 送信するとバックエンド無しで同ページ内の完了表示へ切り替える。
- * @param onBackToTop 完了画面からトップ（LP）へ戻る操作
+ * 送信すると /api/applications へ送信し、同ページ内の完了表示へ切り替える。
+ * @param onBackToTop 確認不要でトップ（LP）へ戻る操作（完了画面用）
+ * @param onRequestBack LPへ戻る要求（入力途中なら親が破棄確認ポップアップを出す）
+ * @param onDirtyChange 入力の有無を親へ通知（破棄確認の要否判定に使う）
  */
 export default function ConsultForm({
   onBackToTop,
+  onRequestBack,
+  onDirtyChange,
 }: {
   onBackToTop: () => void;
+  onRequestBack: () => void;
+  onDirtyChange: (dirty: boolean) => void;
 }): JSX.Element {
   const [formType, setFormType] = useState<FormType>("self");
   const [submitted, setSubmitted] = useState(false);
@@ -97,6 +103,7 @@ export default function ConsultForm({
         setError("送信に失敗しました。時間をおいて再度お試しください。");
         return;
       }
+      onDirtyChange(false);
       setSubmitted(true);
       window.scrollTo(0, 0);
     } catch {
@@ -112,6 +119,10 @@ export default function ConsultForm({
 
   return (
     <div className="form-page">
+      <button type="button" className="form-back" onClick={onRequestBack}>
+        &larr; 相談をやめてLPに戻る
+      </button>
+
       <div className="form-progress">
         <div className="prog-step done">
           <div className="prog-num">1</div> LP
@@ -126,7 +137,12 @@ export default function ConsultForm({
         </div>
       </div>
 
-      <div className="form-container" ref={containerRef}>
+      <div
+        className="form-container"
+        ref={containerRef}
+        onInput={() => onDirtyChange(true)}
+        onChange={() => onDirtyChange(true)}
+      >
         {/* WHO: ご自身 or ご家族（動的切り替え） */}
         <div className="form-section">
           <h3 className="form-section-title">どなたのご相談ですか？</h3>

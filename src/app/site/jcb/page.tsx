@@ -56,8 +56,7 @@ export default function JcbLanding(): JSX.Element {
               style={{ background: "none", border: "none", cursor: "pointer" }}
               aria-label="LPに戻る"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className="brand-logo-img" src="/site/jcb/QOLC_rogo2.png" alt="QOLC" />
+              <span className="brand-logo-mark" role="img" aria-label="QOLC" />
               <span className="brand-divider" aria-hidden="true" />
               <span className="b-sub">無料ご相談フォーム</span>
             </button>

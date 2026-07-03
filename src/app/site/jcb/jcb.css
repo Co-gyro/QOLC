@@ -73,10 +73,10 @@
 /* HEADER (sticky, backdrop-blur) */
 .jcb-root .site-header {
   position: sticky; top: 0; z-index: 50;
-  background: rgba(250,248,244,0.86);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(27,42,74,0.08);
+  background: rgba(15,29,54,0.82);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border-bottom: 1px solid rgba(196,162,101,0.28);
 }
 .jcb-root .header-inner {
   max-width: var(--maxw); margin: 0 auto;
@@ -90,20 +90,33 @@
   color: var(--gold); display: grid; place-items: center;
   font-family: var(--serif); font-weight: 700; font-size: 17px; flex: none;
 }
-.jcb-root .brand .b-name { font-family: var(--serif); font-weight: 700; font-size: 17px; letter-spacing: 0.04em; line-height: 1.2; color: var(--navy); }
-.jcb-root .brand .brand-logo-img { height: 26px; width: auto; display: block; }
-.jcb-root .brand .brand-divider { width: 1px; height: 22px; background: rgba(27,42,74,0.16); flex: none; }
-.jcb-root .brand .b-sub { font-size: 11px; color: var(--navy); opacity: 0.82; letter-spacing: 0.04em; font-weight: 600; display: none; line-height: 1.3; }
-.jcb-root .header-cta { min-height: 44px; padding: 0 20px; font-size: 15px; }
+/* QOLCロゴ: ゴールドのグラデでワードマークを塗る（マスク方式）＝高級感 */
+.jcb-root .brand .brand-logo-mark {
+  display: block; width: 90px; height: 26px; flex: none;
+  background: linear-gradient(135deg, #E7D19B 0%, #C4A265 52%, #A8842E 100%);
+  -webkit-mask: url('/site/jcb/QOLC_rogo2.png') no-repeat left center / contain;
+  mask: url('/site/jcb/QOLC_rogo2.png') no-repeat left center / contain;
+}
+.jcb-root .brand .brand-divider { width: 1px; height: 22px; background: rgba(196,162,101,0.42); flex: none; }
+.jcb-root .brand .b-sub { font-size: 11px; color: rgba(255,255,255,0.74); letter-spacing: 0.06em; font-weight: 500; display: none; line-height: 1.3; }
+/* ヘッダーCTA: ゴールド地×ネイビー文字（ネイビーヘッダーに馴染むCTA） */
+.jcb-root .site-header .header-cta {
+  min-height: 44px; padding: 0 22px; font-size: 15px; font-weight: 700;
+  background: linear-gradient(135deg, #DCC079 0%, #C4A265 100%);
+  color: var(--navy-deep, #0F1D36); border: none;
+  box-shadow: 0 4px 16px -5px rgba(196,162,101,0.55);
+  transition: filter 0.2s, transform 0.2s;
+}
+.jcb-root .site-header .header-cta:hover { filter: brightness(1.06); transform: translateY(-1px); }
 
-/* フォーム: LPへ戻る動線 */
+/* フォーム: LPへ戻る動線（ネイビーヘッダー用に淡ゴールド枠） */
 .jcb-root .form-back-link {
-  background: none; border: 1px solid rgba(27,42,74,0.2); color: var(--navy);
+  background: none; border: 1px solid rgba(196,162,101,0.45); color: rgba(255,255,255,0.88);
   font-size: 13px; font-weight: 600; letter-spacing: 0.02em;
   padding: 8px 14px; border-radius: 8px; cursor: pointer; white-space: nowrap;
   transition: background 0.2s, border-color 0.2s;
 }
-.jcb-root .form-back-link:hover { background: rgba(27,42,74,0.05); border-color: rgba(27,42,74,0.35); }
+.jcb-root .form-back-link:hover { background: rgba(255,255,255,0.08); border-color: rgba(196,162,101,0.75); }
 .jcb-root .form-back {
   display: inline-flex; align-items: center; gap: 6px;
   background: none; border: none; color: var(--navy); opacity: 0.75;

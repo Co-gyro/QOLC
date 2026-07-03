@@ -38,8 +38,7 @@ export default function LandingView({
       <header className="site-header">
         <div className="header-inner">
           <a className="brand" href="#top">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="brand-logo-img" src="/site/jcb/QOLC_rogo2.png" alt="QOLC" />
+            <span className="brand-logo-mark" role="img" aria-label="QOLC" />
             <span className="brand-divider" aria-hidden="true" />
             <span className="b-sub">
               シニアの住まいの相談窓口 / JCB &times; Universal Development
@@ -47,7 +46,7 @@ export default function LandingView({
           </a>
           <button
             type="button"
-            className="btn btn-green header-cta"
+            className="btn header-cta"
             onClick={onConsult}
           >
             ご相談

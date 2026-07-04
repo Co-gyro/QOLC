@@ -22,6 +22,9 @@ import { shouldTriggerRule, toJstDateString } from "@/lib/portal/workflow-logic"
 import { logActivity } from "@/lib/audit/activity-log";
 
 export const dynamic = "force-dynamic";
+// Next.js 14 では force-dynamic だけでは fetch データキャッシュが残り、
+// recurring_rules の古い last_run_on を読んで多重起票する（本番で実測）。
+export const fetchCache = "force-no-store";
 
 /** 起票結果1件（運用確認用の戻り JSON に含める） */
 interface CreatedRun {
@@ -63,6 +66,10 @@ export async function GET(req: NextRequest) {
     }
     try {
       const runId = await createRunFromRule(rule, today);
+      if (runId === null) {
+        skipped += 1; // 先取りロックが取れなかった＝本日すでに起票済み
+        continue;
+      }
       created.push({
         rule: rule.code,
         runId,
@@ -84,9 +91,46 @@ export async function GET(req: NextRequest) {
 async function createRunFromRule(
   rule: RecurringRule,
   today: ReturnType<typeof getJstDateParts>
-): Promise<string> {
+): Promise<string | null> {
   const admin = getSupabaseAdminClient();
   const todayStr = toJstDateString(today);
+
+  // 先取りロック: last_run_on が今日でない行だけを今日に更新できたときのみ起票する。
+  // 条件付き UPDATE を DB 側で原子的に行うため、キャッシュされた古い読み取りや
+  // Cron の同時実行があっても同日の多重起票は起きない。
+  const { data: claimed, error: claimErr } = await admin
+    .from("recurring_rules")
+    .update({ last_run_on: todayStr })
+    .eq("id", rule.id)
+    .or(`last_run_on.is.null,last_run_on.neq.${todayStr}`)
+    .select("id");
+  if (claimErr) throw new Error(`last_run_on の更新に失敗: ${claimErr.message}`);
+  if (!claimed || claimed.length === 0) {
+    return null; // 既に本日起票済み（別インスタンスが先行）
+  }
+
+  try {
+    return await createClaimedRun(rule, today);
+  } catch (e) {
+    // 起票に失敗した場合はロックを元に戻し、次回の Cron で再試行できるようにする
+    await admin
+      .from("recurring_rules")
+      .update({ last_run_on: rule.last_run_on })
+      .eq("id", rule.id);
+    throw e;
+  }
+}
+
+/**
+ * 先取りロック取得済みのルールから run + steps を作成する（createRunFromRule 専用）。
+ * @param rule 起票対象の recurring_rules 行
+ * @param today JST の今日（getJstDateParts の結果）
+ */
+async function createClaimedRun(
+  rule: RecurringRule,
+  today: ReturnType<typeof getJstDateParts>
+): Promise<string> {
+  const admin = getSupabaseAdminClient();
 
   const { data: tmpl, error: tmplErr } = await admin
     .from("workflow_templates")
@@ -128,13 +172,6 @@ async function createRunFromRule(
       .eq("id", runId);
     throw new Error(`ステップの作成に失敗: ${stepErr.message}`);
   }
-
-  // 同日の多重起票防止（Cron の再実行に耐える）
-  const { error: ruleErr } = await admin
-    .from("recurring_rules")
-    .update({ last_run_on: todayStr })
-    .eq("id", rule.id);
-  if (ruleErr) throw new Error(`last_run_on の更新に失敗: ${ruleErr.message}`);
 
   await logActivity({
     actorId: null,

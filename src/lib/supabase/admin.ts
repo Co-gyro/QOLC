@@ -28,6 +28,11 @@ export function getSupabaseAdminClient(): SupabaseClient {
       autoRefreshToken: false,
       persistSession: false,
     },
+    global: {
+      // Next.js の fetch データキャッシュを無効化する（Route Handler 内の
+      // GET が古い行を読み、Cron の多重起票等を引き起こすため）
+      fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+    },
   });
   return cached;
 }

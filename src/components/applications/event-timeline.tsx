@@ -35,7 +35,45 @@ function describe(ev: ApplicationEvent): string | null {
     case "next_action":
       return to ? `「${to}」` : "（クリア）";
     case "commented":
+    case "comment":
       return (d.text as string | undefined) ?? null;
+    case "created":
+      return d.via === "manual" ? "手動起票（電話・窓口受付）" : null;
+    case "email_sent": {
+      // 送信結果は2形式に対応する:
+      //   手動送信（/email API）… detail.result = { sent, skipped }（ネスト）
+      //   受付自動返信（intake） … detail 直下に sent / skipped（フラット）
+      const nested = d.result as { sent?: boolean; skipped?: boolean } | undefined;
+      const sent = nested?.sent ?? (d.sent as boolean | undefined);
+      const skipped = nested?.skipped ?? (d.skipped as boolean | undefined);
+      const state = sent
+        ? "送信済み"
+        : skipped
+          ? "送信スキップ（メール基盤未設定のため記録のみ）"
+          : "送信失敗";
+      return `「${(d.subject as string | undefined) ?? "メール"}」→ ${(d.to as string | undefined) ?? "宛先不明"}：${state}`;
+    }
+    case "converted": {
+      const name = (d.merchant_name as string | undefined) ?? "";
+      const note = (d.note as string | null | undefined) ?? null;
+      return `加盟店「${name}」として登録しました${note ? `（メモ: ${note}）` : ""}`;
+    }
+    case "ud_input_updated": {
+      const changed = (d.changed as string[] | undefined) ?? [];
+      return changed.length > 0 ? `${changed.join("、")} を更新` : "UD追記情報を更新";
+    }
+    case "review_registered": {
+      const company = d.company === "jcb" ? "JCB" : d.company === "saison" ? "セゾン" : "";
+      const after = d.after as { result?: string | null } | undefined;
+      const result =
+        after?.result === "approved" ? "通過" : after?.result === "rejected" ? "NG" : "結果待ち";
+      return `${company}：${result}`;
+    }
+    case "workflow_started": {
+      const title = (d.title as string | undefined) ?? "";
+      const count = (d.step_count as number | undefined) ?? null;
+      return `「${title}」${count != null ? `（全${count}工程）` : ""}を起票`;
+    }
     default:
       return null;
   }

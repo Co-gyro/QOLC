@@ -1,9 +1,10 @@
 /**
- * GET /api/admin/applications
+ * GET  /api/admin/applications … 申請/相談の一覧（status / assignee / source でフィルタ可能）
+ * POST /api/admin/applications … 案件の手動起票（電話・窓口受付をその場で記録する）
  *
- * 申請/相談の一覧を返す。クエリ status / assignee / source でフィルタ可能。
  * - admin のみ（RLS で担保。認証チェックも実施）
  * - 取得は getSupabaseServerClient()（RLS 適用）。担当者名解決のみ admin client。
+ * - 手動起票は作成者（actor_id）付きの created イベントを必ず記録する
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
@@ -13,6 +14,7 @@ import { requireAdmin } from "@/lib/applications/server";
 import { toApplicationRow, type RawApplication } from "@/lib/applications/mappers";
 import { apiError, apiOk } from "@/types/api";
 import { ALL_STATUSES, ALL_SOURCES } from "@/lib/applications/labels";
+import { adminApplicationCreateSchema } from "@/lib/applications/admin-intake";
 
 const querySchema = z.object({
   status: z.enum(ALL_STATUSES as unknown as [string, ...string[]]).optional(),
@@ -63,6 +65,67 @@ export async function GET(req: NextRequest) {
   const rows = raws.map((r) => toApplicationRow(r, nameOf));
 
   return NextResponse.json(apiOk({ items: rows }));
+}
+
+/**
+ * 案件を手動起票する（公開フォームを経由しない電話・窓口受付用）。
+ * 作成された application と created イベント（via=manual, actor=操作 admin）を記録する。
+ */
+export async function POST(req: NextRequest) {
+  const auth = await requireAdmin();
+  if (!auth.ok) {
+    return NextResponse.json(apiError(auth.message, auth.code), { status: auth.status });
+  }
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json(apiError("不正なリクエスト", "BAD_REQUEST"), { status: 400 });
+  }
+  const parsed = adminApplicationCreateSchema.safeParse(body);
+  if (!parsed.success) {
+    const first = parsed.error.issues[0]?.message ?? "入力検証エラー";
+    return NextResponse.json(apiError(first, "VALIDATION_ERROR"), { status: 400 });
+  }
+  const v = parsed.data;
+
+  const admin = getSupabaseAdminClient();
+  const { data: created, error: insErr } = await admin
+    .from("applications")
+    .insert({
+      source: v.source,
+      status: "new",
+      priority: "normal",
+      applicant_name: v.applicant_name,
+      applicant_org: v.applicant_org?.trim() || null,
+      applicant_email: v.applicant_email?.trim() || null,
+      applicant_phone: v.applicant_phone?.trim() || null,
+      message: v.message,
+      payload: {},
+    })
+    .select("id")
+    .single();
+  if (insErr || !created) {
+    return NextResponse.json(
+      apiError(`起票に失敗しました: ${insErr?.message ?? "unknown"}`, "DB"),
+      { status: 500 }
+    );
+  }
+
+  const { error: evErr } = await admin.from("application_events").insert({
+    application_id: created.id as string,
+    actor_id: auth.user.id,
+    kind: "created",
+    detail: { via: "manual", source: v.source },
+  });
+  if (evErr) {
+    return NextResponse.json(apiError(`履歴の記録に失敗しました: ${evErr.message}`, "DB"), {
+      status: 500,
+    });
+  }
+
+  return NextResponse.json(apiOk({ id: created.id as string }));
 }
 
 /**

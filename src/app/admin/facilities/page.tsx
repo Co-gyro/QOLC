@@ -8,6 +8,7 @@ import { LoadingSpinner } from "@/components/shared/loading-spinner";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { FacilityFormDialog } from "@/components/forms/facility-form-dialog";
+import { AccountInviteDialog } from "@/components/forms/account-invite-dialog";
 import {
   fetchFacilities,
   fetchFacilityGroups,
@@ -23,6 +24,7 @@ export default function AdminFacilitiesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<FacilityRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FacilityRow | null>(null);
+  const [inviteTarget, setInviteTarget] = useState<FacilityRow | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -122,6 +124,16 @@ export default function AdminFacilitiesPage() {
                   </button>
                   <button
                     className="text-sm underline"
+                    style={{ color: "var(--qolc-primary)" }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setInviteTarget(r);
+                    }}
+                  >
+                    アカウント発行
+                  </button>
+                  <button
+                    className="text-sm underline"
                     style={{ color: "#DC2626" }}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -144,6 +156,13 @@ export default function AdminFacilitiesPage() {
         groups={groups}
         onClose={() => setFormOpen(false)}
         onSaved={handleSaved}
+      />
+      <AccountInviteDialog
+        open={!!inviteTarget}
+        role="facility_staff"
+        targetId={inviteTarget?.id ?? null}
+        targetName={inviteTarget?.name ?? null}
+        onClose={() => setInviteTarget(null)}
       />
       <ConfirmDialog
         open={!!deleteTarget}

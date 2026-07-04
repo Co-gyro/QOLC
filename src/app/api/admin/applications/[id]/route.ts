@@ -18,10 +18,14 @@ import {
 } from "@/lib/applications/mappers";
 import { apiError, apiOk } from "@/types/api";
 import { ALL_STATUSES, ALL_PRIORITIES } from "@/lib/applications/labels";
+import { parseUdInput, describeUdFieldChanges } from "@/lib/applications/ud-input";
 import type { ApplicationDetail } from "@/lib/applications/types";
 
 const SELECT_COLS =
   "id, source, status, priority, applicant_name, applicant_org, applicant_email, applicant_phone, message, payload, assignee_id, due_date, next_action, merchant_id, created_at, updated_at";
+
+/** ud_input（migration 031）付きの SELECT。列未適用の環境では SELECT_COLS へフォールバック */
+const SELECT_COLS_WITH_UD = `${SELECT_COLS}, ud_input`;
 
 const patchSchema = z
   .object({
@@ -34,6 +38,7 @@ const patchSchema = z
       .nullable()
       .optional(),
     next_action: z.string().trim().max(500).nullable().optional(),
+    ud_input: z.record(z.string(), z.unknown()).nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "更新項目がありません" });
 
@@ -47,12 +52,25 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   }
 
   const supabase = createSupabaseServerClient();
-  const { data: appData, error: appErr } = await supabase
+  // ud_input 列（migration 031）が未適用の環境でも詳細表示を壊さないよう段階フォールバック
+  const first = await supabase
     .from("applications")
-    .select(SELECT_COLS)
+    .select(SELECT_COLS_WITH_UD)
     .eq("id", params.id)
     .is("deleted_at", null)
     .maybeSingle();
+  let appData: unknown = first.data;
+  let appErr: { message: string } | null = first.error;
+  if (appErr) {
+    const fallback = await supabase
+      .from("applications")
+      .select(SELECT_COLS)
+      .eq("id", params.id)
+      .is("deleted_at", null)
+      .maybeSingle();
+    appData = fallback.data;
+    appErr = fallback.error;
+  }
   if (appErr) {
     return NextResponse.json(apiError(`取得に失敗しました: ${appErr.message}`, "DB"), {
       status: 500,
@@ -83,9 +101,43 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const detail: ApplicationDetail = {
     ...toApplicationRow(raw, nameOf),
     payload: raw.payload,
+    udInput: raw.ud_input ?? null,
+    workflowRun: await fetchWorkflowRunSummary(params.id),
     events: rawEvents.map((e) => toApplicationEvent(e, nameOf)),
   };
   return NextResponse.json(apiOk(detail));
+}
+
+/**
+ * 案件に紐づくワークフロー起票の進捗サマリを取得する。
+ * workflow テーブル（migration 030）が未適用の環境では null を返し、詳細表示を壊さない。
+ */
+async function fetchWorkflowRunSummary(
+  applicationId: string
+): Promise<ApplicationDetail["workflowRun"]> {
+  const admin = getSupabaseAdminClient();
+  const { data: runs, error: runErr } = await admin
+    .from("workflow_runs")
+    .select("id, title, status")
+    .eq("application_id", applicationId)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (runErr || !runs || runs.length === 0) return null;
+  const run = runs[0] as { id: string; title: string; status: "open" | "done" | "canceled" };
+  const { data: steps, error: stepErr } = await admin
+    .from("workflow_run_steps")
+    .select("status")
+    .eq("run_id", run.id);
+  if (stepErr) return null;
+  const all = (steps ?? []) as Array<{ status: string }>;
+  return {
+    id: run.id,
+    title: run.title,
+    status: run.status,
+    doneCount: all.filter((s) => s.status === "done").length,
+    totalCount: all.length,
+  };
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -111,13 +163,37 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const admin = getSupabaseAdminClient();
 
-  // 変更前の値を取得（履歴の before/after 記録用）
-  const { data: before, error: beforeErr } = await admin
+  // 変更前の値を取得（履歴の before/after 記録用）。
+  // ud_input（migration 031）未適用の環境では ud_input を除いて取得する。
+  const needsUdInput = patch.ud_input !== undefined;
+  const beforeCols = "status, priority, assignee_id, due_date, next_action";
+  const firstBefore = await admin
     .from("applications")
-    .select("status, priority, assignee_id, due_date, next_action")
+    .select(`${beforeCols}, ud_input`)
     .eq("id", params.id)
     .is("deleted_at", null)
     .maybeSingle();
+  let before: unknown = firstBefore.data;
+  let beforeErr: { message: string } | null = firstBefore.error;
+  if (beforeErr) {
+    if (needsUdInput) {
+      return NextResponse.json(
+        apiError(
+          "UD追記情報を保存できません（DBに ud_input 列がありません。migration 031 を適用してください）",
+          "MIGRATION_REQUIRED"
+        ),
+        { status: 500 }
+      );
+    }
+    const fallback = await admin
+      .from("applications")
+      .select(beforeCols)
+      .eq("id", params.id)
+      .is("deleted_at", null)
+      .maybeSingle();
+    before = fallback.data;
+    beforeErr = fallback.error;
+  }
   if (beforeErr) {
     return NextResponse.json(apiError(`取得に失敗しました: ${beforeErr.message}`, "DB"), {
       status: 500,
@@ -132,10 +208,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     assignee_id: string | null;
     due_date: string | null;
     next_action: string | null;
+    ud_input?: Record<string, unknown> | null;
   };
 
   // 実際に値が変化するカラムのみ更新対象にする
-  const updates: Record<string, string | null> = {};
+  const updates: Record<string, unknown> = {};
   const events: Array<{ kind: string; detail: Record<string, unknown> }> = [];
   const norm = (v: string | null | undefined): string | null =>
     v === undefined ? null : v === "" ? null : v;
@@ -159,6 +236,21 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (patch.next_action !== undefined && norm(patch.next_action) !== prev.next_action) {
     updates.next_action = norm(patch.next_action);
     events.push({ kind: "next_action", detail: { from: prev.next_action, to: norm(patch.next_action) } });
+  }
+  if (patch.ud_input !== undefined) {
+    const prevUd = prev.ud_input ?? null;
+    const nextUd = patch.ud_input;
+    if (JSON.stringify(prevUd) !== JSON.stringify(nextUd)) {
+      updates.ud_input = nextUd;
+      const changed = describeUdFieldChanges(
+        parseUdInput(prevUd).fields,
+        parseUdInput(nextUd).fields
+      );
+      events.push({
+        kind: "ud_input_updated",
+        detail: { before: prevUd, after: nextUd, changed },
+      });
+    }
   }
 
   if (Object.keys(updates).length === 0) {

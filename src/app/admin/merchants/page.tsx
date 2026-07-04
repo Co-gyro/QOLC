@@ -15,21 +15,31 @@ import {
   type MerchantRow,
   type UploadFormatOption,
 } from "@/lib/portal/admin-queries";
+import { fetchMerchantCardCodes, type MerchantCardCodes } from "./_lib/card-codes";
+import { CardCodesCell } from "./_components/card-codes-cell";
+import { CardCodesDialog } from "./_components/card-codes-dialog";
 
 export default function AdminMerchantsPage() {
   const [rows, setRows] = useState<MerchantRow[] | null>(null);
   const [formats, setFormats] = useState<UploadFormatOption[]>([]);
+  const [codes, setCodes] = useState<Map<string, MerchantCardCodes>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<MerchantRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MerchantRow | null>(null);
+  const [codesTarget, setCodesTarget] = useState<MerchantRow | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [mers, fmts] = await Promise.all([fetchMerchants(), fetchUploadFormats()]);
+      const [mers, fmts, codeMap] = await Promise.all([
+        fetchMerchants(),
+        fetchUploadFormats(),
+        fetchMerchantCardCodes(),
+      ]);
       setRows(mers);
       setFormats(fmts);
+      setCodes(codeMap);
     } catch (e) {
       setError(e instanceof Error ? e.message : "取得に失敗しました");
       setRows([]);
@@ -97,6 +107,16 @@ export default function AdminMerchantsPage() {
             { key: "name", header: "加盟店名", sortable: true },
             { key: "mallCode", header: "モールコード", render: (r) => r.mallCode ?? "—" },
             { key: "terminalId", header: "端末番号", render: (r) => r.terminalId ?? "—" },
+            {
+              key: "cardCodes",
+              header: "加盟店番号（JCB2種/セゾン）",
+              render: (r) => (
+                <CardCodesCell
+                  codes={codes.get(r.id) ?? null}
+                  onEdit={() => setCodesTarget(r)}
+                />
+              ),
+            },
             { key: "facilityCount", header: "提携施設数", sortable: true, className: "text-right" },
             {
               key: "actions",
@@ -138,6 +158,17 @@ export default function AdminMerchantsPage() {
         formats={formats}
         onClose={() => setFormOpen(false)}
         onSaved={handleSaved}
+      />
+      <CardCodesDialog
+        open={!!codesTarget}
+        merchantId={codesTarget?.id ?? null}
+        merchantName={codesTarget?.name ?? ""}
+        current={codesTarget ? codes.get(codesTarget.id) ?? null : null}
+        onClose={() => setCodesTarget(null)}
+        onSaved={() => {
+          setCodesTarget(null);
+          void load();
+        }}
       />
       <ConfirmDialog
         open={!!deleteTarget}

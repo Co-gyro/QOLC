@@ -1,9 +1,20 @@
 /**
- * 申請/タスク ハブの列挙値・日本語ラベル定義（migration 029 の ENUM と1対1対応）
+ * 申請/タスク ハブの列挙値・日本語ラベル定義（migration 029/031 の ENUM と1対1対応）
  */
 
-/** 申請の種別（qolc_merchant=加盟店申請 / jcb_consult=住み替え相談） */
-export type ApplicationSource = "qolc_merchant" | "jcb_consult";
+/**
+ * 申請の種別。
+ * qolc_merchant=加盟店申請 / jcb_consult=住み替え相談 / contact=お問い合わせ /
+ * support_facility=施設サポート / support_family=ご家族サポート /
+ * support_provider=提供者サポート（後4種は migration 031 で追加）
+ */
+export type ApplicationSource =
+  | "qolc_merchant"
+  | "jcb_consult"
+  | "contact"
+  | "support_facility"
+  | "support_family"
+  | "support_provider";
 
 /** 対応状態（new=新規 / in_progress=対応中 / waiting=相手待ち / done=完了 / rejected=却下） */
 export type ApplicationStatus =
@@ -16,7 +27,14 @@ export type ApplicationStatus =
 /** 優先度（low=低 / normal=中 / high=高） */
 export type ApplicationPriority = "low" | "normal" | "high";
 
-/** 変更履歴（application_events.kind）の種別 */
+/**
+ * 変更履歴（application_events.kind）の種別。
+ * comment / email_sent / converted は migration 031 で追加
+ * （comment=対応メモ。既存の commented=コメント とは別イベント）
+ * ud_input_updated / review_registered / workflow_started は
+ * 申請パイプライン（UD追記・審査結果・工程起票）の記録用（kind は TEXT のため
+ * DB 側の DDL 変更は不要。コメント管理方式に準拠して追加）。
+ */
 export type ApplicationEventKind =
   | "created"
   | "status_changed"
@@ -24,12 +42,22 @@ export type ApplicationEventKind =
   | "priority_changed"
   | "due_changed"
   | "next_action"
-  | "commented";
+  | "commented"
+  | "comment"
+  | "email_sent"
+  | "converted"
+  | "ud_input_updated"
+  | "review_registered"
+  | "workflow_started";
 
 /** 種別の日本語ラベル */
 export const SOURCE_LABELS: Record<ApplicationSource, string> = {
   qolc_merchant: "加盟店申請",
   jcb_consult: "住み替え相談",
+  contact: "お問い合わせ",
+  support_facility: "施設サポート",
+  support_family: "ご家族サポート",
+  support_provider: "提供者サポート",
 };
 
 /** 状態の日本語ラベル */
@@ -57,6 +85,12 @@ export const EVENT_KIND_LABELS: Record<ApplicationEventKind, string> = {
   due_changed: "期限変更",
   next_action: "次アクション更新",
   commented: "コメント",
+  comment: "対応メモ",
+  email_sent: "メール送信",
+  converted: "加盟店へ変換",
+  ud_input_updated: "UD追記情報更新",
+  review_registered: "審査結果登録",
+  workflow_started: "申請工程開始",
 };
 
 /** 「未対応」とみなす状態（既定フィルタで表示する対象） */
@@ -99,4 +133,8 @@ export const ALL_PRIORITIES: readonly ApplicationPriority[] = [
 export const ALL_SOURCES: readonly ApplicationSource[] = [
   "qolc_merchant",
   "jcb_consult",
+  "contact",
+  "support_facility",
+  "support_family",
+  "support_provider",
 ];

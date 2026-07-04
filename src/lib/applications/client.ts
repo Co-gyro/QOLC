@@ -56,7 +56,7 @@ export async function fetchAssignees(): Promise<AssigneeOption[]> {
   return data.items;
 }
 
-/** 申請を更新（状態/優先度/担当者/期限/次アクション） */
+/** 申請を更新（状態/優先度/担当者/期限/次アクション/UD追記情報） */
 export async function patchApplication(
   id: string,
   patch: ApplicationPatch
@@ -65,5 +65,109 @@ export async function patchApplication(
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
+  });
+}
+
+/** JSON POST の共通ヘッダ */
+const JSON_POST = { method: "POST", headers: { "Content-Type": "application/json" } } as const;
+
+/** 手動起票の入力（電話・窓口受付をその場で記録する） */
+export interface ApplicationCreateInput {
+  source: string;
+  applicant_name: string;
+  applicant_org?: string;
+  applicant_email?: string;
+  applicant_phone?: string;
+  message: string;
+}
+
+/** 案件を手動で起票する（管理者用。作成者と created イベントが記録される） */
+export async function createApplication(
+  input: ApplicationCreateInput
+): Promise<{ id: string }> {
+  return request<{ id: string }>("/api/admin/applications", {
+    ...JSON_POST,
+    body: JSON.stringify(input),
+  });
+}
+
+/** 対応メモ（comment イベント）を記録する */
+export async function postApplicationComment(
+  id: string,
+  text: string
+): Promise<{ id: string }> {
+  return request<{ id: string }>(`/api/admin/applications/${id}/comments`, {
+    ...JSON_POST,
+    body: JSON.stringify({ text }),
+  });
+}
+
+/** 申請工程（merchant_application テンプレ13工程）を起票する */
+export async function startApplicationWorkflow(
+  id: string
+): Promise<{ runId: string; stepCount: number }> {
+  return request<{ runId: string; stepCount: number }>(
+    `/api/admin/applications/${id}/workflow`,
+    { ...JSON_POST, body: JSON.stringify({}) }
+  );
+}
+
+/** 審査結果1社分の保存入力 */
+export interface ReviewSaveInput {
+  company: "jcb" | "saison";
+  submitted_at?: string | null;
+  result?: "approved" | "rejected" | null;
+  result_received_at?: string | null;
+  ng_reason?: string | null;
+  merchant_code_recurring?: string | null;
+  merchant_code_ec?: string | null;
+  merchant_code?: string | null;
+}
+
+/** 審査結果（JCB/セゾン）を登録する */
+export async function saveApplicationReview(
+  id: string,
+  input: ReviewSaveInput
+): Promise<{ id: string }> {
+  return request<{ id: string }>(`/api/admin/applications/${id}/review`, {
+    ...JSON_POST,
+    body: JSON.stringify(input),
+  });
+}
+
+/** メール送信結果（送信スキップ時の画面表示に使用） */
+export interface ApplicationEmailResult {
+  sent: boolean;
+  skipped: boolean;
+  to: string;
+  error?: string;
+}
+
+/** 審査通過メールを送信する（結果は email_sent イベントに記録される） */
+export async function sendApplicationEmail(
+  id: string,
+  template: "review_approved"
+): Promise<ApplicationEmailResult> {
+  return request<ApplicationEmailResult>(`/api/admin/applications/${id}/email`, {
+    ...JSON_POST,
+    body: JSON.stringify({ template }),
+  });
+}
+
+/** 加盟店変換の結果 */
+export interface ConvertResult {
+  merchantId: string;
+  mallCode: string | null;
+  terminalId: string | null;
+}
+
+/** 審査通過後、申請を加盟店として登録する */
+export async function convertApplication(
+  id: string,
+  input: { note?: string; assign_mall_code?: boolean; assign_terminal_id?: boolean }
+): Promise<ConvertResult> {
+  return request<ConvertResult>(`/api/admin/applications/${id}/convert`, {
+    ...JSON_POST,
+    body: JSON.stringify(input),
   });
 }

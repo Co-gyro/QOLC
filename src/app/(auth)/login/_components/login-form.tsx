@@ -5,15 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { ROLE_HOME } from "@/lib/auth/role-home";
 import type { UserRole } from "@/types";
-
-/** ロール → ログイン後の遷移先 */
-const ROLE_HOME: Record<UserRole, string> = {
-  admin: "/admin/dashboard",
-  facility_staff: "/facility/dashboard",
-  provider: "/provider/dashboard",
-  family: "/user/home",
-};
 
 /**
  * メール+パスワードのログインフォーム（クライアント）。

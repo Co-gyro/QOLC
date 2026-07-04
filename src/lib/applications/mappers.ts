@@ -20,6 +20,8 @@ export interface RawApplication {
   applicant_phone: string | null;
   message: string | null;
   payload: Record<string, unknown> | null;
+  /** UD追記情報（migration 031 追加列。select しない場合は undefined） */
+  ud_input?: Record<string, unknown> | null;
   assignee_id: string | null;
   due_date: string | null;
   next_action: string | null;

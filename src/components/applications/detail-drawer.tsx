@@ -1,8 +1,9 @@
 /**
  * 申請詳細ドロワー
  *
- * 申請内容(payload) + 変更履歴タイムライン + 操作フォーム
- * （状態/担当者/優先度/期限/次アクション）を右側スライドインで表示する。
+ * 申請内容(payload) + 変更履歴タイムライン + 操作フォーム（状態/担当者/優先度/期限/
+ * 次アクション）+ 対応メモに加え、加盟店申請（qolc_merchant）では
+ * 申請工程チェックリスト・UD追記情報・審査結果・加盟店変換までを一気通貫で扱う。
  */
 "use client";
 
@@ -11,6 +12,11 @@ import { LoadingSpinner } from "@/components/shared/loading-spinner";
 import { EventTimeline } from "./event-timeline";
 import { PayloadView } from "./payload-view";
 import { EditForm } from "./detail-edit-form";
+import { ApplicantInfo } from "./applicant-info";
+import { CommentForm } from "./comment-form";
+import { WorkflowSection } from "./workflow-section";
+import { UdInputForm } from "./ud-input-form";
+import { ReviewSection } from "./review-section";
 import {
   fetchApplicationDetail,
   patchApplication,
@@ -26,6 +32,18 @@ export interface DetailDrawerProps {
   onSaved: () => void;
 }
 
+/** セクション見出し + 本文の枠 */
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <h3 className="text-sm font-bold mb-2" style={{ color: "var(--qolc-primary)" }}>
+        {title}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
 export function DetailDrawer({ applicationId, assignees, onClose, onSaved }: DetailDrawerProps) {
   const [detail, setDetail] = useState<ApplicationDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +51,6 @@ export function DetailDrawer({ applicationId, assignees, onClose, onSaved }: Det
 
   const load = useCallback(async (id: string) => {
     setError(null);
-    setDetail(null);
     try {
       setDetail(await fetchApplicationDetail(id));
     } catch (e) {
@@ -42,6 +59,7 @@ export function DetailDrawer({ applicationId, assignees, onClose, onSaved }: Det
   }, []);
 
   useEffect(() => {
+    setDetail(null);
     if (applicationId) void load(applicationId);
   }, [applicationId, load]);
 
@@ -70,7 +88,14 @@ export function DetailDrawer({ applicationId, assignees, onClose, onSaved }: Det
     [applicationId, load, onSaved]
   );
 
+  /** 詳細を再読込しつつ一覧も更新する（メモ・工程・審査の保存後） */
+  const handleRefresh = useCallback(() => {
+    if (applicationId) void load(applicationId);
+    onSaved();
+  }, [applicationId, load, onSaved]);
+
   if (!applicationId) return null;
+  const isMerchantApply = detail?.source === "qolc_merchant";
 
   return (
     <div
@@ -88,7 +113,7 @@ export function DetailDrawer({ applicationId, assignees, onClose, onSaved }: Det
           <h2 className="text-xl font-bold" style={{ color: "var(--qolc-text)" }}>
             {detail ? SOURCE_LABELS[detail.source] : "申請詳細"}
           </h2>
-          <button className="text-sm underline" onClick={onClose} aria-label="閉じる">
+          <button className="text-sm underline" onClick={onClose} aria-label="閉じる" style={{ minHeight: 44 }}>
             閉じる
           </button>
         </div>
@@ -102,57 +127,56 @@ export function DetailDrawer({ applicationId, assignees, onClose, onSaved }: Det
         {!detail ? (
           <LoadingSpinner />
         ) : (
-          <div className="flex flex-col gap-6">
-            <section>
-              <h3 className="text-sm font-bold mb-2" style={{ color: "var(--qolc-primary)" }}>
-                申請者
-              </h3>
-              <dl className="grid grid-cols-1 gap-1 text-sm">
-                <Field label="お名前" value={detail.applicantName} />
-                <Field label="所属" value={detail.applicantOrg} />
-                <Field label="メール" value={detail.applicantEmail} />
-                <Field label="電話" value={detail.applicantPhone} />
-                <Field label="ご連絡内容" value={detail.message} />
-              </dl>
-            </section>
+          <div className="flex flex-col gap-6" key={detail.id}>
+            <Section title="申請者">
+              <ApplicantInfo detail={detail} />
+            </Section>
 
-            <section>
-              <h3 className="text-sm font-bold mb-2" style={{ color: "var(--qolc-primary)" }}>
-                対応
-              </h3>
+            <Section title="対応">
               <EditForm detail={detail} assignees={assignees} saving={saving} onSave={handleSave} />
-            </section>
+            </Section>
 
-            <section>
-              <h3 className="text-sm font-bold mb-2" style={{ color: "var(--qolc-primary)" }}>
-                申請内容
-              </h3>
+            <Section title="対応メモ">
+              <CommentForm applicationId={detail.id} onSaved={handleRefresh} />
+            </Section>
+
+            {isMerchantApply && (
+              <>
+                <Section title="申請工程">
+                  <WorkflowSection detail={detail} onStarted={handleRefresh} />
+                </Section>
+
+                <Section title="UD追記情報">
+                  <UdInputForm
+                    udInput={detail.udInput}
+                    saving={saving}
+                    onSave={(ud) => handleSave({ ud_input: ud })}
+                  />
+                  <a
+                    href={`/admin/merchant-application?applicationId=${detail.id}`}
+                    className="mt-2 inline-flex items-center text-sm underline font-medium"
+                    style={{ color: "var(--qolc-primary)", minHeight: 44 }}
+                  >
+                    申請書を作成（この申請の内容を反映して開く）
+                  </a>
+                </Section>
+
+                <Section title="審査結果">
+                  <ReviewSection detail={detail} onSaved={handleRefresh} />
+                </Section>
+              </>
+            )}
+
+            <Section title="申請内容">
               <PayloadView payload={detail.payload} />
-            </section>
+            </Section>
 
-            <section>
-              <h3 className="text-sm font-bold mb-2" style={{ color: "var(--qolc-primary)" }}>
-                変更履歴
-              </h3>
+            <Section title="変更履歴">
               <EventTimeline events={detail.events} />
-            </section>
+            </Section>
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-/** ラベル + 値の1行表示（値が空なら "—"） */
-function Field({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div className="flex flex-col">
-      <dt className="text-xs" style={{ color: "var(--qolc-muted)" }}>
-        {label}
-      </dt>
-      <dd className="whitespace-pre-wrap break-words" style={{ color: "var(--qolc-text)" }}>
-        {value?.trim() || "—"}
-      </dd>
     </div>
   );
 }

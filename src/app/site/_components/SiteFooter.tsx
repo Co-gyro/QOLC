@@ -47,7 +47,7 @@ export default function SiteFooter(): JSX.Element {
             <a href="https://uni-dev.jp" target="_blank" rel="noopener noreferrer" style={{ margin: 0, fontSize: 12 }}>運営会社</a>
             <a href="#" style={{ margin: 0, fontSize: 12 }}>プライバシーポリシー</a>
             <a href="#" style={{ margin: 0, fontSize: 12 }}>利用規約</a>
-            <a href="#" style={{ margin: 0, fontSize: 12 }}>お問い合わせ</a>
+            <Link href="/contact" style={{ margin: 0, fontSize: 12 }}>お問い合わせ</Link>
           </div>
         </div>
       </div>

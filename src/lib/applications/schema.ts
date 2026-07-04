@@ -5,8 +5,15 @@
  */
 import { z } from "zod";
 
-/** 申請元。DBの application_source ENUM に対応。 */
-export const applicationSourceSchema = z.enum(["qolc_merchant", "jcb_consult"]);
+/** 申請元。DBの application_source ENUM（029定義＋031拡張）に対応。 */
+export const applicationSourceSchema = z.enum([
+  "qolc_merchant",
+  "jcb_consult",
+  "contact",
+  "support_facility",
+  "support_family",
+  "support_provider",
+]);
 export type ApplicationSource = z.infer<typeof applicationSourceSchema>;
 
 /** メールアドレス形式（最大254文字）。 */
@@ -78,3 +85,36 @@ export const merchantApplyFormSchema = z.object({
   note: z.string().trim().max(500).optional(),
 });
 export type MerchantApplyForm = z.infer<typeof merchantApplyFormSchema>;
+
+/**
+ * 一般お問い合わせフォーム（/site/contact）のクライアント側スキーマ。
+ * source='contact' の申請として /api/applications へ送信する想定
+ * （applicant_name=name, applicant_org=org, message=message にマップ）。
+ */
+export const contactFormSchema = z.object({
+  name: z.string().trim().min(1, "お名前を入力してください").max(100),
+  org: z.string().trim().max(200).optional(),
+  email: z
+    .string()
+    .trim()
+    .min(1, "メールアドレスを入力してください")
+    .max(254, "メールアドレスが長すぎます")
+    .email("メールアドレスの形式が正しくありません"),
+  phone: z.union([
+    z.literal(""),
+    z
+      .string()
+      .trim()
+      .max(13, "電話番号が長すぎます")
+      .regex(
+        /^[0-9]{2,4}-[0-9]{2,4}-[0-9]{3,4}$/,
+        "電話番号の形式が正しくありません（例：03-1234-5678）"
+      ),
+  ]),
+  message: z
+    .string()
+    .trim()
+    .min(1, "お問い合わせ内容を入力してください")
+    .max(500, "お問い合わせ内容は500文字以内で入力してください"),
+});
+export type ContactForm = z.infer<typeof contactFormSchema>;

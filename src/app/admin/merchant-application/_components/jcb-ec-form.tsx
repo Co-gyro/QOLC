@@ -175,8 +175,13 @@ function TextareaRow({
   );
 }
 
-export function JcbEcForm() {
-  const [app, setApp] = useState<JcbEcApplication>(EMPTY_APP);
+export interface JcbEcFormProps {
+  /** 申請ハブからのプリフィル初期値（未指定は空フォーム） */
+  initial?: Partial<JcbEcApplication>;
+}
+
+export function JcbEcForm({ initial }: JcbEcFormProps = {}) {
+  const [app, setApp] = useState<JcbEcApplication>({ ...EMPTY_APP, ...initial });
   const [storeExtras, setStoreExtras] = useState<JcbStoreExtras>(EMPTY_STORE_EXTRAS);
   const [showStoreSection, setShowStoreSection] = useState(false);
   const [showAllErrors, setShowAllErrors] = useState(false);

@@ -3,8 +3,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PortalLayout } from "@/components/layout/portal-layout";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { JcbEcForm } from "./_components/jcb-ec-form";
+import { PrefillLoader } from "./_components/prefill-loader";
 
-export default function MerchantApplicationPage() {
+/** UUID 形式チェック（不正な applicationId はプリフィルせず空フォームにする） */
+function isUuid(id: string): boolean {
+  return /^[0-9a-f-]{36}$/i.test(id);
+}
+
+export default function MerchantApplicationPage({
+  searchParams,
+}: {
+  searchParams?: { applicationId?: string };
+}) {
+  const applicationId =
+    searchParams?.applicationId && isUuid(searchParams.applicationId)
+      ? searchParams.applicationId
+      : null;
   return (
     <PortalLayout portal="admin">
       <Breadcrumb items={[{ label: "ダッシュボード", href: "/admin/dashboard" }, { label: "加盟店管理", href: "/admin/merchants" }, { label: "申請書出力" }]} />
@@ -22,7 +36,7 @@ export default function MerchantApplicationPage() {
         </TabsList>
 
         <TabsContent value="jcb" className="mt-6">
-          <JcbEcForm />
+          {applicationId ? <PrefillLoader applicationId={applicationId} /> : <JcbEcForm />}
         </TabsContent>
 
         <TabsContent value="saison" className="mt-6">

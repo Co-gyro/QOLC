@@ -2,8 +2,13 @@
  * POST /api/applications
  *
  * 公開申請 intake エンドポイント（認証不要）。
- * - QOLC加盟店申請(/site/apply) と JCB住み替え相談(/site/jcb) の受け皿。
+ * - QOLC加盟店申請(/site/apply)・JCB住み替え相談(/site/jcb)・
+ *   一般お問い合わせ(/site/contact) など全 source の一元受け皿
+ *   （許可 source は applicationSourceSchema＝DB ENUM と1対1で管理）。
  * - 入力を zod で厳格検証し、service_role クライアントで RLS をバイパスして保存する。
+ * - 保存成功後、申請者メールアドレスがあれば受付自動返信メールを送信し、
+ *   結果を application_events（kind='email_sent'）に記録する。
+ *   メールの失敗・スキップでも受付処理は成功として返す。
  * - 簡易レートリミットで連投を抑止する。
  * - 例外時も内部情報を漏らさず汎用メッセージを返す。
  */
@@ -11,6 +16,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { apiError, apiOk } from "@/types/api";
 import { applicationIntakeSchema } from "@/lib/applications/schema";
+import { sendApplicationReceivedEmail } from "@/lib/applications/intake-email";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 /** payload を含むリクエストボディ全体のサイズ上限（バイト）。 */
@@ -88,6 +94,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       kind: "created",
       detail: { source: input.source },
     });
+
+    // 受付自動返信メール（結果は email_sent イベントに記録される）。
+    // sendApplicationReceivedEmail は throw しない設計のため、
+    // メールの失敗・スキップに関わらず受付は成功として返す。
+    if (input.applicant_email) {
+      await sendApplicationReceivedEmail(admin, {
+        applicationId: created.id as string,
+        source: input.source,
+        applicantName: input.applicant_name ?? null,
+        to: input.applicant_email,
+      });
+    }
 
     return NextResponse.json(apiOk({ id: created.id as string }));
   } catch {

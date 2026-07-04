@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { StatusPill, PriorityPill } from "@/components/applications/hub-badge";
 import { DetailDrawer } from "@/components/applications/detail-drawer";
 import { ApplicationFilters } from "@/components/applications/list-filters";
+import { NewApplicationDialog } from "@/components/applications/new-application-dialog";
 import {
   fetchApplications,
   fetchAssignees,
@@ -33,6 +34,7 @@ export default function AdminApplicationsPage() {
   /** 「未対応のみ」既定 ON（new/in_progress/waiting） */
   const [openOnly, setOpenOnly] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -62,11 +64,20 @@ export default function AdminApplicationsPage() {
       <Breadcrumb
         items={[{ label: "ダッシュボード", href: "/admin/dashboard" }, { label: "申請・タスク" }]}
       />
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold tracking-tight">申請・タスク</h1>
-        <p className="mt-2 text-sm" style={{ color: "var(--qolc-muted)" }}>
-          加盟店申請・住み替え相談を一元管理します。担当者・状態・次アクションで「誰が今なにをしているか」を把握できます。
-        </p>
+      <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">申請・タスク</h1>
+          <p className="mt-2 text-sm" style={{ color: "var(--qolc-muted)" }}>
+            加盟店申請・お問い合わせなどの案件を一元管理します。電話受付は「新規案件を起票」でその場で記録できます。
+          </p>
+        </div>
+        <button
+          className="qolc-btn px-4 rounded text-white font-medium"
+          style={{ backgroundColor: "var(--qolc-primary)", minHeight: 44 }}
+          onClick={() => setCreating(true)}
+        >
+          + 新規案件を起票
+        </button>
       </div>
 
       <ApplicationFilters
@@ -153,6 +164,11 @@ export default function AdminApplicationsPage() {
         assignees={assignees}
         onClose={() => setSelectedId(null)}
         onSaved={() => void load()}
+      />
+      <NewApplicationDialog
+        open={creating}
+        onClose={() => setCreating(false)}
+        onCreated={() => void load()}
       />
     </PortalLayout>
   );

@@ -13,10 +13,14 @@ describe("admin メニュー", () => {
     expect(admin[0]).toMatchObject({ href: "/admin/today", label: "今日のUD" });
   });
 
-  it("「業務タスク」（/admin/tasks）は「申請・タスク」の直後にある", () => {
+  it("「業務チェックリスト」（/admin/tasks）は「申請・相談」の直後にある", () => {
     const hubIdx = admin.findIndex((m) => m.href === "/admin/applications");
     expect(hubIdx).toBeGreaterThanOrEqual(0);
-    expect(admin[hubIdx + 1]).toMatchObject({ href: "/admin/tasks", label: "業務タスク" });
+    expect(admin[hubIdx]).toMatchObject({ label: "申請・相談" });
+    expect(admin[hubIdx + 1]).toMatchObject({
+      href: "/admin/tasks",
+      label: "業務チェックリスト",
+    });
   });
 
   it("既存項目はすべて残っている", () => {

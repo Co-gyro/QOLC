@@ -24,6 +24,8 @@ export interface ApplicationRow {
   dueDate: string | null;
   nextAction: string | null;
   merchantId: string | null;
+  /** UD追記情報（migration 031 の ud_input。審査ステージ判定・詳細表示に使用） */
+  udInput?: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -55,8 +57,6 @@ export interface ApplicationWorkflowRunSummary {
 /** 詳細（本体 + payload + タイムライン） */
 export interface ApplicationDetail extends ApplicationRow {
   payload: Record<string, unknown> | null;
-  /** UD追記情報（migration 031 の ud_input。顧客入力 payload と分離） */
-  udInput?: Record<string, unknown> | null;
   /** 紐づく申請工程（未起票・テーブル未適用時は null / undefined） */
   workflowRun?: ApplicationWorkflowRunSummary | null;
   events: ApplicationEvent[];

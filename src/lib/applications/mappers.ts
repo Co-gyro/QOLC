@@ -63,6 +63,7 @@ export function toApplicationRow(
     dueDate: r.due_date,
     nextAction: r.next_action,
     merchantId: r.merchant_id,
+    udInput: r.ud_input ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };

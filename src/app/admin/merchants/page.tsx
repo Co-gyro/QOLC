@@ -100,8 +100,9 @@ function AdminMerchantsPageInner() {
             href="/admin/merchant-application"
             className="qolc-btn px-4 py-2 rounded border inline-block"
             style={{ borderColor: "var(--qolc-border)" }}
+            title="JCB・セゾンへ提出する加盟店申請書（Excel）を作成するツールを開きます"
           >
-            申請書を出力
+            申請書作成ツール（カード会社提出用）
           </a>
           <button
             className="qolc-btn px-4 py-2 rounded text-white font-medium"
@@ -123,7 +124,7 @@ function AdminMerchantsPageInner() {
           className="text-sm mb-3 rounded-md px-4 py-2 font-medium"
           style={{ backgroundColor: "var(--qolc-bg-soft)", color: "var(--qolc-primary)" }}
         >
-          業務タスクから遷移: 「{highlighted.name}」を先頭に表示しています。
+          業務チェックリストから遷移: 「{highlighted.name}」を先頭に表示しています。
         </p>
       )}
 
@@ -151,7 +152,7 @@ function AdminMerchantsPageInner() {
             { key: "facilityCount", header: "提携施設数", sortable: true, className: "text-right" },
             {
               key: "relations",
-              header: "関連案件（申請・タスク）",
+              header: "関連案件（申請・業務チェック）",
               render: (r) => <RelationsCell relations={relations.get(r.id) ?? null} />,
             },
             {

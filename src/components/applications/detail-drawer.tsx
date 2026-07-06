@@ -1,29 +1,19 @@
 /**
  * 申請詳細ドロワー
  *
- * 申請内容(payload) + 変更履歴タイムライン + 操作フォーム（状態/担当者/優先度/期限/
- * 次アクション）+ 対応メモに加え、加盟店申請（qolc_merchant）では
- * 申請工程チェックリスト・UD追記情報・審査結果・加盟店変換までを一気通貫で扱う。
+ * 「お客様の入力内容を見る」「対応の進行を管理する」「加盟店登録の手続きを進める」を
+ * 混ぜないよう、3つのタブに分離する:
+ * - 申請内容: 対応フロー現在地・申請者情報・フォーム入力内容（payload）
+ * - 進行管理: 状態/担当者/優先度/期限/次アクション・対応メモ・変更履歴
+ * - 登録手続き（加盟店申請のみ）: 申請工程・UD追記情報・審査結果・加盟店変換
  */
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
-import { EventTimeline } from "./event-timeline";
-import { PayloadView } from "./payload-view";
-import { EditForm } from "./detail-edit-form";
-import { ApplicantInfo } from "./applicant-info";
-import { CommentForm } from "./comment-form";
-import { WorkflowSection } from "./workflow-section";
-import { UdInputForm } from "./ud-input-form";
-import { ReviewSection } from "./review-section";
-import {
-  fetchApplicationDetail,
-  patchApplication,
-} from "@/lib/applications/client";
-import { SOURCE_LABELS, STATUS_LABELS } from "@/lib/applications/labels";
-import { buildStatusFlow } from "@/lib/applications/status-flow";
-import { FlowStepper } from "@/components/workflow/flow-stepper";
+import { DrawerContentTab, DrawerManageTab, DrawerProcedureTab } from "./detail-drawer-tabs";
+import { fetchApplicationDetail, patchApplication } from "@/lib/applications/client";
+import { SOURCE_LABELS } from "@/lib/applications/labels";
 import type { ApplicationDetail, AssigneeOption, ApplicationPatch } from "@/lib/applications/types";
 
 export interface DetailDrawerProps {
@@ -34,22 +24,13 @@ export interface DetailDrawerProps {
   onSaved: () => void;
 }
 
-/** セクション見出し + 本文の枠 */
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <h3 className="text-sm font-bold mb-2" style={{ color: "var(--qolc-primary)" }}>
-        {title}
-      </h3>
-      {children}
-    </section>
-  );
-}
+type DrawerTab = "content" | "manage" | "procedure";
 
 export function DetailDrawer({ applicationId, assignees, onClose, onSaved }: DetailDrawerProps) {
   const [detail, setDetail] = useState<ApplicationDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState<DrawerTab>("content");
 
   const load = useCallback(async (id: string) => {
     setError(null);
@@ -62,6 +43,7 @@ export function DetailDrawer({ applicationId, assignees, onClose, onSaved }: Det
 
   useEffect(() => {
     setDetail(null);
+    setTab("content");
     if (applicationId) void load(applicationId);
   }, [applicationId, load]);
 
@@ -99,6 +81,12 @@ export function DetailDrawer({ applicationId, assignees, onClose, onSaved }: Det
   if (!applicationId) return null;
   const isMerchantApply = detail?.source === "qolc_merchant";
 
+  const tabs: Array<{ key: DrawerTab; label: string }> = [
+    { key: "content", label: "申請内容" },
+    { key: "manage", label: "進行管理" },
+    ...(isMerchantApply ? [{ key: "procedure" as const, label: "登録手続き" }] : []),
+  ];
+
   return (
     <div
       role="dialog"
@@ -111,7 +99,7 @@ export function DetailDrawer({ applicationId, assignees, onClose, onSaved }: Det
         className="bg-white h-full w-full max-w-xl overflow-y-auto p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-bold" style={{ color: "var(--qolc-text)" }}>
             {detail ? SOURCE_LABELS[detail.source] : "申請詳細"}
           </h2>
@@ -129,69 +117,52 @@ export function DetailDrawer({ applicationId, assignees, onClose, onSaved }: Det
         {!detail ? (
           <LoadingSpinner />
         ) : (
-          <div className="flex flex-col gap-6" key={detail.id}>
-            <Section title="対応フロー">
-              {detail.status === "rejected" ? (
-                <span
-                  className="inline-block text-sm px-3 py-1 rounded-full font-bold"
-                  style={{ backgroundColor: "#FEE2E2", color: "#991B1B" }}
+          <div key={detail.id}>
+            <div
+              className="flex gap-1 mb-5 border-b sticky top-0 bg-white z-10"
+              style={{ borderColor: "var(--qolc-border)" }}
+              role="tablist"
+            >
+              {tabs.map((t) => (
+                <button
+                  key={t.key}
+                  role="tab"
+                  aria-selected={tab === t.key}
+                  className="px-3 py-2 text-sm min-h-[44px]"
+                  style={
+                    tab === t.key
+                      ? {
+                          color: "var(--qolc-primary)",
+                          borderBottom: "3px solid var(--qolc-primary)",
+                          fontWeight: 700,
+                        }
+                      : { color: "var(--qolc-muted)" }
+                  }
+                  onClick={() => setTab(t.key)}
                 >
-                  {STATUS_LABELS.rejected}
-                </span>
-              ) : (
-                <FlowStepper
-                  steps={buildStatusFlow(detail.status)}
-                  finished={detail.status === "done"}
-                />
-              )}
-            </Section>
+                  {t.label}
+                </button>
+              ))}
+            </div>
 
-            <Section title="申請者">
-              <ApplicantInfo detail={detail} />
-            </Section>
-
-            <Section title="対応">
-              <EditForm detail={detail} assignees={assignees} saving={saving} onSave={handleSave} />
-            </Section>
-
-            <Section title="対応メモ">
-              <CommentForm applicationId={detail.id} onSaved={handleRefresh} />
-            </Section>
-
-            {isMerchantApply && (
-              <>
-                <Section title="申請工程">
-                  <WorkflowSection detail={detail} onStarted={handleRefresh} />
-                </Section>
-
-                <Section title="UD追記情報">
-                  <UdInputForm
-                    udInput={detail.udInput}
-                    saving={saving}
-                    onSave={(ud) => handleSave({ ud_input: ud })}
-                  />
-                  <a
-                    href={`/admin/merchant-application?applicationId=${detail.id}`}
-                    className="mt-2 inline-flex items-center text-sm underline font-medium"
-                    style={{ color: "var(--qolc-primary)", minHeight: 44 }}
-                  >
-                    申請書を作成（この申請の内容を反映して開く）
-                  </a>
-                </Section>
-
-                <Section title="審査結果">
-                  <ReviewSection detail={detail} onSaved={handleRefresh} />
-                </Section>
-              </>
+            {tab === "content" && <DrawerContentTab detail={detail} />}
+            {tab === "manage" && (
+              <DrawerManageTab
+                detail={detail}
+                assignees={assignees}
+                saving={saving}
+                onSave={handleSave}
+                onRefresh={handleRefresh}
+              />
             )}
-
-            <Section title="申請内容">
-              <PayloadView payload={detail.payload} />
-            </Section>
-
-            <Section title="変更履歴">
-              <EventTimeline events={detail.events} />
-            </Section>
+            {tab === "procedure" && isMerchantApply && (
+              <DrawerProcedureTab
+                detail={detail}
+                saving={saving}
+                onSave={handleSave}
+                onRefresh={handleRefresh}
+              />
+            )}
           </div>
         )}
       </div>

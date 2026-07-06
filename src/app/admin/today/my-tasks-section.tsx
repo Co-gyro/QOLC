@@ -16,7 +16,7 @@ export interface MyTasksSectionProps {
 }
 
 const TYPE_LABELS: Record<MyTaskItem["type"], string> = {
-  run: "業務タスク",
+  run: "業務チェック",
   application: "申請・相談",
 };
 
@@ -80,7 +80,7 @@ export function MyTasksSection({ items, todayStr }: MyTasksSectionProps) {
       {items.length === 0 ? (
         <EmptyState
           title="担当中のタスクはありません"
-          description="業務タスクや申請の担当者にあなたが設定されると、ここに表示されます。"
+          description="業務チェックリストや申請の担当者にあなたが設定されると、ここに表示されます。"
         />
       ) : (
         <div className="flex flex-col gap-5">

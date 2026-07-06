@@ -77,7 +77,7 @@ export default function AdminTaskDetailPage() {
       <Breadcrumb
         items={[
           { label: "ダッシュボード", href: "/admin/dashboard" },
-          { label: "業務タスク", href: "/admin/tasks" },
+          { label: "業務チェックリスト", href: "/admin/tasks" },
           { label: run?.title ?? "詳細" },
         ]}
       />
@@ -92,7 +92,7 @@ export default function AdminTaskDetailPage() {
         error ? (
           <EmptyState
             title="タスクを表示できません"
-            description="タスクが存在しないか、削除された可能性があります。業務タスク一覧から選び直してください。"
+            description="タスクが存在しないか、削除された可能性があります。業務チェックリスト一覧から選び直してください。"
           />
         ) : (
           <LoadingSpinner />

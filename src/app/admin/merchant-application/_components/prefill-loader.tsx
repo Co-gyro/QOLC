@@ -78,7 +78,7 @@ export function PrefillLoader({ applicationId }: { applicationId: string }) {
             className="underline ml-1 font-medium"
             style={{ color: "var(--qolc-primary)" }}
           >
-            申請・タスクへ戻る
+            申請・相談へ戻る
           </a>
         </p>
       </div>

@@ -23,7 +23,7 @@ const querySchema = z.object({
 });
 
 const SELECT_COLS =
-  "id, source, status, priority, applicant_name, applicant_org, applicant_email, applicant_phone, message, payload, assignee_id, due_date, next_action, merchant_id, created_at, updated_at";
+  "id, source, status, priority, applicant_name, applicant_org, applicant_email, applicant_phone, message, payload, ud_input, assignee_id, due_date, next_action, merchant_id, created_at, updated_at";
 
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin();

@@ -18,6 +18,10 @@ export interface ApplicationFiltersProps {
   openOnly: boolean;
   onChange: (f: Filters) => void;
   onOpenOnlyChange: (v: boolean) => void;
+  /** 種別セレクトを隠す（タブで種別を切り替えるページ用） */
+  hideSource?: boolean;
+  /** 「未対応のみ」を隠す（ステージ別に全段階を見せるタブ用） */
+  hideOpenOnly?: boolean;
 }
 
 const SELECT_CLASS = "border rounded px-2 py-2 text-sm bg-white";
@@ -29,9 +33,12 @@ export function ApplicationFilters({
   openOnly,
   onChange,
   onOpenOnlyChange,
+  hideSource = false,
+  hideOpenOnly = false,
 }: ApplicationFiltersProps) {
   return (
     <div className="flex flex-wrap items-end gap-3 mb-4">
+      {!hideSource && (
       <label className="flex flex-col gap-1 text-sm">
         <span style={{ color: "var(--qolc-muted)" }}>種別</span>
         <select
@@ -48,6 +55,7 @@ export function ApplicationFilters({
           ))}
         </select>
       </label>
+      )}
 
       <label className="flex flex-col gap-1 text-sm">
         <span style={{ color: "var(--qolc-muted)" }}>状態</span>
@@ -83,6 +91,7 @@ export function ApplicationFilters({
         </select>
       </label>
 
+      {!hideOpenOnly && (
       <label
         className="flex items-center gap-2 text-sm px-1"
         style={{ minHeight: 44, opacity: filters.status ? 0.5 : 1 }}
@@ -96,6 +105,7 @@ export function ApplicationFilters({
         />
         <span>未対応のみ</span>
       </label>
+      )}
     </div>
   );
 }

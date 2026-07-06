@@ -17,6 +17,7 @@ import {
   Receipt,
   History,
   Inbox,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react";
 
@@ -36,4 +37,5 @@ export const MENU_ICONS: Record<string, LucideIcon> = {
   Receipt,
   History,
   Inbox,
+  ListChecks,
 };

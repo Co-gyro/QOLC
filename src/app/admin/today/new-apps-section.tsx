@@ -26,7 +26,7 @@ export function NewAppsSection({ apps }: NewAppsSectionProps) {
           className="text-sm font-medium hover:underline"
           style={{ color: "var(--qolc-primary)" }}
         >
-          申請・タスク一覧へ →
+          申請・相談の一覧へ →
         </Link>
       </div>
       <p className="text-sm mb-3" style={{ color: "var(--qolc-muted)" }}>

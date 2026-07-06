@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * /admin/tasks … 業務タスク（ワークフロー）一覧
+ * /admin/tasks … 業務チェックリスト（ワークフロー）一覧。精算・日次などの定例業務と、加盟店申請の工程消化を扱う
  *
  * テンプレから起票されたチェックリスト作業を「進行中/完了」タブで一覧する。
  */
@@ -74,11 +74,11 @@ export default function AdminTasksPage() {
   return (
     <PortalLayout portal="admin">
       <Breadcrumb
-        items={[{ label: "ダッシュボード", href: "/admin/dashboard" }, { label: "業務タスク" }]}
+        items={[{ label: "ダッシュボード", href: "/admin/dashboard" }, { label: "業務チェックリスト" }]}
       />
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">業務タスク</h1>
+          <h1 className="text-2xl font-bold tracking-tight">業務チェックリスト</h1>
           <p className="mt-2 text-sm" style={{ color: "var(--qolc-muted)" }}>
             月次精算や加盟店申請などの定型業務をチェックリストで進めます。
             タスクを開くと、各工程のやり方（ガイド）と完了記録（誰が・いつ）が確認できます。

@@ -1,6 +1,6 @@
 # QOLC デモ手順書（お客様説明用）
 
-最終更新: 2026-06-29
+最終更新: 2026-07-06
 
 介護施設向け決済SaaS QOLC の一連の流れ（明細アップロード → その他費用の合算 → 決済 → 領収書）を
 お客様に説明するためのデモ手順。**テストモード**（USEN TSJM／実課金なし）で動作する。
@@ -16,6 +16,20 @@ npm run dev    # http://localhost:3000
 
 > 本番カード決済を伴わないデモはテストモードのまま実施する。`.env.local` は TSJM/TSJL（テスト）。
 > 本番値に切り替えている場合は `cp .env.local.prod_backup_* .env.local` を戻さず、テスト用に戻してから実施。
+
+### ⚠️ テストモードは env 切替だけでは不十分（2026-07-06 判明）
+
+決済のモールコードは env ではなく **DB の `merchants.mall_code`** から取られる（受注コード採番も同様）。
+テストモードで決済まで通すには、次の**3点セット**が必要:
+
+1. `.env.local` を TSJL/TSJM に切替（site鍵/mall鍵/GROUP_ID/トークンJS URLも全部テスト値に）
+2. デモ加盟店の `mall_code` を `TSJM` に変更（例: テスト診療所 `69fd9433-…`）。**デモ後は `A300` に戻す**
+3. カード会員は**サイト単位**。本番(S203)で登録した会員はテスト(TSJL)に存在しないため、
+   `resident_accounts.usen_member_id` を一旦 NULL にして `/user/card` から**テストカード
+   `4100000000000100` / CVV 123 / 08-2027 / TESTCARD** で登録し直す
+   （member_id はアカウントIDから決定的に導出されるため、再登録後も同じ値に戻る＝本番側に影響なし）
+
+いずれかが欠けると `与信失敗 (code=05)` になる（TSJL鍵×A300モールの不整合等）。
 
 ## 2. デモ用アカウント（パスワード末尾 #2026）
 
@@ -80,6 +94,17 @@ npm run dev    # http://localhost:3000
 決済を実行すると payments が作られる（テストモードなので実課金はない）。
 デモ用に作ったバッチ・決済を消したい場合は運営に依頼するか、サービスロール経由で
 該当 upload_batch を削除する（statement_service_details → statement_lines → payments → upload_batches の順）。
+
+> ⚠️ **決済実行済み（監査ログあり）の payments は物理削除できない**。`payment_audit_logs` は
+> service role でも DELETE 不可（改ざん防止）で、FK により payments → upload_batches の削除が連鎖的に
+> ブロックされる。消せるのは決済未実行（preview）のバッチのみ。決済まで実行したデモデータは残る前提で運用する。
+
+### テストモード → 本番復旧の手順
+
+```bash
+cp .env.local.prod_backup_YYYYMMDD .env.local   # env を本番値へ
+# Supabase SQL Editor: UPDATE merchants SET mall_code='A300' WHERE id='69fd9433-5f2c-4359-bf56-1637e75aa048';
+```
 
 > 恒久的な「いつでも見せられるデモURL」が必要な場合は、Vercel のステージング環境に
 > テストモードでデプロイする方法を別途用意できる（[deploy-vercel-merchant-form-20260617.md](deploy-vercel-merchant-form-20260617.md) 参照）。

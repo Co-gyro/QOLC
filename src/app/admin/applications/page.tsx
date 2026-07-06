@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { PortalLayout } from "@/components/layout/portal-layout";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { DataTable } from "@/components/shared/data-table";
@@ -26,14 +27,18 @@ function fmtDate(iso: string | null): string {
   return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())}`;
 }
 
-export default function AdminApplicationsPage() {
+function AdminApplicationsPageInner() {
+  // 「今日のUD」等からのディープリンク（?open=<申請ID>）で詳細ドロワーを直接開く
+  const searchParams = useSearchParams();
   const [rows, setRows] = useState<ApplicationRow[] | null>(null);
   const [assignees, setAssignees] = useState<AssigneeOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>({});
   /** 「未対応のみ」既定 ON（new/in_progress/waiting） */
   const [openOnly, setOpenOnly] = useState(true);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    () => searchParams.get("open") || null
+  );
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
@@ -171,5 +176,14 @@ export default function AdminApplicationsPage() {
         onCreated={() => void load()}
       />
     </PortalLayout>
+  );
+}
+
+export default function AdminApplicationsPage() {
+  // useSearchParams はプリレンダ時に Suspense 境界が必須
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <AdminApplicationsPageInner />
+    </Suspense>
   );
 }

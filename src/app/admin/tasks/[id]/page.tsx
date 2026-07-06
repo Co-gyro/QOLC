@@ -7,7 +7,9 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { PortalLayout } from "@/components/layout/portal-layout";
+import { FlowStepper } from "@/components/workflow/flow-stepper";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -114,6 +116,42 @@ export default function AdminTaskDetailPage() {
                 <RunProgressBar progress={run.progress} />
               </span>
             </div>
+            {(run.applicationId || run.merchantId) && (
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                <span style={{ color: "var(--qolc-muted)" }}>関連:</span>
+                {run.applicationId && (
+                  <Link
+                    href={`/admin/applications?open=${run.applicationId}`}
+                    className="underline font-medium"
+                    style={{ color: "var(--qolc-primary)" }}
+                  >
+                    元の申請を開く（フォーム入力内容・対応履歴）
+                  </Link>
+                )}
+                {run.merchantId && (
+                  <Link
+                    href={`/admin/merchants?highlight=${run.merchantId}`}
+                    className="underline font-medium"
+                    style={{ color: "var(--qolc-primary)" }}
+                  >
+                    加盟店管理で表示
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div
+            className="mb-6 border rounded-lg p-4"
+            style={{ borderColor: "var(--qolc-border)", backgroundColor: "white" }}
+          >
+            <h2 className="text-base font-bold mb-3" style={{ color: "var(--qolc-text)" }}>
+              フロー全体図
+            </h2>
+            <FlowStepper
+              steps={run.steps.map((s) => ({ key: s.id, label: s.title, status: s.status }))}
+              finished={run.status !== "open"}
+            />
           </div>
 
           {notice && (

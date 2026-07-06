@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { PortalLayout } from "@/components/layout/portal-layout";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { DataTable } from "@/components/shared/data-table";
@@ -27,9 +28,19 @@ const STATUS_FILTERS: { value: PaymentStatus | "all"; label: string }[] = [
   { value: "refunded", label: "返金" },
 ];
 
-export default function AdminPaymentsPage() {
+/** URL の ?status= を初期フィルタに解釈する（不正値は "all"） */
+function parseStatusParam(value: string | null): PaymentStatus | "all" {
+  const valid = STATUS_FILTERS.some((f) => f.value === value);
+  return valid && value ? (value as PaymentStatus | "all") : "all";
+}
+
+function AdminPaymentsPageInner() {
+  // 「今日のUD」要対応アラート等からの遷移（?status=failed 等）で絞り込んだ状態で開く
+  const searchParams = useSearchParams();
   const [rows, setRows] = useState<PaymentListRow[] | null>(null);
-  const [filter, setFilter] = useState<PaymentStatus | "all">("all");
+  const [filter, setFilter] = useState<PaymentStatus | "all">(() =>
+    parseStatusParam(searchParams.get("status"))
+  );
   const [error, setError] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<CancelPaymentTarget | null>(null);
 
@@ -158,5 +169,14 @@ export default function AdminPaymentsPage() {
         onDone={() => void load()}
       />
     </PortalLayout>
+  );
+}
+
+export default function AdminPaymentsPage() {
+  // useSearchParams はプリレンダ時に Suspense 境界が必須
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <AdminPaymentsPageInner />
+    </Suspense>
   );
 }

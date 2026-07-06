@@ -15,7 +15,7 @@ import {
   type ApplicationStatus,
 } from "@/lib/applications/labels";
 import type { WorkflowStepStatus } from "@/lib/workflow/types";
-import { computeRunProgress, isOverdue } from "./workflow-logic";
+import { computeRunProgress, isOverdue, categoryToTaskGroup } from "./workflow-logic";
 
 /** 「今日のUD」で扱う進行中 run の最小形 */
 export interface TodayRun {
@@ -24,6 +24,8 @@ export interface TodayRun {
   dueDate: string | null;
   assigneeId: string | null;
   stepStatuses: WorkflowStepStatus[];
+  /** テンプレのカテゴリ（settlement/merchant/daily…。テンプレ未解決時 null） */
+  category: string | null;
 }
 
 /**
@@ -35,7 +37,9 @@ export async function fetchOpenWorkflowRuns(): Promise<TodayRun[]> {
     const supabase = createSupabaseBrowserClient();
     const { data, error } = await supabase
       .from("workflow_runs")
-      .select("id, title, due_date, assignee_id, workflow_run_steps(status)")
+      .select(
+        "id, title, due_date, assignee_id, workflow_run_steps(status), workflow_templates(category)"
+      )
       .eq("status", "open")
       .is("deleted_at", null)
       .order("due_date", { ascending: true, nullsFirst: false })
@@ -47,6 +51,7 @@ export async function fetchOpenWorkflowRuns(): Promise<TodayRun[]> {
       due_date: string | null;
       assignee_id: string | null;
       workflow_run_steps: Array<{ status: WorkflowStepStatus }> | null;
+      workflow_templates: { category: string | null } | null;
     }>;
     return rows.map((r) => ({
       id: r.id,
@@ -54,6 +59,7 @@ export async function fetchOpenWorkflowRuns(): Promise<TodayRun[]> {
       dueDate: r.due_date,
       assigneeId: r.assignee_id,
       stepStatuses: (r.workflow_run_steps ?? []).map((s) => s.status),
+      category: r.workflow_templates?.category ?? null,
     }));
   } catch {
     // workflow テーブル未適用の DB でも「今日のUD」全体を落とさない
@@ -145,6 +151,8 @@ export interface MyTaskItem {
   dueDate: string | null;
   /** 補足表示（run: 進捗 n/m ／ application: 状態ラベル） */
   detail: string;
+  /** 大分類（daily=日々の運用（定例）／ adhoc=都度の対応（申請・相談ほか）） */
+  group: "daily" | "adhoc";
 }
 
 /** dueDate 昇順（null は最後）で比較 */
@@ -177,6 +185,7 @@ export function buildMyTasks(
         href: `/admin/tasks/${r.id}`,
         dueDate: r.dueDate,
         detail: `進捗 ${p.done + p.skipped}/${p.total}`,
+        group: categoryToTaskGroup(r.category),
       };
     });
   const appItems: MyTaskItem[] = apps
@@ -185,9 +194,10 @@ export function buildMyTasks(
       type: "application" as const,
       id: a.id,
       title: `${SOURCE_LABELS[a.source]}: ${a.applicantName ?? a.applicantOrg ?? "（申請者不明）"}`,
-      href: "/admin/applications",
+      href: `/admin/applications?open=${a.id}`,
       dueDate: a.dueDate,
       detail: a.nextAction ? `次: ${a.nextAction}` : STATUS_LABELS[a.status],
+      group: "adhoc" as const,
     }));
   return [...runItems, ...appItems].sort((x, y) => compareDue(x.dueDate, y.dueDate));
 }

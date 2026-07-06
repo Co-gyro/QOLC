@@ -21,7 +21,9 @@ import {
   fetchApplicationDetail,
   patchApplication,
 } from "@/lib/applications/client";
-import { SOURCE_LABELS } from "@/lib/applications/labels";
+import { SOURCE_LABELS, STATUS_LABELS } from "@/lib/applications/labels";
+import { buildStatusFlow } from "@/lib/applications/status-flow";
+import { FlowStepper } from "@/components/workflow/flow-stepper";
 import type { ApplicationDetail, AssigneeOption, ApplicationPatch } from "@/lib/applications/types";
 
 export interface DetailDrawerProps {
@@ -128,6 +130,22 @@ export function DetailDrawer({ applicationId, assignees, onClose, onSaved }: Det
           <LoadingSpinner />
         ) : (
           <div className="flex flex-col gap-6" key={detail.id}>
+            <Section title="対応フロー">
+              {detail.status === "rejected" ? (
+                <span
+                  className="inline-block text-sm px-3 py-1 rounded-full font-bold"
+                  style={{ backgroundColor: "#FEE2E2", color: "#991B1B" }}
+                >
+                  {STATUS_LABELS.rejected}
+                </span>
+              ) : (
+                <FlowStepper
+                  steps={buildStatusFlow(detail.status)}
+                  finished={detail.status === "done"}
+                />
+              )}
+            </Section>
+
             <Section title="申請者">
               <ApplicantInfo detail={detail} />
             </Section>

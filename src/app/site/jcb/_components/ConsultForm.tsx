@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import type { JSX } from "react";
 import { SelfFields, FamilyFields } from "./ConsultFormFields";
 import ThanksView from "./ThanksView";
+import { validateConsultPayload } from "@/lib/site/consult-validation";
 
 /** ご相談対象（ご自身／ご家族） */
 type FormType = "self" | "family";
@@ -46,6 +47,7 @@ export default function ConsultForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [agreed, setAgreed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   /**
@@ -78,9 +80,14 @@ export default function ConsultForm({
 
   const handleSubmit = async (): Promise<void> => {
     setError(null);
+    const payload = collectPayload();
+    const validationErrors = validateConsultPayload(payload);
+    if (validationErrors.length > 0) {
+      setError(validationErrors.join("／"));
+      return;
+    }
     setSubmitting(true);
     try {
-      const payload = collectPayload();
       const lastName = (payload.self_last_name as string) || (payload.fam_last_name as string) || "";
       const firstName =
         (payload.self_first_name as string) || (payload.fam_first_name as string) || "";
@@ -183,7 +190,7 @@ export default function ConsultForm({
                 "まだ先（情報収集中）",
               ].map((v) => (
                 <label className="form-radio" key={v}>
-                  <input type="radio" name="timing" /> {v}
+                  <input type="radio" name="timing" value={v} /> {v}
                 </label>
               ))}
             </div>
@@ -194,6 +201,7 @@ export default function ConsultForm({
             </label>
             <input
               type="text"
+              name="area"
               className="form-input"
               placeholder="例：東京都内、神奈川県湘南エリア"
             />
@@ -210,7 +218,7 @@ export default function ConsultForm({
             <div className="radio-col">
               {CONCERNS.map((v) => (
                 <label className="form-check" key={v}>
-                  <input type="checkbox" /> {v}
+                  <input type="checkbox" name="concerns" value={v} /> {v}
                 </label>
               ))}
             </div>
@@ -240,7 +248,7 @@ export default function ConsultForm({
             <div className="radio-col">
               {["メール", "お電話", "どちらでも可"].map((v) => (
                 <label className="form-radio" key={v}>
-                  <input type="radio" name="contact-method" /> {v}
+                  <input type="radio" name="contact_method" value={v} /> {v}
                 </label>
               ))}
             </div>
@@ -252,7 +260,7 @@ export default function ConsultForm({
             <div className="radio-col">
               {CONTACT_TIMES.map((v) => (
                 <label className="form-check" key={v}>
-                  <input type="checkbox" /> {v}
+                  <input type="checkbox" name="contact_time" value={v} /> {v}
                 </label>
               ))}
             </div>
@@ -276,14 +284,19 @@ export default function ConsultForm({
             お預かりした個人情報は、お客様の同意なく第三者に提供することはありません。
           </div>
           <label className="privacy-agree">
-            <input type="checkbox" /> 個人情報の取り扱いに同意する
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+            />{" "}
+            個人情報の取り扱いに同意する
           </label>
           <button
             type="button"
             className="btn btn-gold"
             style={{ width: "100%", justifyContent: "center" }}
             onClick={() => void handleSubmit()}
-            disabled={submitting}
+            disabled={submitting || !agreed}
           >
             {submitting ? "送信中..." : "この内容で送信する"}{" "}
             {!submitting && <span className="arrow">&rarr;</span>}

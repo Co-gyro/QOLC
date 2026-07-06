@@ -11,6 +11,8 @@ import {
   defaultRunTitle,
   shouldTriggerRule,
   isOverdue,
+  resolveCurrentStepIndex,
+  categoryToTaskGroup,
   type TriggerRuleInput,
 } from "@/lib/portal/workflow-logic";
 
@@ -133,5 +135,29 @@ describe("isOverdue", () => {
   });
   it("期限なし（null）は超過ではない", () => {
     expect(isOverdue(null, "2026-07-04")).toBe(false);
+  });
+});
+
+describe("resolveCurrentStepIndex", () => {
+  it("最初の todo の添字を返す（skipped は消化済み扱い）", () => {
+    expect(resolveCurrentStepIndex(["done", "skipped", "todo", "todo"])).toBe(2);
+  });
+  it("全ステップ消化済みなら -1（現在地なし＝完了）", () => {
+    expect(resolveCurrentStepIndex(["done", "skipped"])).toBe(-1);
+  });
+  it("未着手なら先頭が現在地", () => {
+    expect(resolveCurrentStepIndex(["todo", "todo"])).toBe(0);
+  });
+});
+
+describe("categoryToTaskGroup", () => {
+  it("settlement / daily は日々の運用（daily）", () => {
+    expect(categoryToTaskGroup("settlement")).toBe("daily");
+    expect(categoryToTaskGroup("daily")).toBe("daily");
+  });
+  it("merchant や未知カテゴリ・null は都度の対応（adhoc）", () => {
+    expect(categoryToTaskGroup("merchant")).toBe("adhoc");
+    expect(categoryToTaskGroup("unknown")).toBe("adhoc");
+    expect(categoryToTaskGroup(null)).toBe("adhoc");
   });
 });

@@ -42,7 +42,7 @@ export function NewAppsSection({ apps }: NewAppsSectionProps) {
           {newApps.map((a) => (
             <li key={a.id}>
               <Link
-                href="/admin/applications"
+                href={`/admin/applications?open=${a.id}`}
                 className="flex flex-wrap items-center gap-x-3 gap-y-1 border rounded-md px-4 py-3 min-h-[44px] hover:bg-gray-50"
                 style={{ borderColor: "var(--qolc-border)" }}
               >

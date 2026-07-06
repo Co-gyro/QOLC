@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { PortalLayout } from "@/components/layout/portal-layout";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { DataTable } from "@/components/shared/data-table";
@@ -18,11 +19,20 @@ import {
 import { fetchMerchantCardCodes, type MerchantCardCodes } from "./_lib/card-codes";
 import { CardCodesCell } from "./_components/card-codes-cell";
 import { CardCodesDialog } from "./_components/card-codes-dialog";
+import { RelationsCell } from "./_components/relations-cell";
+import {
+  fetchMerchantRelations,
+  type MerchantRelations,
+} from "@/lib/portal/merchant-relations";
 
-export default function AdminMerchantsPage() {
+function AdminMerchantsPageInner() {
+  // 業務タスク詳細などからの遷移時に該当加盟店を先頭に出す（?highlight=<加盟店ID>）
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get("highlight");
   const [rows, setRows] = useState<MerchantRow[] | null>(null);
   const [formats, setFormats] = useState<UploadFormatOption[]>([]);
   const [codes, setCodes] = useState<Map<string, MerchantCardCodes>>(new Map());
+  const [relations, setRelations] = useState<Map<string, MerchantRelations>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<MerchantRow | null>(null);
@@ -32,19 +42,31 @@ export default function AdminMerchantsPage() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [mers, fmts, codeMap] = await Promise.all([
+      const [mers, fmts, codeMap, rel] = await Promise.all([
         fetchMerchants(),
         fetchUploadFormats(),
         fetchMerchantCardCodes(),
+        fetchMerchantRelations(), // 内部で空 Map フォールバック
       ]);
       setRows(mers);
       setFormats(fmts);
       setCodes(codeMap);
+      setRelations(rel);
     } catch (e) {
       setError(e instanceof Error ? e.message : "取得に失敗しました");
       setRows([]);
     }
   }, []);
+
+  /** ハイライト対象を先頭に出した表示用の行（対象なしなら元の順序のまま） */
+  const displayRows = useMemo(() => {
+    if (!rows || !highlightId) return rows;
+    const hit = rows.find((r) => r.id === highlightId);
+    if (!hit) return rows;
+    return [hit, ...rows.filter((r) => r.id !== highlightId)];
+  }, [rows, highlightId]);
+
+  const highlighted = highlightId && rows?.find((r) => r.id === highlightId);
 
   useEffect(() => {
     void load();
@@ -96,9 +118,18 @@ export default function AdminMerchantsPage() {
 
       {error && <p className="text-sm mb-3" style={{ color: "#DC2626" }}>{error}</p>}
 
-      {!rows ? (
+      {highlighted && (
+        <p
+          className="text-sm mb-3 rounded-md px-4 py-2 font-medium"
+          style={{ backgroundColor: "var(--qolc-bg-soft)", color: "var(--qolc-primary)" }}
+        >
+          業務タスクから遷移: 「{highlighted.name}」を先頭に表示しています。
+        </p>
+      )}
+
+      {!displayRows ? (
         <LoadingSpinner />
-      ) : rows.length === 0 ? (
+      ) : displayRows.length === 0 ? (
         <EmptyState title="加盟店がまだ登録されていません" description="「加盟店を登録」から追加してください。" />
       ) : (
         <DataTable<MerchantRow>
@@ -118,6 +149,11 @@ export default function AdminMerchantsPage() {
               ),
             },
             { key: "facilityCount", header: "提携施設数", sortable: true, className: "text-right" },
+            {
+              key: "relations",
+              header: "関連案件（申請・タスク）",
+              render: (r) => <RelationsCell relations={relations.get(r.id) ?? null} />,
+            },
             {
               key: "actions",
               header: "操作",
@@ -148,7 +184,7 @@ export default function AdminMerchantsPage() {
               ),
             },
           ]}
-          data={rows}
+          data={displayRows}
         />
       )}
 
@@ -180,5 +216,14 @@ export default function AdminMerchantsPage() {
         onCancel={() => setDeleteTarget(null)}
       />
     </PortalLayout>
+  );
+}
+
+export default function AdminMerchantsPage() {
+  // useSearchParams はプリレンダ時に Suspense 境界が必須
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <AdminMerchantsPageInner />
+    </Suspense>
   );
 }

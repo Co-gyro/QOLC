@@ -110,3 +110,22 @@ export function shouldTriggerRule(rule: TriggerRuleInput, today: DateParts): boo
 export function isOverdue(dueDate: string | null, todayStr: string): boolean {
   return !!dueDate && dueDate < todayStr;
 }
+
+/**
+ * フロー図の「現在地」＝seq順で最初に todo のステップの添字を返す。
+ * skipped は消化済み扱いで飛ばす。全ステップ消化済みなら -1（現在地なし＝完了）。
+ * @param statuses seq 昇順に並んだステップ状態
+ */
+export function resolveCurrentStepIndex(statuses: WorkflowStepStatus[]): number {
+  return statuses.findIndex((s) => s === "todo");
+}
+
+/**
+ * テンプレのカテゴリを「今日のUD」の大分類に割り当てる。
+ * settlement / daily（定期起票される定例業務）→ daily（日々の運用）、
+ * それ以外（merchant 等の案件対応・カテゴリ不明含む）→ adhoc（都度の対応）。
+ * @param category workflow_templates.category（null は都度扱い）
+ */
+export function categoryToTaskGroup(category: string | null): "daily" | "adhoc" {
+  return category === "settlement" || category === "daily" ? "daily" : "adhoc";
+}

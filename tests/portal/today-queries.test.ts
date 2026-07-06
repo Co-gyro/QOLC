@@ -17,6 +17,7 @@ const run = (over: Partial<TodayRun>): TodayRun => ({
   dueDate: null,
   assigneeId: null,
   stepStatuses: [],
+  category: "settlement",
   ...over,
 });
 
@@ -72,6 +73,26 @@ describe("buildMyTasks", () => {
   it("run の遷移先は /admin/tasks/[id]", () => {
     const items = buildMyTasks([run({ id: "r-9", assigneeId: "me" })], [], "me");
     expect(items[0].href).toBe("/admin/tasks/r-9");
+  });
+
+  it("申請の遷移先は詳細ドロワーを直接開くディープリンク", () => {
+    const items = buildMyTasks([], [app({ id: "a-9", assigneeId: "me" })], "me");
+    expect(items[0].href).toBe("/admin/applications?open=a-9");
+  });
+
+  it("定例カテゴリの run は daily、加盟店カテゴリと申請は adhoc に分類する", () => {
+    const items = buildMyTasks(
+      [
+        run({ id: "r-1", assigneeId: "me", category: "settlement" }),
+        run({ id: "r-2", assigneeId: "me", category: "merchant" }),
+      ],
+      [app({ id: "a-1", assigneeId: "me" })],
+      "me"
+    );
+    const groupOf = (id: string) => items.find((i) => i.id === id)?.group;
+    expect(groupOf("r-1")).toBe("daily");
+    expect(groupOf("r-2")).toBe("adhoc");
+    expect(groupOf("a-1")).toBe("adhoc");
   });
 });
 

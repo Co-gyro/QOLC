@@ -6,6 +6,39 @@
  */
 import { UsenApiError } from "./errors";
 
+/** USEN本番環境のホスト名（誤送信ガードの判定対象） */
+export const USEN_PROD_HOSTNAME = "inet-uketsuke1.netmove.jp";
+
+/**
+ * USEN本番エンドポイントへの誤送信ガード。
+ *
+ * 2026-06-29 に .env.local を本番設定のまま戻し忘れ、ローカルのE2E検証が
+ * 本番USENへ実課金（¥163,323×3）した事故の再発防止策。送信先URLのホスト名で
+ * 判定するため、環境変数の組み合わせに依存せず確実にブロックする。
+ *
+ * 本番ホストへの送信を許可する条件（いずれか）:
+ *   - Vercel本番デプロイ（VERCEL_ENV === "production"）
+ *   - 明示フラグ ALLOW_USEN_PROD === "1"（ローカルからの意図的な本番操作用）
+ *
+ * @throws {UsenApiError} 上記条件を満たさず本番ホストへ送信しようとした場合
+ */
+export function assertUsenEndpointAllowed(url: string): void {
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname;
+  } catch {
+    // URL不正は通信処理側で失敗として扱う
+    return;
+  }
+  if (hostname !== USEN_PROD_HOSTNAME) return;
+  if (process.env.VERCEL_ENV === "production") return;
+  if (process.env.ALLOW_USEN_PROD === "1") return;
+  throw new UsenApiError(
+    `USEN本番エンドポイント（${USEN_PROD_HOSTNAME}）への送信をブロックしました。` +
+      "本番デプロイ以外から本番USENを操作する場合は、環境変数 ALLOW_USEN_PROD=1 を明示的に設定してください。"
+  );
+}
+
 /** ベースURLとパスを結合（重複スラッシュ吸収） */
 export function joinUrl(base: string, path: string): string {
   const b = base.endsWith("/") ? base.slice(0, -1) : base;
@@ -55,6 +88,7 @@ export interface PostFormOptions {
  * @throws {UsenApiError} 通信失敗・HTTP異常時
  */
 export async function postForm(opts: PostFormOptions): Promise<string> {
+  assertUsenEndpointAllowed(opts.url);
   const fetchImpl = opts.fetchImpl ?? fetch;
   const timeoutMs = opts.timeoutMs ?? 30_000;
 
@@ -108,6 +142,7 @@ export interface PostJsonOptions {
  * @throws {UsenApiError} 通信失敗・HTTP異常時
  */
 export async function requestJson<T>(opts: PostJsonOptions): Promise<T> {
+  assertUsenEndpointAllowed(opts.url);
   const fetchImpl = opts.fetchImpl ?? fetch;
   const timeoutMs = opts.timeoutMs ?? 30_000;
   const method = opts.method ?? "POST";

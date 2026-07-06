@@ -1,12 +1,15 @@
 /**
  * usen-client（XMLパース / postForm / joinUrl）のテスト
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   joinUrl,
   parseXmlResponse,
   postForm,
+  requestJson,
   isOk,
+  assertUsenEndpointAllowed,
+  USEN_PROD_HOSTNAME,
 } from "../../src/lib/payment/usen-client";
 import { UsenApiError } from "../../src/lib/payment/errors";
 
@@ -122,5 +125,81 @@ describe("postForm（fetch モック）", () => {
     await expect(
       postForm({ url: "https://x.jp/p", params: {}, fetchImpl: fakeFetch })
     ).rejects.toThrow(UsenApiError);
+  });
+});
+
+describe("assertUsenEndpointAllowed（本番誤送信ガード）", () => {
+  const PROD_URL = `https://${USEN_PROD_HOSTNAME}/payment/sales/salesadd`;
+  const savedVercelEnv = process.env.VERCEL_ENV;
+  const savedAllow = process.env.ALLOW_USEN_PROD;
+
+  beforeEach(() => {
+    delete process.env.VERCEL_ENV;
+    delete process.env.ALLOW_USEN_PROD;
+  });
+
+  afterEach(() => {
+    if (savedVercelEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = savedVercelEnv;
+    if (savedAllow === undefined) delete process.env.ALLOW_USEN_PROD;
+    else process.env.ALLOW_USEN_PROD = savedAllow;
+  });
+
+  it("本番ホストは非本番環境（フラグなし）でブロック", () => {
+    expect(() => assertUsenEndpointAllowed(PROD_URL)).toThrow(UsenApiError);
+    expect(() => assertUsenEndpointAllowed(PROD_URL)).toThrow(/ALLOW_USEN_PROD/);
+  });
+
+  it("ALLOW_USEN_PROD=1 で明示許可", () => {
+    process.env.ALLOW_USEN_PROD = "1";
+    expect(() => assertUsenEndpointAllowed(PROD_URL)).not.toThrow();
+  });
+
+  it("Vercel本番デプロイ（VERCEL_ENV=production）は許可", () => {
+    process.env.VERCEL_ENV = "production";
+    expect(() => assertUsenEndpointAllowed(PROD_URL)).not.toThrow();
+  });
+
+  it("VERCEL_ENV=preview はブロック対象", () => {
+    process.env.VERCEL_ENV = "preview";
+    expect(() => assertUsenEndpointAllowed(PROD_URL)).toThrow(UsenApiError);
+  });
+
+  it("テスト環境ホスト（inet-uketsuke）はブロックしない", () => {
+    expect(() =>
+      assertUsenEndpointAllowed("https://inet-uketsuke.netmove.jp/payment/sales/salesadd")
+    ).not.toThrow();
+  });
+
+  it("不正なURLはガードでは弾かない（通信処理側で失敗）", () => {
+    expect(() => assertUsenEndpointAllowed("not-a-url")).not.toThrow();
+  });
+
+  it("postForm は本番ホストで fetch 前にブロック", async () => {
+    let fetchCalled = false;
+    const fakeFetch: typeof fetch = async () => {
+      fetchCalled = true;
+      return new Response("<response><result>ok</result></response>");
+    };
+    await expect(
+      postForm({ url: PROD_URL, params: { a: "1" }, fetchImpl: fakeFetch })
+    ).rejects.toThrow(/ブロック/);
+    expect(fetchCalled).toBe(false);
+  });
+
+  it("requestJson も本番ホストで fetch 前にブロック", async () => {
+    let fetchCalled = false;
+    const fakeFetch: typeof fetch = async () => {
+      fetchCalled = true;
+      return new Response("{}");
+    };
+    await expect(
+      requestJson({
+        url: `https://${USEN_PROD_HOSTNAME}/ec-payment-uhup/token`,
+        body: {},
+        fetchImpl: fakeFetch,
+      })
+    ).rejects.toThrow(/ブロック/);
+    expect(fetchCalled).toBe(false);
   });
 });

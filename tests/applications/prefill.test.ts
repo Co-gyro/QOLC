@@ -111,3 +111,22 @@ describe("buildJcbPrefill（申請ハブ→JCB申請書のプリフィル）", (
     expect("companyNameKanji" in partial).toBe(false);
   });
 });
+
+describe("住所フリガナ・契約コードまわり", () => {
+  it("UD補足の住所フリガナを半角カナ＋半角数字に変換して転記する", () => {
+    const out = buildJcbPrefill(PAYLOAD, {
+      company_addr_kana: "トウキョウトミナトクシンバシ１－１－１３",
+      tenant_addr_kana: "カナガワケンヨコハマシアオバク１－２－３",
+    });
+    expect(out.companyAddrKana).toBe("ﾄｳｷｮｳﾄﾐﾅﾄｸｼﾝﾊﾞｼ1-1-13");
+    expect(out.tenantAddrKana).toBe("ｶﾅｶﾞﾜｹﾝﾖｺﾊﾏｼｱｵﾊﾞｸ1-2-3");
+  });
+
+  it("個人事業主は会社住所フリガナが代表者住所カナにも入る", () => {
+    const out = buildJcbPrefill(
+      { ...PAYLOAD, corpType: "個人事業主" },
+      { company_addr_kana: "トウキョウトセタガヤク１－９" }
+    );
+    expect(out.repAddrKana).toBe("ﾄｳｷｮｳﾄｾﾀｶﾞﾔｸ1-9");
+  });
+});

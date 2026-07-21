@@ -167,22 +167,25 @@ export default function ApplyForm({
             onChange={(e) => set("corpNameKana", e.target.value)}
           />
         </Field>
-        <Field
-          label="法人番号（13桁）"
-          hint="半角数字13桁。法人番号をお持ちの場合はご入力ください"
-          error={errors.corporateNumber}
-        >
-          <input
-            className="apply-form-input"
-            type="text"
-            placeholder="1234567890123"
-            maxLength={13}
-            inputMode="numeric"
-            style={{ maxWidth: 200 }}
-            value={form.corporateNumber}
-            onChange={(e) => set("corporateNumber", e.target.value)}
-          />
-        </Field>
+        {form.corpType === "法人" && (
+          <Field
+            label="法人番号（13桁）"
+            required
+            hint="半角数字13桁。国税庁法人番号公表サイトで確認できます。カード会社への申請に必要です"
+            error={errors.corporateNumber}
+          >
+            <input
+              className="apply-form-input"
+              type="text"
+              placeholder="1234567890123"
+              maxLength={13}
+              inputMode="numeric"
+              style={{ maxWidth: 200 }}
+              value={form.corporateNumber}
+              onChange={(e) => set("corporateNumber", e.target.value)}
+            />
+          </Field>
+        )}
         <Field
           label="郵便番号"
           required

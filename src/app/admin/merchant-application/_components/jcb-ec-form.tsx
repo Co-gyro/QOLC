@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import {
   AUTO_VALUES,
   BIZ_CATEGORIES,
+  JCB_CONTRACT_CODE,
   CORP_INDIV_OPTIONS,
   SALES_STYLES,
   buildExcelFilename,
@@ -60,7 +61,8 @@ const EMPTY_APP: JcbEcApplication = {
   bizOverview: "",
   handlingProducts: "",
   notes: "",
-  contractCode: "",
+  // 契約コードは包括契約時に付与済みの固定値（変更時のみ手修正）
+  contractCode: JCB_CONTRACT_CODE,
   merchantUseNo: "",
   posBranchCode1: "",
 };

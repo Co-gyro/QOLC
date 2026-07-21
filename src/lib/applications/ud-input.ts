@@ -12,9 +12,17 @@
  * DB アクセスは行わない（API Route / コンポーネント双方から利用する）。
  */
 import { z } from "zod";
+import { ADDRESS_KATAKANA_RE } from "@/lib/utils/kana";
 
 /** 包括事業者コードの既定値（JCB の2層構造の親コード。UD=0160） */
 export const DEFAULT_BULK_PROVIDER_CODE = "0160";
+
+/** セキュリティ対応状況の選択肢（申請時の申告内容。先頭が既定） */
+export const SECURITY_STATUS_OPTIONS: readonly string[] = [
+  "非対面・トークン決済（カード情報非保持）",
+  "カード情報非保持・PCIDSS準拠",
+  "対応検討中",
+];
 
 /** UD 追記フィールド（すべて任意。空文字は保存時に除去する） */
 export interface UdInputFields {
@@ -42,6 +50,10 @@ export interface UdInputFields {
   biz_overview?: string;
   /** JCB申請書: 取扱商材 */
   handling_products?: string;
+  /** JCB申請書: 会社住所フリガナ（全角カタカナ＋数字。生成時に半角変換） */
+  company_addr_kana?: string;
+  /** JCB申請書: 店舗（施設）住所フリガナ（全角カタカナ＋数字。生成時に半角変換） */
+  tenant_addr_kana?: string;
 }
 
 /** UD 追記フィールドのキー一覧（parse / diff で使用） */
@@ -58,6 +70,8 @@ export const UD_INPUT_FIELD_KEYS: readonly (keyof UdInputFields)[] = [
   "tenant_name_latin",
   "biz_overview",
   "handling_products",
+  "company_addr_kana",
+  "tenant_addr_kana",
 ];
 
 /** UD 追記フィールドの日本語ラベル（履歴・画面表示用） */
@@ -74,6 +88,8 @@ export const UD_INPUT_LABELS: Record<keyof UdInputFields, string> = {
   tenant_name_latin: "店舗名アルファベット",
   biz_overview: "業種・業務内容",
   handling_products: "取扱商材",
+  company_addr_kana: "会社住所フリガナ",
+  tenant_addr_kana: "施設住所フリガナ",
 };
 
 /** 審査結果（NULL=結果待ち） */
@@ -180,6 +196,16 @@ export const udInputFieldsSchema = z.object({
     .optional(),
   biz_overview: z.string().max(256, "業種・業務内容が長すぎます").optional(),
   handling_products: z.string().max(256, "取扱商材が長すぎます").optional(),
+  company_addr_kana: z
+    .string()
+    .max(100, "会社住所フリガナが長すぎます")
+    .regex(ADDRESS_KATAKANA_RE, "会社住所フリガナは全角カタカナ＋数字で入力してください")
+    .optional(),
+  tenant_addr_kana: z
+    .string()
+    .max(100, "施設住所フリガナが長すぎます")
+    .regex(ADDRESS_KATAKANA_RE, "施設住所フリガナは全角カタカナ＋数字で入力してください")
+    .optional(),
 });
 
 /**

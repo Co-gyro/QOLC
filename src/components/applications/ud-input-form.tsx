@@ -29,6 +29,7 @@ import {
   UD_INPUT_CLASS as INPUT_CLASS,
   UD_INPUT_STYLE as INPUT_STYLE,
 } from "./ud-text-field";
+import { UdAppdocFields } from "./ud-appdoc-fields";
 
 export function UdInputForm({ udInput, saving, onSave }: UdInputFormProps) {
   const parsed = parseUdInput(udInput ?? null);
@@ -78,44 +79,11 @@ export function UdInputForm({ udInput, saving, onSave }: UdInputFormProps) {
           hint="加盟店との契約手数料率"
           onChange={set("settlement_rate")}
         />
-        <TextField
-          label="業態コード"
-          value={fields.biz_cat_code ?? ""}
-          placeholder="例：60207"
-          hint="JCB申請書の業態コード（基本合意書の業態から選択）"
-          onChange={set("biz_cat_code")}
-        />
-        <TextField
-          label="セキュリティ対応状況"
-          value={fields.security_status ?? ""}
-          placeholder="例：カード情報非保持・PCIDSS準拠"
-          onChange={set("security_status")}
-        />
       </div>
       <p className="text-sm font-medium" style={{ color: "var(--qolc-text)" }}>
         申請書用補足（JCB申請書の必須項目・お客様入力にはない項目）
       </p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <TextField
-          label="店舗名アルファベット"
-          value={fields.tenant_name_latin ?? ""}
-          placeholder="例：SAMPLE CARE HOME"
-          hint="半角英大文字・数字・スペースで25文字以内。カード明細の英字表記"
-          onChange={set("tenant_name_latin")}
-        />
-        <TextField
-          label="業種・業務内容"
-          value={fields.biz_overview ?? ""}
-          placeholder="例：有料老人ホームの運営"
-          onChange={set("biz_overview")}
-        />
-        <TextField
-          label="取扱商材"
-          value={fields.handling_products ?? ""}
-          placeholder="例：介護サービス利用料の収納代行"
-          onChange={set("handling_products")}
-        />
-      </div>
+      <UdAppdocFields fields={fields} set={set} />
       <p className="text-sm font-medium" style={{ color: "var(--qolc-text)" }}>
         振込先口座情報（精算金の支払先）
       </p>

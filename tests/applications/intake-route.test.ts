@@ -143,6 +143,34 @@ describe("POST /api/applications", () => {
     expect(state.insertedEvents.map((e) => e.kind)).toEqual(["created", "email_sent"]);
   });
 
+  it("法人なのに法人番号が空の payload は 400 で弾く（JCB申請書で必須のため）", async () => {
+    const res = await POST(
+      makeReq(
+        {
+          source: "qolc_merchant",
+          applicant_name: "佐藤 花子",
+          payload: { ...FULL_MERCHANT_PAYLOAD, corporateNumber: "" },
+        },
+        "10.0.0.21"
+      )
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("個人事業主は法人番号が空でも通る", async () => {
+    const res = await POST(
+      makeReq(
+        {
+          source: "qolc_merchant",
+          applicant_name: "佐藤 花子",
+          payload: { ...FULL_MERCHANT_PAYLOAD, corpType: "個人事業主", corporateNumber: "" },
+        },
+        "10.0.0.22"
+      )
+    );
+    expect(res.status).toBe(200);
+  });
+
   it("qolc_merchant で必須項目が欠けた payload は 400 で弾く（欠損保存の防止）", async () => {
     const res = await POST(
       makeReq(

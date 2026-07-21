@@ -112,7 +112,18 @@ export const merchantApplyFormSchema = z.object({
   contactPhone: phoneSchema,
   contactTime: z.enum(["いつでも", "午前中", "午後"]),
   note: z.string().trim().max(500).optional(),
-});
+})
+  // JCB申請書は法人（区分1）の場合に法人番号が必須。全法人には国税庁が
+  // 法人番号を指定しているため、法人選択時は入力必須にして申請書作成の手戻りを防ぐ。
+  .superRefine((v, ctx) => {
+    if (v.corpType === "法人" && v.corporateNumber === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["corporateNumber"],
+        message: "法人の場合は法人番号（13桁）を入力してください",
+      });
+    }
+  });
 export type MerchantApplyForm = z.infer<typeof merchantApplyFormSchema>;
 
 /**

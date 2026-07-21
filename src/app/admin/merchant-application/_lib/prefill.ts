@@ -73,11 +73,14 @@ export function buildJcbPrefill(
   assign("tenantAddrKanji", s(p.facilityAddress));
   assign("tenantTel", s(p.facilityPhone));
   assign("notes", s(p.note));
-  // UD追記: 業態コード・申請書用補足（アルファベット店舗名・業種内容・取扱商材）
+  // UD追記: 業態コード・申請書用補足（アルファベット店舗名・業種内容・取扱商材・住所カナ）
   assign("bizCatCode", fields.biz_cat_code);
   assign("tenantNameLatin", fields.tenant_name_latin);
   assign("bizOverview", fields.biz_overview);
   assign("handlingProducts", fields.handling_products);
+  assign("companyAddrKana", halfKana(fields.company_addr_kana));
+  assign("tenantAddrKana", halfKana(fields.tenant_addr_kana));
+  if (isIndividual) assign("repAddrKana", halfKana(fields.company_addr_kana));
   // 申請前採番（ud_input.codes）: 手入力による採番プールとの齟齬を防ぐため自動転記する
   if (codes) {
     assign("merchantUseNo", codes.mall_code);

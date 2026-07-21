@@ -48,6 +48,12 @@ export interface JcbEcApplication {
 }
 
 // 自動設定値 (定数)
+/**
+ * JCB 契約コード（包括契約の締結時に JCB から付与済みの固定値。全店子申請で共通）。
+ * 申請ごとに新たに取得するものではない。変更があればここを更新する。
+ */
+export const JCB_CONTRACT_CODE = "010003";
+
 export const AUTO_VALUES = {
   requestType: "1",            // 1=新規
   enterpriseCode: "0160",      // 包括事業者コード固定

@@ -83,7 +83,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     );
   }
 
-  const { fields, review } = parseUdInput(application.ud_input);
+  const { fields, review, codes: assignedCodes } = parseUdInput(application.ud_input);
   const precondition = validateConvertPreconditions({
     merchantId: application.merchant_id,
     review,
@@ -117,28 +117,53 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
   const merchantId = merchant.id as string;
 
-  // プール払い出し（既存 merchants API と同じ RPC。原子的・重複防止）
+  // コードの決定: 申請前採番（ud_input.codes）があれば必ず同じ値を引き継ぐ（二重採番の防止）。
+  // なければ従来どおりリクエストのフラグに応じてプールから払い出す。
   let mallCode: string | null = null;
   let terminalId: string | null = null;
-  if (v.assign_mall_code) {
-    const { data, error } = await admin.rpc("assign_mall_code", { p_merchant_id: merchantId });
-    if (error) {
+  if (assignedCodes) {
+    mallCode = assignedCodes.mall_code;
+    terminalId = assignedCodes.terminal_id;
+    const { error: setErr } = await admin
+      .from("merchants")
+      .update({ mall_code: mallCode, terminal_id: terminalId })
+      .eq("id", merchantId);
+    if (setErr) {
       return NextResponse.json(
-        apiError(`モールコード払い出し失敗: ${error.message}`, "MALL_CODE"),
-        { status: 409 }
+        apiError(`採番済みコードの設定に失敗しました: ${setErr.message}`, "DB"),
+        { status: 500 }
       );
     }
-    mallCode = data as string;
-  }
-  if (v.assign_terminal_id) {
-    const { data, error } = await admin.rpc("assign_terminal_id", { p_merchant_id: merchantId });
-    if (error) {
-      return NextResponse.json(
-        apiError(`端末識別番号払い出し失敗: ${error.message}`, "TERMINAL_ID"),
-        { status: 409 }
-      );
+    // 採番時（merchant 未作成）に null だったプール行の紐付けを回復（トレーサビリティ）
+    await admin
+      .from("mall_code_pool")
+      .update({ assigned_to_merchant_id: merchantId })
+      .eq("code", mallCode);
+    await admin
+      .from("terminal_id_pool")
+      .update({ assigned_to_merchant_id: merchantId })
+      .eq("terminal_id", terminalId);
+  } else {
+    if (v.assign_mall_code) {
+      const { data, error } = await admin.rpc("assign_mall_code", { p_merchant_id: merchantId });
+      if (error) {
+        return NextResponse.json(
+          apiError(`モールコード払い出し失敗: ${error.message}`, "MALL_CODE"),
+          { status: 409 }
+        );
+      }
+      mallCode = data as string;
     }
-    terminalId = data as string;
+    if (v.assign_terminal_id) {
+      const { data, error } = await admin.rpc("assign_terminal_id", { p_merchant_id: merchantId });
+      if (error) {
+        return NextResponse.json(
+          apiError(`端末識別番号払い出し失敗: ${error.message}`, "TERMINAL_ID"),
+          { status: 409 }
+        );
+      }
+      terminalId = data as string;
+    }
   }
 
   // 審査記録（merchant_applications）を作成

@@ -29,7 +29,7 @@ export function buildJcbPrefill(
   udInput: Record<string, unknown> | null | undefined
 ): Partial<JcbEcApplication> {
   const p = payload ?? {};
-  const { fields } = parseUdInput(udInput ?? null);
+  const { fields, codes } = parseUdInput(udInput ?? null);
   const isIndividual = s(p.corpType) === "個人事業主";
 
   const out: Partial<JcbEcApplication> = {};
@@ -64,5 +64,10 @@ export function buildJcbPrefill(
   assign("notes", s(p.note));
   // UD追記: 業態コード
   assign("bizCatCode", fields.biz_cat_code);
+  // 申請前採番（ud_input.codes）: 手入力による採番プールとの齟齬を防ぐため自動転記する
+  if (codes) {
+    assign("merchantUseNo", codes.mall_code);
+    assign("posBranchCode1", codes.terminal_id);
+  }
   return out;
 }

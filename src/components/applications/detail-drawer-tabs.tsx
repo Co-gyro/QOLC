@@ -12,6 +12,7 @@ import { EditForm } from "./detail-edit-form";
 import { ApplicantInfo } from "./applicant-info";
 import { CommentForm } from "./comment-form";
 import { WorkflowSection } from "./workflow-section";
+import { AssignCodesSection } from "./assign-codes-section";
 import { UdInputForm } from "./ud-input-form";
 import { ReviewSection } from "./review-section";
 import { FlowStepper } from "@/components/workflow/flow-stepper";
@@ -109,16 +110,20 @@ export function DrawerProcedureTab({
   return (
     <div className="flex flex-col gap-6">
       <p className="text-sm" style={{ color: "var(--qolc-muted)" }}>
-        加盟店登録までの実務をここで進めます: ①工程チェックリストの起票 →
-        ②UD追記情報の入力・申請書の作成 → ③カード会社へ提出 → ④審査結果の登録 →
-        ⑤加盟店として登録（施設登録・USEN／セルフィッシュへの入力は工程チェックリストで管理）。
+        加盟店登録までの実務をここで進めます: ①工程チェックリストの起票 → ②採番 →
+        ③UD追記情報の入力・申請書の作成 → ④カード会社へ提出 → ⑤審査結果の登録 →
+        ⑥加盟店として登録（施設登録・USEN／セルフィッシュへの入力は工程チェックリストで管理）。
       </p>
 
       <Section title="① 申請工程（チェックリスト）">
         <WorkflowSection detail={detail} onStarted={onRefresh} />
       </Section>
 
-      <Section title="② UD追記情報・申請書作成">
+      <Section title="② 採番（モールコード・端末識別番号）">
+        <AssignCodesSection detail={detail} onAssigned={onRefresh} />
+      </Section>
+
+      <Section title="③ UD追記情報・申請書作成">
         <UdInputForm
           udInput={detail.udInput}
           saving={saving}
@@ -133,7 +138,7 @@ export function DrawerProcedureTab({
         </a>
       </Section>
 
-      <Section title="③④⑤ 審査結果の登録・加盟店へ変換">
+      <Section title="④⑤⑥ 審査結果の登録・加盟店へ変換">
         <ReviewSection detail={detail} onSaved={onRefresh} />
       </Section>
     </div>

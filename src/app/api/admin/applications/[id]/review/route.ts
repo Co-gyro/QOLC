@@ -103,7 +103,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   // ud_input.review を1社分だけ差し替え（before/after を履歴に残す）
-  const { fields, review: beforeReview } = parseUdInput(application.ud_input);
+  const { fields, review: beforeReview, codes } = parseUdInput(application.ud_input);
   const nextCompany: CompanyReview = {
     submitted_at: norm(v.submitted_at),
     result: v.result ?? null,
@@ -114,7 +114,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     merchant_code: company === "saison" ? norm(v.merchant_code) : null,
   };
   const afterReview = mergeCompanyReview(beforeReview, company, nextCompany);
-  const nextUdInput = serializeUdInput(fields, afterReview);
+  // codes（申請前採番）を必ず引き継ぐ（落とすと申請書・変換への配線が切れる）
+  const nextUdInput = serializeUdInput(fields, afterReview, codes);
 
   const { error: updErr } = await admin
     .from("applications")

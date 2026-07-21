@@ -61,6 +61,20 @@ describe("buildJcbPrefill（申請ハブ→JCB申請書のプリフィル）", (
     expect(out.bizCatCode).toBe("60207");
   });
 
+  it("申請前採番（ud_input.codes）をモールコード・POS支店コードへ自動転記する", () => {
+    const out = buildJcbPrefill(PAYLOAD, {
+      codes: { mall_code: "A3F2", terminal_id: "3124620001042", assigned_at: "2026-07-21T00:00:00Z" },
+    });
+    expect(out.merchantUseNo).toBe("A3F2");
+    expect(out.posBranchCode1).toBe("3124620001042");
+  });
+
+  it("未採番なら手入力欄を上書きしない（undefined のまま）", () => {
+    const out = buildJcbPrefill(PAYLOAD, null);
+    expect(out.merchantUseNo).toBeUndefined();
+    expect(out.posBranchCode1).toBeUndefined();
+  });
+
   it("payload が null / 空でも例外を出さず、未入力キーは含めない", () => {
     const out = buildJcbPrefill(null, null);
     expect(out).toEqual({});

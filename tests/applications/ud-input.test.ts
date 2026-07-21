@@ -158,3 +158,32 @@ describe("validateUdInputFields（保存時の形式検証）", () => {
     expect(validateUdInputFields({ account_number: "12ab567" })).toContain("口座番号");
   });
 });
+
+describe("codes（申請前採番）の parse / serialize", () => {
+  const CODES = { mall_code: "A3F2", terminal_id: "3124620001042", assigned_at: "2026-07-21T00:00:00Z" };
+
+  it("正しい codes は round-trip で保持される", () => {
+    const raw = serializeUdInput({ settlement_rate: "1.9" }, {}, CODES);
+    const parsed = parseUdInput(raw);
+    expect(parsed.codes).toEqual(CODES);
+    expect(parsed.fields.settlement_rate).toBe("1.9");
+  });
+
+  it("review と codes を同時に保持できる", () => {
+    const review: ApplicationReview = { jcb: { submitted_at: "2026-07-01" } };
+    const raw = serializeUdInput({}, review, CODES);
+    const parsed = parseUdInput(raw);
+    expect(parsed.codes?.mall_code).toBe("A3F2");
+    expect(parsed.review.jcb?.submitted_at).toBe("2026-07-01");
+  });
+
+  it("形式不正な codes は無視される（mall_code 形式・terminal_id 桁数）", () => {
+    expect(parseUdInput({ codes: { mall_code: "B999", terminal_id: "3124620001042" } }).codes).toBeUndefined();
+    expect(parseUdInput({ codes: { mall_code: "A3F2", terminal_id: "123" } }).codes).toBeUndefined();
+    expect(parseUdInput({ codes: "A3F2" }).codes).toBeUndefined();
+  });
+
+  it("codes 未指定の serialize では codes キーを出力しない", () => {
+    expect(serializeUdInput({}, {})).not.toHaveProperty("codes");
+  });
+});

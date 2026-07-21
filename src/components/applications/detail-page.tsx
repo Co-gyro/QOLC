@@ -16,6 +16,7 @@ import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DrawerContentTab, DrawerManageTab, DrawerProcedureTab } from "./detail-drawer-tabs";
+import { MerchantStageStepper } from "./merchant-stage-stepper";
 import {
   fetchApplicationDetail,
   patchApplication,
@@ -159,6 +160,7 @@ export function ApplicationDetailPage({ applicationId, listHref, listLabel }: Ap
         <LoadingSpinner />
       ) : (
         <div className="max-w-3xl">
+          {isMerchant && <MerchantStageStepper row={detail} />}
           <WorkSection
             title="① 記載内容"
             hint="お客様が入力した内容です。まずここを読んでから対応してください。"

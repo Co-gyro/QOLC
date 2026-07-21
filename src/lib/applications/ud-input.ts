@@ -2,9 +2,13 @@
  * applications.ud_input（UD追記情報 jsonb）の型と純ロジック
  *
  * ud_input は顧客入力（payload）と分離した UD 側の追記領域で、次の構造を持つ:
- *   { ...UdInputFields, review?: { jcb?: CompanyReview, saison?: CompanyReview } }
+ *   { ...UdInputFields,
+ *     review?: { jcb?: CompanyReview, saison?: CompanyReview },
+ *     codes?: AssignedCodes }
  * - UdInputFields … 申請書生成に必要な UD 補足項目（包括事業者コード等）
  * - review        … JCB / セゾンの審査結果（merchant_applications への配線元）
+ * - codes         … 申請前に採番したモールコード・端末識別番号（申請書生成へ自動転記し、
+ *                   審査通過後の加盟店変換でも同じ値を引き継ぐ＝二重採番の防止）
  * DB アクセスは行わない（API Route / コンポーネント双方から利用する）。
  */
 import { z } from "zod";
@@ -79,6 +83,35 @@ export interface CompanyReview {
   merchant_code_ec?: string | null;
   /** セゾン: 加盟店番号（加盟店No. 通常7桁） */
   merchant_code?: string | null;
+}
+
+/** 申請前に採番したコード（ud_input.codes。プール RPC の払い出し結果） */
+export interface AssignedCodes {
+  /** モールコード（A300〜A3ZZ の4桁） */
+  mall_code: string;
+  /** USEN 端末識別番号（13桁） */
+  terminal_id: string;
+  /** 採番日時（ISO文字列） */
+  assigned_at: string;
+}
+
+/** モールコードの形式（本番プール A300〜A3ZZ） */
+export const MALL_CODE_RE = /^A3[0-9A-Z]{2}$/;
+/** 端末識別番号の形式（13桁数字） */
+export const TERMINAL_ID_RE = /^\d{13}$/;
+
+/** unknown を AssignedCodes へ安全に変換する（形式不正は捨てる） */
+function parseAssignedCodes(raw: unknown): AssignedCodes | undefined {
+  if (raw == null || typeof raw !== "object") return undefined;
+  const r = raw as Record<string, unknown>;
+  const mall = typeof r.mall_code === "string" ? r.mall_code : "";
+  const terminal = typeof r.terminal_id === "string" ? r.terminal_id : "";
+  if (!MALL_CODE_RE.test(mall) || !TERMINAL_ID_RE.test(terminal)) return undefined;
+  return {
+    mall_code: mall,
+    terminal_id: terminal,
+    assigned_at: typeof r.assigned_at === "string" ? r.assigned_at : "",
+  };
 }
 
 /** 審査対象のカード会社 */
@@ -162,19 +195,22 @@ function parseCompanyReview(raw: unknown): CompanyReview | undefined {
   return review;
 }
 
-/** parse 結果（フィールドと審査記録を分離して返す） */
+/** parse 結果（フィールド・審査記録・採番を分離して返す） */
 export interface ParsedUdInput {
   fields: UdInputFields;
   review: ApplicationReview;
+  /** 申請前採番の結果（未採番は undefined） */
+  codes?: AssignedCodes;
 }
 
 /**
- * 生の ud_input jsonb を UdInputFields + ApplicationReview に分解する。
+ * 生の ud_input jsonb を UdInputFields + ApplicationReview + AssignedCodes に分解する。
  * 未知キー・不正値は無視する（後方互換のため throw しない）。
  */
 export function parseUdInput(raw: Record<string, unknown> | null | undefined): ParsedUdInput {
   const fields: UdInputFields = {};
   const review: ApplicationReview = {};
+  let codes: AssignedCodes | undefined;
   if (raw && typeof raw === "object") {
     for (const key of UD_INPUT_FIELD_KEYS) {
       const v = raw[key];
@@ -192,17 +228,20 @@ export function parseUdInput(raw: Record<string, unknown> | null | undefined): P
       if (jcb) review.jcb = jcb;
       if (saison) review.saison = saison;
     }
+    codes = parseAssignedCodes(raw.codes);
   }
-  return { fields, review };
+  return { fields, review, codes };
 }
 
 /**
- * UdInputFields + ApplicationReview を ud_input jsonb（保存形）へ合成する。
- * 空文字のフィールドは除去する。
+ * UdInputFields + ApplicationReview + AssignedCodes を ud_input jsonb（保存形）へ合成する。
+ * 空文字のフィールドは除去する。codes を省略すると採番記録は落ちるため、
+ * 既存の ud_input を更新する呼び出し元は parseUdInput の codes を必ず引き継ぐこと。
  */
 export function serializeUdInput(
   fields: UdInputFields,
-  review: ApplicationReview
+  review: ApplicationReview,
+  codes?: AssignedCodes
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const key of UD_INPUT_FIELD_KEYS) {
@@ -215,6 +254,7 @@ export function serializeUdInput(
       ...(review.saison ? { saison: review.saison } : {}),
     };
   }
+  if (codes) out.codes = codes;
   return out;
 }
 

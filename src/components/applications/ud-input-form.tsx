@@ -79,7 +79,9 @@ export function UdInputForm({ udInput, saving, onSave }: UdInputFormProps) {
       setFormError(check.error.issues[0]?.message ?? "入力内容を確認してください");
       return;
     }
-    onSave(serializeUdInput(editable, parseUdInput(udInput ?? null).review));
+    const current = parseUdInput(udInput ?? null);
+    // review（審査記録）と codes（採番）は UD 追記フォームでは触らず必ず引き継ぐ
+    onSave(serializeUdInput(editable, current.review, current.codes));
   }
 
   return (

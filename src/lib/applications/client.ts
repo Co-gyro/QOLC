@@ -102,6 +102,16 @@ export async function postApplicationComment(
   });
 }
 
+/** 申請前採番（モールコード・端末識別番号のプール払い出し）を実行する */
+export async function assignApplicationCodes(
+  id: string
+): Promise<{ mallCode: string; terminalId: string; already: boolean }> {
+  return request<{ mallCode: string; terminalId: string; already: boolean }>(
+    `/api/admin/applications/${id}/assign-codes`,
+    { ...JSON_POST, body: JSON.stringify({}) }
+  );
+}
+
 /** 申請工程（merchant_application テンプレ13工程）を起票する */
 export async function startApplicationWorkflow(
   id: string

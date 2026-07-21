@@ -15,7 +15,7 @@ describe("admin メニュー（業務ファースト構成）", () => {
     expect(sections[0].items[0]).toMatchObject({ href: "/admin/today", label: "今日のUD" });
   });
 
-  it("業務セクション: 相談・問い合わせ／加盟店申請・登録／日次決済／月次精算", () => {
+  it("業務セクション: 相談・問い合わせ／加盟店申請・登録／日次決済／月次精算／その他業務", () => {
     const gyomu = sections.find((s) => s.title === "業務");
     expect(gyomu).toBeDefined();
     expect(gyomu!.items.map((m) => m.href)).toEqual([
@@ -23,6 +23,7 @@ describe("admin メニュー（業務ファースト構成）", () => {
       "/admin/applications",
       "/admin/payments",
       "/admin/tasks",
+      "/admin/other-tasks",
     ]);
     expect(gyomu!.items[0].label).toBe("相談・問い合わせ");
     expect(gyomu!.items[1].label).toBe("加盟店申請・登録");

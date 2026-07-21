@@ -33,6 +33,7 @@ export const PORTAL_MENU_SECTIONS: Record<PortalType, MenuSection[]> = {
         { href: "/admin/applications", label: "加盟店申請・登録", icon: "Store" },
         { href: "/admin/payments", label: "日次決済", icon: "CreditCard" },
         { href: "/admin/tasks", label: "月次精算・チェック", icon: "ListChecks" },
+        { href: "/admin/other-tasks", label: "その他業務", icon: "ClipboardCheck" },
       ],
     },
     {

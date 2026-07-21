@@ -5,6 +5,7 @@ import { describe, it, expect } from "vitest";
 
 import {
   buildTodayGroups,
+  addDaysToDateStr,
   GROUP_ITEM_LIMIT,
   POOL_WARN_THRESHOLD,
 } from "@/lib/portal/today-groups";
@@ -54,7 +55,7 @@ describe("buildTodayGroups", () => {
       "/admin/applications",
       "/admin/payments",
       "/admin/tasks",
-      "/admin/tasks",
+      "/admin/other-tasks",
     ]);
   });
 
@@ -150,5 +151,47 @@ describe("buildTodayGroups", () => {
     );
     const inq = groups.find((g) => g.key === "inquiries")!;
     expect(inq.items.map((i) => i.id)).toEqual(["app-q-new", "app-q-doing"]);
+  });
+});
+
+describe("その他業務（ops_tasks）", () => {
+  const ops = (over: Record<string, unknown>) => ({
+    id: "t1",
+    title: "セゾン入金確認",
+    status: "todo" as const,
+    category: "入金管理",
+    assigneeId: null,
+    dueDate: null,
+    note: null,
+    recurringKey: null,
+    createdAt: "2026-07-01T00:00:00Z",
+    ...over,
+  });
+
+  it("期限接近・期限超過・対応中だけが今日のUDに出る", () => {
+    const groups = buildTodayGroups(
+      [],
+      [],
+      null,
+      null,
+      TODAY,
+      [
+        ops({ id: "soon", dueDate: "2026-07-23" }), // 3日以内 → 出る
+        ops({ id: "far", dueDate: "2026-08-15" }), // 遠い → 出ない
+        ops({ id: "late", dueDate: "2026-07-19" }), // 超過 → アラート
+        ops({ id: "doing", status: "in_progress" }), // 対応中 → 出る
+        ops({ id: "nodue" }), // 期限なし未着手 → 出ない
+        ops({ id: "closed", status: "done", dueDate: "2026-07-19" }), // 完了 → 出ない
+      ]
+    );
+    const other = groups.find((g) => g.key === "other")!;
+    expect(other.href).toBe("/admin/other-tasks");
+    // 並びはトーン順（alert=超過 → new=未着手 → doing=対応中）
+    expect(other.items.map((i) => i.id)).toEqual(["ops-late", "ops-soon", "ops-doing"]);
+    expect(other.items[0].badge).toEqual({ label: "期限超過", tone: "alert" });
+  });
+
+  it("addDaysToDateStr は月またぎを正しく計算する", () => {
+    expect(addDaysToDateStr("2026-07-30", 3)).toBe("2026-08-02");
   });
 });

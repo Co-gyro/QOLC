@@ -11,6 +11,11 @@ import {
   type ApplicationStatus,
 } from "@/lib/applications/labels";
 import { hubHrefOfSource } from "@/lib/applications/hub-tabs";
+import {
+  OPEN_OPS_STATUSES,
+  OPS_STATUS_LABELS,
+  type OpsTask,
+} from "@/lib/ops-tasks/logic";
 import { computeRunProgress, isOverdue } from "./workflow-logic";
 import type { PoolAvailability } from "./admin-queries";
 import type { PaymentAlertCounts, TodayApplication, TodayRun } from "./today-queries";
@@ -110,6 +115,46 @@ function toGroup(
   };
 }
 
+/** "YYYY-MM-DD" に日数を加算する（今日のUDの「期限接近」判定用） */
+export function addDaysToDateStr(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** 期限接近とみなす日数（今日+3日以内） */
+export const OPS_DUE_SOON_DAYS = 3;
+
+/**
+ * その他業務タスクを今日のUDに出すか。
+ * 全未完了を出すと溢れるため、「対応中」「期限超過」「期限が3日以内」に絞る。
+ */
+export function opsTaskNeedsAttention(t: OpsTask, todayStr: string): boolean {
+  if (t.status === "in_progress") return true;
+  if (!t.dueDate) return false;
+  return t.dueDate <= addDaysToDateStr(todayStr, OPS_DUE_SOON_DAYS);
+}
+
+/** ops_task → 行（期限超過はアラート・保留は情報扱い） */
+function opsTaskToItem(t: OpsTask, todayStr: string): TodayGroupItem {
+  const overdue = !!t.dueDate && t.dueDate < todayStr;
+  const tone: TodayItemTone = overdue
+    ? "alert"
+    : t.status === "todo"
+      ? "new"
+      : t.status === "on_hold"
+        ? "calm"
+        : "doing";
+  return {
+    id: `ops-${t.id}`,
+    href: "/admin/other-tasks",
+    title: t.title,
+    sub: `${t.category ?? "その他"}${t.dueDate ? `・期限 ${t.dueDate}` : ""}`,
+    badge: { label: overdue ? "期限超過" : OPS_STATUS_LABELS[t.status], tone },
+    dueDate: t.dueDate,
+  };
+}
+
 /**
  * 今日のUD の業務別グループを組み立てる。
  * @param apps 未完了の申請/相談
@@ -117,13 +162,15 @@ function toGroup(
  * @param payments 決済アラート件数（取得失敗時 null）
  * @param pool 採番プール残数（取得失敗時 null）
  * @param todayStr JST の "YYYY-MM-DD"（期限超過判定用）
+ * @param opsTasks その他業務タスク（未完了のみ渡す。テーブル未適用時は空配列）
  */
 export function buildTodayGroups(
   apps: TodayApplication[],
   runs: TodayRun[],
   payments: PaymentAlertCounts | null,
   pool: PoolAvailability | null,
-  todayStr: string
+  todayStr: string,
+  opsTasks: OpsTask[] = []
 ): TodayGroup[] {
   // 相談・問い合わせ（加盟店申請以外の全 source）
   const inquiryItems = apps
@@ -187,17 +234,22 @@ export function buildTodayGroups(
     .filter((r) => r.category === "settlement")
     .map((r) => runToItem(r, todayStr));
 
-  // その他（カテゴリ未設定・未知カテゴリの run の受け皿）
+  // その他業務（ops_tasks の未完了 + カテゴリ未設定・未知カテゴリの run の受け皿）
   const known = new Set(["merchant", "daily", "settlement"]);
-  const otherItems = runs
-    .filter((r) => !r.category || !known.has(r.category))
-    .map((r) => runToItem(r, todayStr));
+  const otherItems = [
+    ...opsTasks
+      .filter((t) => OPEN_OPS_STATUSES.includes(t.status) && opsTaskNeedsAttention(t, todayStr))
+      .map((t) => opsTaskToItem(t, todayStr)),
+    ...runs
+      .filter((r) => !r.category || !known.has(r.category))
+      .map((r) => runToItem(r, todayStr)),
+  ];
 
   return [
     toGroup("inquiries", "相談・問い合わせ", "/admin/inquiries", inquiryItems),
     toGroup("merchant", "加盟店申請・登録", "/admin/applications", merchantItems),
     toGroup("daily_payment", "日次決済", "/admin/payments", paymentItems),
     toGroup("settlement", "月次精算・チェック", "/admin/tasks", settlementItems),
-    toGroup("other", "その他業務", "/admin/tasks", otherItems),
+    toGroup("other", "その他業務", "/admin/other-tasks", otherItems),
   ];
 }

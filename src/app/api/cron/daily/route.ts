@@ -19,6 +19,7 @@ import {
 } from "@/lib/workflow/utils";
 import type { RecurringRule, WorkflowTemplateStep } from "@/lib/workflow/types";
 import { shouldTriggerRule, toJstDateString } from "@/lib/portal/workflow-logic";
+import { rulesDueOn, buildOpsTaskRow } from "@/lib/ops-tasks/logic";
 import { logActivity } from "@/lib/audit/activity-log";
 
 export const dynamic = "force-dynamic";
@@ -80,7 +81,21 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json(apiOk({ date: todayStr, created, skipped, errors }));
+  // その他業務（ops_tasks）の定例起票。
+  // recurring_key + period の UNIQUE 制約が多重起票を防ぐ（重複エラーはスキップ扱い）。
+  // migration 033 未適用の DB でも Cron 全体は失敗させない。
+  const opsCreated: string[] = [];
+  for (const rule of rulesDueOn(today)) {
+    const row = buildOpsTaskRow(rule, today);
+    const { error: insErr } = await admin.from("ops_tasks").insert(row);
+    if (!insErr) {
+      opsCreated.push(rule.key);
+    } else if (insErr.code !== "23505" && !/does not exist/.test(insErr.message)) {
+      errors.push({ rule: `ops:${rule.key}`, message: insErr.message });
+    }
+  }
+
+  return NextResponse.json(apiOk({ date: todayStr, created, skipped, errors, opsCreated }));
 }
 
 /**

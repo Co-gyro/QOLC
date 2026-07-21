@@ -24,6 +24,8 @@ import {
   type PaymentAlertCounts,
 } from "@/lib/portal/today-queries";
 import { buildTodayGroups } from "@/lib/portal/today-groups";
+import { fetchOpsTasks } from "@/lib/ops-tasks/client";
+import type { OpsTask } from "@/lib/ops-tasks/logic";
 import { toJstDateString } from "@/lib/portal/workflow-logic";
 import { getJstDateParts } from "@/lib/workflow/utils";
 import type { AssigneeOption } from "@/lib/applications/types";
@@ -37,6 +39,7 @@ interface TodayData {
   payments: PaymentAlertCounts | null;
   assignees: AssigneeOption[];
   pool: PoolAvailability | null;
+  opsTasks: OpsTask[];
 }
 
 /** 失敗しても null を返す（1つの集計失敗で画面全体を落とさない） */
@@ -56,14 +59,16 @@ export default function AdminTodayPage() {
     setError(null);
     try {
       const supabase = createSupabaseBrowserClient();
-      const [{ data: userData }, runs, apps, payments, assignees, pool] = await Promise.all([
-        supabase.auth.getUser(),
-        fetchOpenWorkflowRuns(), // 内部で空配列フォールバック
-        safe(fetchOpenApplicationsToday()),
-        safe(fetchPaymentAlertCounts()),
-        safe(fetchAssignees()),
-        safe(fetchPoolAvailability()),
-      ]);
+      const [{ data: userData }, runs, apps, payments, assignees, pool, ops] =
+        await Promise.all([
+          supabase.auth.getUser(),
+          fetchOpenWorkflowRuns(), // 内部で空配列フォールバック
+          safe(fetchOpenApplicationsToday()),
+          safe(fetchPaymentAlertCounts()),
+          safe(fetchAssignees()),
+          safe(fetchPoolAvailability()),
+          fetchOpsTasks(), // 内部で unavailable フォールバック
+        ]);
       setData({
         userId: userData.user?.id ?? null,
         runs,
@@ -71,6 +76,7 @@ export default function AdminTodayPage() {
         payments,
         assignees: assignees ?? [],
         pool,
+        opsTasks: ops.tasks,
       });
       if (apps === null) {
         setError("一部のデータ（申請）を取得できませんでした。再読み込みしてください。");
@@ -91,7 +97,7 @@ export default function AdminTodayPage() {
   const groups = useMemo(
     () =>
       data
-        ? buildTodayGroups(data.apps, data.runs, data.payments, data.pool, todayStr)
+        ? buildTodayGroups(data.apps, data.runs, data.payments, data.pool, todayStr, data.opsTasks)
         : [],
     [data, todayStr]
   );

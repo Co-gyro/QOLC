@@ -13,6 +13,7 @@ import { ApplicantInfo } from "./applicant-info";
 import { CommentForm } from "./comment-form";
 import { WorkflowSection } from "./workflow-section";
 import { AssignCodesSection } from "./assign-codes-section";
+import { UsenCsvSection } from "./usen-csv-section";
 import { UdInputForm } from "./ud-input-form";
 import { ReviewSection } from "./review-section";
 import { FlowStepper } from "@/components/workflow/flow-stepper";
@@ -140,6 +141,10 @@ export function DrawerProcedureTab({
 
       <Section title="④⑤⑥ 審査結果の登録・加盟店へ変換">
         <ReviewSection detail={detail} onSaved={onRefresh} />
+      </Section>
+
+      <Section title="⑦ USEN連携用CSV（審査通過後）">
+        <UsenCsvSection detail={detail} />
       </Section>
     </div>
   );

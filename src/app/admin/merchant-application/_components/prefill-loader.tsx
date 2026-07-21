@@ -78,7 +78,7 @@ export function PrefillLoader({ applicationId }: { applicationId: string }) {
             className="underline ml-1 font-medium"
             style={{ color: "var(--qolc-primary)" }}
           >
-            申請・相談へ戻る
+            加盟店申請・登録へ戻る
           </a>
         </p>
       </div>

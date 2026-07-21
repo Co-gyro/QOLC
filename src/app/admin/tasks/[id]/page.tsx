@@ -77,7 +77,7 @@ export default function AdminTaskDetailPage() {
       <Breadcrumb
         items={[
           { label: "ダッシュボード", href: "/admin/dashboard" },
-          { label: "業務チェックリスト", href: "/admin/tasks" },
+          { label: "月次精算・チェック", href: "/admin/tasks" },
           { label: run?.title ?? "詳細" },
         ]}
       />
@@ -92,7 +92,7 @@ export default function AdminTaskDetailPage() {
         error ? (
           <EmptyState
             title="タスクを表示できません"
-            description="タスクが存在しないか、削除された可能性があります。業務チェックリスト一覧から選び直してください。"
+            description="タスクが存在しないか、削除された可能性があります。月次精算・チェックの一覧から選び直してください。"
           />
         ) : (
           <LoadingSpinner />
@@ -121,7 +121,7 @@ export default function AdminTaskDetailPage() {
                 <span style={{ color: "var(--qolc-muted)" }}>関連:</span>
                 {run.applicationId && (
                   <Link
-                    href={`/admin/applications?open=${run.applicationId}`}
+                    href={`/admin/applications/${run.applicationId}`}
                     className="underline font-medium"
                     style={{ color: "var(--qolc-primary)" }}
                   >

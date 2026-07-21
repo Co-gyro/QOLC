@@ -74,11 +74,11 @@ export default function AdminTasksPage() {
   return (
     <PortalLayout portal="admin">
       <Breadcrumb
-        items={[{ label: "ダッシュボード", href: "/admin/dashboard" }, { label: "業務チェックリスト" }]}
+        items={[{ label: "今日のUD", href: "/admin/today" }, { label: "月次精算・チェック" }]}
       />
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">業務チェックリスト</h1>
+          <h1 className="text-2xl font-bold tracking-tight">月次精算・チェック</h1>
           <p className="mt-2 text-sm" style={{ color: "var(--qolc-muted)" }}>
             月次精算や加盟店申請などの定型業務をチェックリストで進めます。
             タスクを開くと、各工程のやり方（ガイド）と完了記録（誰が・いつ）が確認できます。

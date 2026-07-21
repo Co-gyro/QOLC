@@ -6,7 +6,10 @@ import { describe, it, expect } from "vitest";
 import {
   deriveMerchantStage,
   groupByMerchantStage,
+  compareByMerchantStage,
   MERCHANT_STAGE_ORDER,
+  MERCHANT_STAGE_WAITING,
+  MERCHANT_STAGE_COLORS,
 } from "@/lib/applications/merchant-stage";
 import type { ApplicationRow } from "@/lib/applications/types";
 
@@ -104,5 +107,26 @@ describe("groupByMerchantStage", () => {
     expect(map.get("new")?.map((r) => r.id)).toEqual(["a-1"]);
     expect(map.get("closed")?.map((r) => r.id)).toEqual(["a-2"]);
     expect(map.get("ud_working")).toEqual([]);
+  });
+});
+
+describe("単一リスト表示（いま何を待っているか）", () => {
+  it("全ステージに待ち文言と配色が定義されている", () => {
+    for (const stage of MERCHANT_STAGE_ORDER) {
+      expect(MERCHANT_STAGE_WAITING[stage]).toBeTruthy();
+      expect(MERCHANT_STAGE_COLORS[stage].bg).toMatch(/^#/);
+      expect(MERCHANT_STAGE_COLORS[stage].fg).toMatch(/^#/);
+    }
+  });
+
+  it("compareByMerchantStage は実務フロー順→受付日の古い順で並べる", () => {
+    const rows = [
+      base({ id: "done", status: "done", createdAt: "2026-06-01T00:00:00Z" }),
+      base({ id: "new-late", status: "new", createdAt: "2026-07-10T00:00:00Z" }),
+      base({ id: "ud", status: "in_progress", createdAt: "2026-07-01T00:00:00Z" }),
+      base({ id: "new-early", status: "new", createdAt: "2026-07-05T00:00:00Z" }),
+    ];
+    const sorted = [...rows].sort(compareByMerchantStage);
+    expect(sorted.map((r) => r.id)).toEqual(["new-early", "new-late", "ud", "done"]);
   });
 });

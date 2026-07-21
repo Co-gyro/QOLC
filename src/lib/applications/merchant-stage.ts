@@ -82,3 +82,35 @@ export function groupByMerchantStage(rows: ApplicationRow[]): Map<MerchantStage,
   }
   return map;
 }
+
+/**
+ * 一覧の「いま何を待っているか」表示（単一リスト用）。
+ * ステータスを手で更新させず、作業の進み具合から自動で導出した文言を出す。
+ */
+export const MERCHANT_STAGE_WAITING: Record<MerchantStage, string> = {
+  new: "記載内容の確認から",
+  ud_working: "採番・UD補足・申請書の作成",
+  under_review: "審査結果の到着待ち",
+  result_processing: "登録処理（加盟店・アカウント）",
+  closed: "完了・却下",
+};
+
+/** 「いま何を待っているか」ピルの配色（実務フローの温度感に合わせる） */
+export const MERCHANT_STAGE_COLORS: Record<MerchantStage, { bg: string; fg: string }> = {
+  new: { bg: "#FCF1E3", fg: "#B45309" },
+  ud_working: { bg: "#E0F2FE", fg: "#0369A1" },
+  under_review: { bg: "#FAE8FF", fg: "#86198F" },
+  result_processing: { bg: "#E6F4EA", fg: "#1B5E20" },
+  closed: { bg: "#F3F4F6", fg: "#4B5563" },
+};
+
+/**
+ * 単一リストの並び順: 実務フロー順（新規→UD対応→審査→登録処理→完了）、
+ * 同一ステージ内は受付日の古い順（先に来たものから対応する）。
+ */
+export function compareByMerchantStage(a: ApplicationRow, b: ApplicationRow): number {
+  const sa = MERCHANT_STAGE_ORDER.indexOf(deriveMerchantStage(a));
+  const sb = MERCHANT_STAGE_ORDER.indexOf(deriveMerchantStage(b));
+  if (sa !== sb) return sa - sb;
+  return a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0;
+}

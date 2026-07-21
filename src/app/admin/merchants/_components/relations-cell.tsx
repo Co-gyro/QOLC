@@ -24,7 +24,7 @@ export function RelationsCell({ relations }: { relations: MerchantRelations | nu
       {relations.applications.map((a) => (
         <Link
           key={a.id}
-          href={`/admin/applications?open=${a.id}`}
+          href={`/admin/applications/${a.id}`}
           className="text-sm underline"
           style={{ color: "var(--qolc-primary)" }}
         >

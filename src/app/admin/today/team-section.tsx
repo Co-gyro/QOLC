@@ -17,7 +17,7 @@ export function TeamSection({ team }: TeamSectionProps) {
         チーム状況
       </h2>
       <p className="text-sm mb-3" style={{ color: "var(--qolc-muted)" }}>
-        担当者ごとの「対応中の申請」「進行中の業務チェックリスト」の件数です。
+        担当者ごとの「対応中の申請・相談」「進行中の工程チェックリスト」の件数です。
       </p>
       <div className="overflow-x-auto border rounded-md" style={{ borderColor: "var(--qolc-border)" }}>
         <table className="min-w-full text-sm">

@@ -1,9 +1,10 @@
 "use client";
 
 /**
- * /admin/today … 「今日のUD」ホーム
+ * /admin/today … 「今日のUD」ホーム（v2・業務ファースト構成）
  *
- * 出勤したらまずこの画面。①マイタスク ②新着・未対応 ③要対応アラート ④チーム状況。
+ * 出勤したらまずこの画面。サイドバーの業務単位（相談・問い合わせ／加盟店申請・登録／
+ * 日次決済／月次精算）で「今日動くべきもの」をまとめ、行クリックで各業務ページへ遷移する。
  * workflow 系テーブルが未適用の DB でも画面全体は落ちない（クエリ側で空配列フォールバック）。
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -17,19 +18,16 @@ import {
   fetchOpenWorkflowRuns,
   fetchOpenApplicationsToday,
   fetchPaymentAlertCounts,
-  buildMyTasks,
-  selectOverdueRuns,
   buildTeamStatus,
   type TodayRun,
   type TodayApplication,
   type PaymentAlertCounts,
 } from "@/lib/portal/today-queries";
+import { buildTodayGroups } from "@/lib/portal/today-groups";
 import { toJstDateString } from "@/lib/portal/workflow-logic";
 import { getJstDateParts } from "@/lib/workflow/utils";
 import type { AssigneeOption } from "@/lib/applications/types";
-import { MyTasksSection } from "./my-tasks-section";
-import { NewAppsSection } from "./new-apps-section";
-import { AlertsSection } from "./alerts-section";
+import { TodayGroupsSection } from "./today-groups-section";
 import { TeamSection } from "./team-section";
 
 interface TodayData {
@@ -90,12 +88,11 @@ export default function AdminTodayPage() {
   const todayStr = useMemo(() => toJstDateString(getJstDateParts()), []);
   const parts = useMemo(() => getJstDateParts(), []);
 
-  const myTasks = useMemo(
-    () => (data && data.userId ? buildMyTasks(data.runs, data.apps, data.userId) : []),
-    [data]
-  );
-  const overdueRuns = useMemo(
-    () => (data ? selectOverdueRuns(data.runs, todayStr) : []),
+  const groups = useMemo(
+    () =>
+      data
+        ? buildTodayGroups(data.apps, data.runs, data.payments, data.pool, todayStr)
+        : [],
     [data, todayStr]
   );
   const team = useMemo(
@@ -114,7 +111,7 @@ export default function AdminTodayPage() {
           </span>
         </h1>
         <p className="mt-2 text-sm" style={{ color: "var(--qolc-muted)" }}>
-          今日やること・新着・アラート・チームの状況をまとめて確認できます。出勤したらまずこの画面から始めてください。
+          業務ごとに「今日動くべきもの」をまとめています。行をクリックすると各業務の画面で対応できます。
         </p>
       </div>
 
@@ -128,9 +125,7 @@ export default function AdminTodayPage() {
         <LoadingSpinner />
       ) : (
         <>
-          <MyTasksSection items={myTasks} todayStr={todayStr} />
-          <NewAppsSection apps={data.apps} />
-          <AlertsSection payments={data.payments} overdueRuns={overdueRuns} pool={data.pool} />
+          <TodayGroupsSection groups={groups} />
           {team && <TeamSection team={team} />}
         </>
       )}

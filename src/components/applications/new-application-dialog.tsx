@@ -2,6 +2,8 @@
  * 新規案件の手動起票ダイアログ
  *
  * 電話・窓口などフォーム外で受け付けた案件をその場で記録する。
+ * 起票元の業務（タブ）に種別を固定し、業務に合わない種別を選ばせない
+ * （sources が1種なら選択欄を出さず固定表示）。
  * POST /api/admin/applications（作成者と created イベントを記録）を呼び出す。
  */
 "use client";
@@ -17,6 +19,10 @@ export interface NewApplicationDialogProps {
   onClose: () => void;
   /** 起票成功後に一覧を再取得させる */
   onCreated: () => void;
+  /** 選択できる種別（起票元の業務タブに合わせる。省略時は全種別） */
+  sources?: readonly ApplicationSource[];
+  /** 起票元の業務名（見出しに表示。例: 事業者問い合わせ） */
+  contextLabel?: string;
 }
 
 const INPUT_CLASS = "border rounded px-2 py-2 text-sm w-full bg-white";
@@ -24,17 +30,27 @@ const INPUT_STYLE = { borderColor: "var(--qolc-border)", minHeight: 44 };
 
 const EMPTY = { source: "contact" as string, name: "", org: "", email: "", phone: "", message: "" };
 
-export function NewApplicationDialog({ open, onClose, onCreated }: NewApplicationDialogProps) {
+export function NewApplicationDialog({
+  open,
+  onClose,
+  onCreated,
+  sources,
+  contextLabel,
+}: NewApplicationDialogProps) {
+  const allowed: readonly ApplicationSource[] =
+    sources && sources.length > 0 ? sources : ALL_SOURCES;
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setForm(EMPTY);
+      setForm({ ...EMPTY, source: allowed[0] });
       setError(null);
       setSaving(false);
     }
+    // allowed はタブ切替時のみ変わる（open のたびに先頭種別へリセットで十分）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   if (!open) return null;
@@ -82,20 +98,27 @@ export function NewApplicationDialog({ open, onClose, onCreated }: NewApplicatio
       <form className="bg-white rounded-lg shadow-lg max-w-lg w-full mx-4 p-6 flex flex-col gap-3 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
         <h2 className="text-lg font-bold" style={{ color: "var(--qolc-text)" }}>
-          新規案件を起票
+          {contextLabel ? `${contextLabel}を起票` : "新規案件を起票"}
         </h2>
         <p className="text-sm" style={{ color: "var(--qolc-muted)" }}>
           電話や窓口で受け付けた案件をその場で記録します。起票した案件は一覧に「新規」として追加されます。
         </p>
-        <label className="flex flex-col gap-1 text-sm">
-          <span style={{ color: "var(--qolc-muted)" }}>種別</span>
-          <select className={INPUT_CLASS} style={INPUT_STYLE} value={form.source}
-            onChange={(e) => set("source")(e.target.value)}>
-            {ALL_SOURCES.map((s) => (
-              <option key={s} value={s}>{SOURCE_LABELS[s as ApplicationSource]}</option>
-            ))}
-          </select>
-        </label>
+        {allowed.length === 1 ? (
+          <p className="text-sm">
+            <span style={{ color: "var(--qolc-muted)" }}>種別: </span>
+            <span className="font-medium">{SOURCE_LABELS[allowed[0]]}</span>
+          </p>
+        ) : (
+          <label className="flex flex-col gap-1 text-sm">
+            <span style={{ color: "var(--qolc-muted)" }}>種別</span>
+            <select className={INPUT_CLASS} style={INPUT_STYLE} value={form.source}
+              onChange={(e) => set("source")(e.target.value)}>
+              {allowed.map((s) => (
+                <option key={s} value={s}>{SOURCE_LABELS[s]}</option>
+              ))}
+            </select>
+          </label>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="flex flex-col gap-1 text-sm">
             <span style={{ color: "var(--qolc-muted)" }}>お名前（必須）</span>

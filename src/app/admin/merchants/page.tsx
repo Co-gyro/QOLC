@@ -124,7 +124,7 @@ function AdminMerchantsPageInner() {
           className="text-sm mb-3 rounded-md px-4 py-2 font-medium"
           style={{ backgroundColor: "var(--qolc-bg-soft)", color: "var(--qolc-primary)" }}
         >
-          業務チェックリストから遷移: 「{highlighted.name}」を先頭に表示しています。
+          工程チェックリストから遷移: 「{highlighted.name}」を先頭に表示しています。
         </p>
       )}
 

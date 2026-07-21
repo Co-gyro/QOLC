@@ -100,14 +100,36 @@ describe("POST /api/applications", () => {
     expect(state.emailCalls[0]?.to).toBe("taro@example.com");
   });
 
-  it("既存の qolc_merchant 受付は従来どおり成功する（回帰）＋自動返信も送る", async () => {
+  /** merchantApplyFormSchema を満たす加盟店申請 payload（サーバー検証の必須項目一式） */
+  const FULL_MERCHANT_PAYLOAD = {
+    corpType: "法人",
+    corpName: "株式会社サンプル",
+    corporateNumber: "1234567890123",
+    postalCode: "105-0004",
+    address: "東京都港区新橋1-1-1",
+    phone: "03-1234-5678",
+    repLastName: "佐藤",
+    repFirstName: "花子",
+    repBirthdate: "1980-01-01",
+    facilityName: "サンプルホーム",
+    facilityPostalCode: "105-0004",
+    facilityAddress: "東京都港区新橋1-1-2",
+    facilityPhone: "03-1234-5679",
+    contactLastName: "佐藤",
+    contactFirstName: "花子",
+    contactEmail: "hanako@example.com",
+    contactPhone: "03-1234-5678",
+    contactTime: "いつでも",
+  };
+
+  it("qolc_merchant は全必須項目つき payload で成功する＋自動返信も送る", async () => {
     const res = await POST(
       makeReq(
         {
           source: "qolc_merchant",
           applicant_name: "佐藤 花子",
           applicant_email: "hanako@example.com",
-          payload: { corpName: "株式会社サンプル" },
+          payload: FULL_MERCHANT_PAYLOAD,
         },
         "10.0.0.2"
       )
@@ -115,6 +137,21 @@ describe("POST /api/applications", () => {
     expect(res.status).toBe(200);
     expect(state.emailCalls).toHaveLength(1);
     expect(state.insertedEvents.map((e) => e.kind)).toEqual(["created", "email_sent"]);
+  });
+
+  it("qolc_merchant で必須項目が欠けた payload は 400 で弾く（欠損保存の防止）", async () => {
+    const res = await POST(
+      makeReq(
+        {
+          source: "qolc_merchant",
+          applicant_name: "佐藤 花子",
+          payload: { corpName: "株式会社サンプル" },
+        },
+        "10.0.0.20"
+      )
+    );
+    expect(res.status).toBe(400);
+    expect(state.insertedEvents).toHaveLength(0);
   });
 
   it("applicant_email がなければメール送信しない（created のみ）", async () => {

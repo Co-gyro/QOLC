@@ -47,16 +47,31 @@ export const corporateNumberSchema = z
 /**
  * API受付の入力スキーマ（サーバー側で厳格検証）。
  * applicant_* と message はサイズ上限を持つ。payload は source 別の可変項目。
+ * 加盟店申請（qolc_merchant）は payload を merchantApplyFormSchema で全項目検証する:
+ * フォーム実装の不具合等で必須項目が欠けた payload が保存されると、
+ * 後工程（申請書生成）で申請がブロックされるため、受付時点で弾く。
  */
-export const applicationIntakeSchema = z.object({
-  source: applicationSourceSchema,
-  applicant_name: z.string().trim().max(100).optional(),
-  applicant_org: z.string().trim().max(200).optional(),
-  applicant_email: emailSchema.optional(),
-  applicant_phone: z.string().trim().max(13).optional(),
-  message: z.string().trim().max(500).optional(),
-  payload: z.record(z.string(), z.unknown()).optional(),
-});
+export const applicationIntakeSchema = z
+  .object({
+    source: applicationSourceSchema,
+    applicant_name: z.string().trim().max(100).optional(),
+    applicant_org: z.string().trim().max(200).optional(),
+    applicant_email: emailSchema.optional(),
+    applicant_phone: z.string().trim().max(13).optional(),
+    message: z.string().trim().max(500).optional(),
+    payload: z.record(z.string(), z.unknown()).optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.source !== "qolc_merchant") return;
+    const result = merchantApplyFormSchema.safeParse(val.payload ?? {});
+    if (!result.success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["payload"],
+        message: `加盟店申請の入力内容が不足しています: ${result.error.issues[0]?.message ?? "不明"}`,
+      });
+    }
+  });
 export type ApplicationIntakeInput = z.infer<typeof applicationIntakeSchema>;
 
 /**

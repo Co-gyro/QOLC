@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import {
   parseUdInput,
   serializeUdInput,
+  udInputFieldsSchema,
   DEFAULT_BULK_PROVIDER_CODE,
   type UdInputFields,
 } from "@/lib/applications/ud-input";
@@ -57,10 +58,8 @@ function TextField(props: {
 
 export function UdInputForm({ udInput, saving, onSave }: UdInputFormProps) {
   const parsed = parseUdInput(udInput ?? null);
-  const [fields, setFields] = useState<UdInputFields>({
-    bulk_provider_code: parsed.fields.bulk_provider_code ?? DEFAULT_BULK_PROVIDER_CODE,
-    ...parsed.fields,
-  });
+  const [fields, setFields] = useState<UdInputFields>({ ...parsed.fields });
+  const [formError, setFormError] = useState<string | null>(null);
 
   const set = (key: keyof UdInputFields) => (v: string) =>
     setFields((prev) => ({ ...prev, [key]: v }));
@@ -68,7 +67,19 @@ export function UdInputForm({ udInput, saving, onSave }: UdInputFormProps) {
   /** 審査結果（review）は保持したままフィールドのみ差し替えて保存 */
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSave(serializeUdInput(fields, parseUdInput(udInput ?? null).review));
+    setFormError(null);
+    // 包括事業者コードは固定値のため入力させず保存もしない（生成側が定数 0160 を使う）
+    const { bulk_provider_code: _fixed, ...editable } = fields;
+    const check = udInputFieldsSchema.safeParse(
+      Object.fromEntries(
+        Object.entries(editable).filter(([, v]) => typeof v === "string" && v.trim() !== "")
+      )
+    );
+    if (!check.success) {
+      setFormError(check.error.issues[0]?.message ?? "入力内容を確認してください");
+      return;
+    }
+    onSave(serializeUdInput(editable, parseUdInput(udInput ?? null).review));
   }
 
   return (
@@ -77,12 +88,13 @@ export function UdInputForm({ udInput, saving, onSave }: UdInputFormProps) {
         申請書の生成に必要なUD側の項目です。お客さまの入力内容（申請内容）は書き換わりません。
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <TextField
-          label="包括事業者コード"
-          value={fields.bulk_provider_code ?? ""}
-          hint="JCBの2層構造の親コード（UDは通常 0160 のまま）"
-          onChange={set("bulk_provider_code")}
-        />
+        <div className="flex flex-col gap-1 text-sm">
+          <span style={{ color: "var(--qolc-muted)" }}>包括事業者コード</span>
+          <p className="font-medium py-2">{DEFAULT_BULK_PROVIDER_CODE}（固定）</p>
+          <span className="text-xs" style={{ color: "var(--qolc-muted)" }}>
+            JCBの2層構造の親コード。申請書には自動で入るため入力不要です
+          </span>
+        </div>
         <TextField
           label="精算料率（%）"
           value={fields.settlement_rate ?? ""}
@@ -143,6 +155,11 @@ export function UdInputForm({ udInput, saving, onSave }: UdInputFormProps) {
           onChange={set("account_holder")}
         />
       </div>
+      {formError && (
+        <p className="text-sm" style={{ color: "#DC2626" }}>
+          {formError}
+        </p>
+      )}
       <div className="flex justify-end">
         <Button
           type="submit"

@@ -44,6 +44,18 @@ describe("buildJcbPrefill（申請ハブ→JCB申請書のプリフィル）", (
     expect(out.repTel).toBe("03-1234-5678");
   });
 
+  it("個人事業主は住所・郵便番号も代表者欄へ流す（JCB申請書は個人時に代表者住所が必須）", () => {
+    const out = buildJcbPrefill({ ...PAYLOAD, corpType: "個人事業主" }, null);
+    expect(out.repPostalCode).toBe(out.companyPostalCode);
+    expect(out.repAddrKanji).toBe(out.companyAddrKanji);
+  });
+
+  it("法人は代表者住所へ流さない（会社欄のみ）", () => {
+    const out = buildJcbPrefill(PAYLOAD, null);
+    expect(out.repPostalCode).toBeUndefined();
+    expect(out.repAddrKanji).toBeUndefined();
+  });
+
   it("ud_input の業態コードを反映する", () => {
     const out = buildJcbPrefill(PAYLOAD, { biz_cat_code: "60207" });
     expect(out.bizCatCode).toBe("60207");

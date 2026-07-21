@@ -47,7 +47,13 @@ export function buildJcbPrefill(
   assign("companyAddrKanji", s(p.address));
   assign("companyTel", s(p.phone));
   assign("corpNo", s(p.corporateNumber));
-  if (isIndividual) assign("repTel", s(p.phone));
+  if (isIndividual) {
+    // 個人事業主は JCB 申請書で会社欄が空欄化され、代わりに代表者住所・電話が必須になる。
+    // お客様入力の住所・郵便・電話を代表者欄にも流し、UD の再入力漏れ（＝申請不能）を防ぐ。
+    assign("repTel", s(p.phone));
+    assign("repPostalCode", stripPostal(s(p.postalCode)));
+    assign("repAddrKanji", s(p.address));
+  }
   assign("repFamilyNameKanji", s(p.repLastName));
   assign("repNameKanji", s(p.repFirstName));
   assign("repBirthday", s(p.repBirthdate));

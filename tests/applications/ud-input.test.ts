@@ -9,6 +9,7 @@ import {
   parseUdInput,
   serializeUdInput,
   summarizeReview,
+  validateUdInputFields,
   type ApplicationReview,
 } from "@/lib/applications/ud-input";
 
@@ -132,5 +133,28 @@ describe("describeUdFieldChanges", () => {
     for (const key of UD_INPUT_FIELD_KEYS) {
       expect(UD_INPUT_LABELS[key]).toBeTruthy();
     }
+  });
+});
+
+describe("validateUdInputFields（保存時の形式検証）", () => {
+  it("正しい入力は通る（空・未入力も可）", () => {
+    expect(validateUdInputFields(null)).toBeNull();
+    expect(validateUdInputFields({})).toBeNull();
+    expect(
+      validateUdInputFields({
+        settlement_rate: "1.9",
+        biz_cat_code: "60207",
+        account_type: "ordinary",
+        account_number: "7334783",
+        review: { jcb: { submitted_at: "2026-07-01" } },
+      })
+    ).toBeNull();
+  });
+
+  it("形式エラーは日本語メッセージを返す（料率・業態コード・口座番号）", () => {
+    expect(validateUdInputFields({ settlement_rate: "abc" })).toContain("精算料率");
+    expect(validateUdInputFields({ settlement_rate: "99" })).toContain("精算料率");
+    expect(validateUdInputFields({ biz_cat_code: "123" })).toContain("業態コード");
+    expect(validateUdInputFields({ account_number: "12ab567" })).toContain("口座番号");
   });
 });

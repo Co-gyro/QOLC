@@ -7,6 +7,7 @@
  * - review        … JCB / セゾンの審査結果（merchant_applications への配線元）
  * DB アクセスは行わない（API Route / コンポーネント双方から利用する）。
  */
+import { z } from "zod";
 
 /** 包括事業者コードの既定値（JCB の2層構造の親コード。UD=0160） */
 export const DEFAULT_BULK_PROVIDER_CODE = "0160";
@@ -93,6 +94,50 @@ export const REVIEW_COMPANY_LABELS: Record<ReviewCompany, string> = {
 export interface ApplicationReview {
   jcb?: CompanyReview;
   saison?: CompanyReview;
+}
+
+/**
+ * UD 追記フィールドの形式検証スキーマ（保存時に適用）。
+ * 桁数・数値形式の誤りは申請書生成で申請不能につながるため、入力時点で弾く。
+ * すべて任意項目（入力された場合のみ形式を検証する）。
+ */
+export const udInputFieldsSchema = z.object({
+  bulk_provider_code: z
+    .string()
+    .regex(/^\d{4}$/, "包括事業者コードは数字4桁です")
+    .optional(),
+  settlement_rate: z
+    .string()
+    .regex(/^\d{1,2}(\.\d{1,2})?$/, "精算料率は数値で入力してください（例: 1.9）")
+    .refine((v) => Number.parseFloat(v) > 0 && Number.parseFloat(v) <= 10, {
+      message: "精算料率は 0〜10% の範囲で入力してください",
+    })
+    .optional(),
+  biz_cat_code: z
+    .string()
+    .regex(/^\d{5}$/, "業態コードは数字5桁です（例: 60207）")
+    .optional(),
+  security_status: z.string().max(200, "セキュリティ対応状況が長すぎます").optional(),
+  bank_name: z.string().max(50, "銀行名が長すぎます").optional(),
+  bank_branch: z.string().max(50, "支店名が長すぎます").optional(),
+  account_type: z.enum(["ordinary", "checking"]).optional(),
+  account_number: z
+    .string()
+    .regex(/^\d{4,8}$/, "口座番号は数字4〜8桁で入力してください")
+    .optional(),
+  account_holder: z.string().max(60, "口座名義が長すぎます").optional(),
+});
+
+/**
+ * 生の ud_input（review 等の未知キーを含む）から UD 追記フィールドだけを検証する。
+ * @returns 形式エラーの日本語メッセージ（問題なければ null）
+ */
+export function validateUdInputFields(
+  raw: Record<string, unknown> | null | undefined
+): string | null {
+  const { fields } = parseUdInput(raw ?? null);
+  const result = udInputFieldsSchema.safeParse(fields);
+  return result.success ? null : (result.error.issues[0]?.message ?? "入力内容を確認してください");
 }
 
 /** 文字列以外・空文字を undefined に正規化する */

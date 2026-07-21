@@ -18,7 +18,11 @@ import {
 } from "@/lib/applications/mappers";
 import { apiError, apiOk } from "@/types/api";
 import { ALL_STATUSES, ALL_PRIORITIES } from "@/lib/applications/labels";
-import { parseUdInput, describeUdFieldChanges } from "@/lib/applications/ud-input";
+import {
+  parseUdInput,
+  describeUdFieldChanges,
+  validateUdInputFields,
+} from "@/lib/applications/ud-input";
 import type { ApplicationDetail } from "@/lib/applications/types";
 
 const SELECT_COLS =
@@ -38,7 +42,15 @@ const patchSchema = z
       .nullable()
       .optional(),
     next_action: z.string().trim().max(500).nullable().optional(),
-    ud_input: z.record(z.string(), z.unknown()).nullable().optional(),
+    ud_input: z
+      .record(z.string(), z.unknown())
+      .superRefine((v, ctx) => {
+        // 形式エラーの UD 追記（桁数・数値形式）は申請書生成を壊すため保存時に弾く
+        const msg = validateUdInputFields(v);
+        if (msg) ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg });
+      })
+      .nullable()
+      .optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "更新項目がありません" });
 
@@ -157,7 +169,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(apiError("入力検証エラー", "VALIDATION_ERROR"), { status: 400 });
+    // admin 向けのため、どの項目が不正かをそのまま返す（UD追記の形式エラー等）
+    const reason = parsed.error.issues[0]?.message ?? "入力検証エラー";
+    return NextResponse.json(apiError(reason, "VALIDATION_ERROR"), { status: 400 });
   }
   const patch = parsed.data;
 

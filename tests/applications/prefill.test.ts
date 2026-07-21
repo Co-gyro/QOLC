@@ -61,6 +61,34 @@ describe("buildJcbPrefill（申請ハブ→JCB申請書のプリフィル）", (
     expect(out.bizCatCode).toBe("60207");
   });
 
+  it("フリガナは全角カタカナ→半角カナに変換して転記する", () => {
+    const out = buildJcbPrefill(
+      {
+        ...PAYLOAD,
+        corpNameKana: "カブシキガイシャサンプルデベロップ",
+        repLastNameKana: "サトウ",
+        repFirstNameKana: "ハナコ",
+        facilityNameKana: "サンプルホーム",
+      },
+      null
+    );
+    expect(out.companyNameKana).toBe("ｶﾌﾞｼｷｶﾞｲｼｬｻﾝﾌﾟﾙﾃﾞﾍﾞﾛｯﾌﾟ");
+    expect(out.repFamilyNameKana).toBe("ｻﾄｳ");
+    expect(out.repNameKana).toBe("ﾊﾅｺ");
+    expect(out.tenantNameKana).toBe("ｻﾝﾌﾟﾙﾎｰﾑ");
+  });
+
+  it("UD補足の申請書用項目（アルファベット・業種内容・取扱商材）を転記する", () => {
+    const out = buildJcbPrefill(PAYLOAD, {
+      tenant_name_latin: "SAMPLE CARE HOME",
+      biz_overview: "有料老人ホームの運営",
+      handling_products: "介護サービス利用料の収納代行",
+    });
+    expect(out.tenantNameLatin).toBe("SAMPLE CARE HOME");
+    expect(out.bizOverview).toBe("有料老人ホームの運営");
+    expect(out.handlingProducts).toBe("介護サービス利用料の収納代行");
+  });
+
   it("申請前採番（ud_input.codes）をモールコード・POS支店コードへ自動転記する", () => {
     const out = buildJcbPrefill(PAYLOAD, {
       codes: { mall_code: "A3F2", terminal_id: "3124620001042", assigned_at: "2026-07-21T00:00:00Z" },

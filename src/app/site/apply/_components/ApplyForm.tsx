@@ -14,14 +14,18 @@ const CONTACT_TIMES = ["いつでも", "午前中", "午後"] as const;
 const INITIAL: MerchantApplyForm = {
   corpType: "法人",
   corpName: "",
+  corpNameKana: "",
   corporateNumber: "",
   postalCode: "",
   address: "",
   phone: "",
   repLastName: "",
   repFirstName: "",
+  repLastNameKana: "",
+  repFirstNameKana: "",
   repBirthdate: "",
   facilityName: "",
+  facilityNameKana: "",
   facilityPostalCode: "",
   facilityAddress: "",
   facilityPhone: "",
@@ -149,6 +153,21 @@ export default function ApplyForm({
           />
         </Field>
         <Field
+          label="法人名フリガナ"
+          required
+          hint="全角カタカナ。カード会社への申請書類に使用します"
+          error={errors.corpNameKana}
+        >
+          <input
+            className="apply-form-input"
+            type="text"
+            placeholder="例：カブシキガイシャサンプルケア"
+            maxLength={50}
+            value={form.corpNameKana}
+            onChange={(e) => set("corpNameKana", e.target.value)}
+          />
+        </Field>
+        <Field
           label="法人番号（13桁）"
           hint="半角数字13桁。法人番号をお持ちの場合はご入力ください"
           error={errors.corporateNumber}
@@ -241,6 +260,31 @@ export default function ApplyForm({
           </div>
         </Field>
         <Field
+          label="代表者氏名フリガナ"
+          required
+          hint="全角カタカナ"
+          error={errors.repLastNameKana ?? errors.repFirstNameKana}
+        >
+          <div className="apply-form-row">
+            <input
+              className="apply-form-input"
+              type="text"
+              placeholder="セイ"
+              maxLength={24}
+              value={form.repLastNameKana}
+              onChange={(e) => set("repLastNameKana", e.target.value)}
+            />
+            <input
+              className="apply-form-input"
+              type="text"
+              placeholder="メイ"
+              maxLength={24}
+              value={form.repFirstNameKana}
+              onChange={(e) => set("repFirstNameKana", e.target.value)}
+            />
+          </div>
+        </Field>
+        <Field
           label="代表者 生年月日"
           required
           hint="18歳以上であること。未来の日付は不可"
@@ -270,6 +314,21 @@ export default function ApplyForm({
             maxLength={20}
             value={form.facilityName}
             onChange={(e) => set("facilityName", e.target.value)}
+          />
+        </Field>
+        <Field
+          label="施設名フリガナ"
+          required
+          hint="全角カタカナ。カード明細のカナ表記に使用します"
+          error={errors.facilityNameKana}
+        >
+          <input
+            className="apply-form-input"
+            type="text"
+            placeholder="例：サンプルケアユウリョウロウジンホームトウキョウ"
+            maxLength={30}
+            value={form.facilityNameKana}
+            onChange={(e) => set("facilityNameKana", e.target.value)}
           />
         </Field>
         <Field

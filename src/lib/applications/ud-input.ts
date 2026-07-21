@@ -36,6 +36,12 @@ export interface UdInputFields {
   account_number?: string;
   /** 振込先: 口座名義（カナ） */
   account_holder?: string;
+  /** JCB申請書: 店舗名アルファベット（半角英大文字・数字・スペース、25文字以内） */
+  tenant_name_latin?: string;
+  /** JCB申請書: 業種・業務内容（お客様入力にはない申請書必須項目） */
+  biz_overview?: string;
+  /** JCB申請書: 取扱商材 */
+  handling_products?: string;
 }
 
 /** UD 追記フィールドのキー一覧（parse / diff で使用） */
@@ -49,6 +55,9 @@ export const UD_INPUT_FIELD_KEYS: readonly (keyof UdInputFields)[] = [
   "account_type",
   "account_number",
   "account_holder",
+  "tenant_name_latin",
+  "biz_overview",
+  "handling_products",
 ];
 
 /** UD 追記フィールドの日本語ラベル（履歴・画面表示用） */
@@ -62,6 +71,9 @@ export const UD_INPUT_LABELS: Record<keyof UdInputFields, string> = {
   account_type: "口座種別",
   account_number: "口座番号",
   account_holder: "口座名義",
+  tenant_name_latin: "店舗名アルファベット",
+  biz_overview: "業種・業務内容",
+  handling_products: "取扱商材",
 };
 
 /** 審査結果（NULL=結果待ち） */
@@ -159,6 +171,15 @@ export const udInputFieldsSchema = z.object({
     .regex(/^\d{4,8}$/, "口座番号は数字4〜8桁で入力してください")
     .optional(),
   account_holder: z.string().max(60, "口座名義が長すぎます").optional(),
+  tenant_name_latin: z
+    .string()
+    .regex(
+      /^[A-Z0-9 ]{1,25}$/,
+      "店舗名アルファベットは半角英大文字・数字・スペースで25文字以内です"
+    )
+    .optional(),
+  biz_overview: z.string().max(256, "業種・業務内容が長すぎます").optional(),
+  handling_products: z.string().max(256, "取扱商材が長すぎます").optional(),
 });
 
 /**

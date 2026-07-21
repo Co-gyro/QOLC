@@ -157,6 +157,12 @@ describe("validateUdInputFields（保存時の形式検証）", () => {
     expect(validateUdInputFields({ biz_cat_code: "123" })).toContain("業態コード");
     expect(validateUdInputFields({ account_number: "12ab567" })).toContain("口座番号");
   });
+
+  it("店舗名アルファベットは半角英大文字・数字・スペースのみ許容する", () => {
+    expect(validateUdInputFields({ tenant_name_latin: "SAMPLE CARE 1" })).toBeNull();
+    expect(validateUdInputFields({ tenant_name_latin: "sample" })).toContain("アルファベット");
+    expect(validateUdInputFields({ tenant_name_latin: "A".repeat(26) })).toContain("アルファベット");
+  });
 });
 
 describe("codes（申請前採番）の parse / serialize", () => {

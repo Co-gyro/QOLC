@@ -4,6 +4,16 @@
  * 検証仕様の二重定義を避ける。
  */
 import { z } from "zod";
+import { FULL_KATAKANA_RE } from "@/lib/utils/kana";
+
+/** フリガナ（全角カタカナ）。半角カナへの変換はシステム側で行う。 */
+const katakanaSchema = (label: string, max: number) =>
+  z
+    .string()
+    .trim()
+    .min(1, `${label}を入力してください`)
+    .max(max, `${label}が長すぎます`)
+    .regex(FULL_KATAKANA_RE, `${label}は全角カタカナで入力してください`);
 
 /** 申請元。DBの application_source ENUM（029定義＋031拡張）に対応。 */
 export const applicationSourceSchema = z.enum([
@@ -81,14 +91,18 @@ export type ApplicationIntakeInput = z.infer<typeof applicationIntakeSchema>;
 export const merchantApplyFormSchema = z.object({
   corpType: z.enum(["法人", "個人事業主"]),
   corpName: z.string().trim().min(1, "法人名を入力してください").max(50),
+  corpNameKana: katakanaSchema("法人名フリガナ", 50),
   corporateNumber: z.union([z.literal(""), corporateNumberSchema]),
   postalCode: postalCodeSchema,
   address: z.string().trim().min(1, "所在地を入力してください").max(60),
   phone: phoneSchema,
   repLastName: z.string().trim().min(1, "代表者の姓を入力してください").max(24),
   repFirstName: z.string().trim().min(1, "代表者の名を入力してください").max(24),
+  repLastNameKana: katakanaSchema("代表者 姓フリガナ", 24),
+  repFirstNameKana: katakanaSchema("代表者 名フリガナ", 24),
   repBirthdate: z.string().min(1, "代表者の生年月日を入力してください"),
   facilityName: z.string().trim().min(1, "施設名を入力してください").max(20),
+  facilityNameKana: katakanaSchema("施設名フリガナ", 30),
   facilityPostalCode: postalCodeSchema,
   facilityAddress: z.string().trim().min(1, "施設所在地を入力してください").max(60),
   facilityPhone: phoneSchema,

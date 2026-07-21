@@ -24,37 +24,11 @@ export interface UdInputFormProps {
   onSave: (udInput: Record<string, unknown>) => void;
 }
 
-const INPUT_CLASS = "border rounded px-2 py-2 text-sm w-full bg-white";
-const INPUT_STYLE = { borderColor: "var(--qolc-border)", minHeight: 44 };
-
-/** テキスト入力1項目（ラベル + 補足） */
-function TextField(props: {
-  label: string;
-  value: string;
-  hint?: string;
-  placeholder?: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span style={{ color: "var(--qolc-muted)" }}>{props.label}</span>
-      <input
-        type="text"
-        className={INPUT_CLASS}
-        style={INPUT_STYLE}
-        value={props.value}
-        placeholder={props.placeholder}
-        maxLength={100}
-        onChange={(e) => props.onChange(e.target.value)}
-      />
-      {props.hint && (
-        <span className="text-xs" style={{ color: "var(--qolc-muted)" }}>
-          {props.hint}
-        </span>
-      )}
-    </label>
-  );
-}
+import {
+  UdTextField as TextField,
+  UD_INPUT_CLASS as INPUT_CLASS,
+  UD_INPUT_STYLE as INPUT_STYLE,
+} from "./ud-text-field";
 
 export function UdInputForm({ udInput, saving, onSave }: UdInputFormProps) {
   const parsed = parseUdInput(udInput ?? null);
@@ -116,6 +90,30 @@ export function UdInputForm({ udInput, saving, onSave }: UdInputFormProps) {
           value={fields.security_status ?? ""}
           placeholder="例：カード情報非保持・PCIDSS準拠"
           onChange={set("security_status")}
+        />
+      </div>
+      <p className="text-sm font-medium" style={{ color: "var(--qolc-text)" }}>
+        申請書用補足（JCB申請書の必須項目・お客様入力にはない項目）
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <TextField
+          label="店舗名アルファベット"
+          value={fields.tenant_name_latin ?? ""}
+          placeholder="例：SAMPLE CARE HOME"
+          hint="半角英大文字・数字・スペースで25文字以内。カード明細の英字表記"
+          onChange={set("tenant_name_latin")}
+        />
+        <TextField
+          label="業種・業務内容"
+          value={fields.biz_overview ?? ""}
+          placeholder="例：有料老人ホームの運営"
+          onChange={set("biz_overview")}
+        />
+        <TextField
+          label="取扱商材"
+          value={fields.handling_products ?? ""}
+          placeholder="例：介護サービス利用料の収納代行"
+          onChange={set("handling_products")}
         />
       </div>
       <p className="text-sm font-medium" style={{ color: "var(--qolc-text)" }}>

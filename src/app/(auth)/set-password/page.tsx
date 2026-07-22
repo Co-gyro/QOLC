@@ -17,13 +17,13 @@ export default function SetPasswordPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl text-center" style={{ color: "var(--qolc-primary)" }}>
-            パスワードの設定
+            パスワードの設定・変更
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm mb-4" style={{ color: "var(--qolc-muted)" }}>
-            QOLCへようこそ。ログインに使用するパスワードを設定してください。
-            設定が完了すると、そのままご利用のポータル画面へ移動します。
+            ログインに使用するパスワードを設定・変更できます。
+            完了すると、そのままご利用のポータル画面へ移動します。
           </p>
           <SetPasswordForm />
         </CardContent>

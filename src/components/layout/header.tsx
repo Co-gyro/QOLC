@@ -27,6 +27,13 @@ export function Header({ userName, userRole }: HeaderProps) {
             {userRole && <span className="ml-2">({userRole})</span>}
           </span>
         )}
+        <Link
+          href="/set-password"
+          className="hidden sm:inline hover:underline"
+          style={{ color: "var(--qolc-muted)" }}
+        >
+          パスワード変更
+        </Link>
         <form action="/api/auth/logout" method="post">
           <button
             type="submit"

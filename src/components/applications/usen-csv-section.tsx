@@ -24,6 +24,9 @@ export interface UsenCsvSectionProps {
   detail: ApplicationDetail;
 }
 
+/** USEN連携用の共有ドライブ（3step-up.com 管理。2026-07-22 設定） */
+const USEN_DRIVE_URL = "https://drive.google.com/drive/folders/0AEbI_FdAkBgJUk9PVA";
+
 /** 案件データから生成入力を組み立てる（不足は undefined のまま） */
 function buildInput(detail: ApplicationDetail): Partial<UsenMasterInput> {
   const { fields, review, codes } = parseUdInput(detail.udInput ?? null);
@@ -90,7 +93,19 @@ export function UsenCsvSection({ detail }: UsenCsvSectionProps) {
           USENへの連携手順（運用ルール）
         </p>
         <ol className="list-decimal pl-5 mt-1">
-          <li>ダウンロードしたCSVを USEN 共有の Google Drive に格納する</li>
+          <li>
+            ダウンロードしたCSVを{" "}
+            <a
+              href={USEN_DRIVE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-medium"
+              style={{ color: "var(--qolc-primary)" }}
+            >
+              USEN連携用 Google Drive
+            </a>{" "}
+            に格納する
+          </li>
           <li>格納したら必ず USEN 担当（古賀さん）へメールで連絡する（アップだけでは処理されません）</li>
           <li>当日15時までの依頼は当日処理、15時以降は翌営業日処理</li>
         </ol>

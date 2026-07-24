@@ -49,7 +49,8 @@ export type ApplicationEventKind =
   | "ud_input_updated"
   | "review_registered"
   | "workflow_started"
-  | "codes_assigned";
+  | "codes_assigned"
+  | "payload_updated";
 
 /** 種別の日本語ラベル */
 export const SOURCE_LABELS: Record<ApplicationSource, string> = {
@@ -93,6 +94,7 @@ export const EVENT_KIND_LABELS: Record<ApplicationEventKind, string> = {
   review_registered: "審査結果登録",
   workflow_started: "申請工程開始",
   codes_assigned: "採番（モールコード・端末番号）",
+  payload_updated: "申請内容の編集",
 };
 
 /** 「未対応」とみなす状態（既定フィルタで表示する対象） */

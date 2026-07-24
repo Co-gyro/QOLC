@@ -68,17 +68,18 @@ export function WorkflowSection({ detail, onStarted }: WorkflowSectionProps) {
         <p className="text-sm" style={{ color: "var(--qolc-text)" }}>
           進捗：{run.doneCount} / {run.totalCount} 工程が完了
         </p>
+        {/* チェックリスト系は業務アクション（緑）と区別するためアウトライン表示 */}
         <a
           href={`/admin/tasks/${run.id}`}
-          className="inline-flex items-center justify-center rounded font-medium text-sm px-4"
+          className="inline-flex items-center justify-center rounded font-medium text-sm px-4 border hover:bg-gray-50"
           style={{
-            backgroundColor: "var(--qolc-primary)",
-            color: "white",
+            borderColor: "var(--qolc-primary)",
+            color: "var(--qolc-primary)",
             minHeight: 44,
             width: "fit-content",
           }}
         >
-          工程チェックリストを開く
+          チェックリストを開いて記録する
         </a>
       </div>
     );
@@ -95,18 +96,20 @@ export function WorkflowSection({ detail, onStarted }: WorkflowSectionProps) {
           {error}
         </p>
       )}
+      {/* チェックリスト系は業務アクション（緑）と区別するためアウトライン表示 */}
       <Button
         type="button"
+        variant="outline"
         onClick={handleStart}
         disabled={starting}
         style={{
-          backgroundColor: "var(--qolc-primary)",
-          color: "white",
+          borderColor: "var(--qolc-primary)",
+          color: "var(--qolc-primary)",
           minHeight: 44,
           width: "fit-content",
         }}
       >
-        {starting ? "起票中…" : "申請工程を開始（13工程を起票）"}
+        {starting ? "起票中…" : "チェックリストを作成（13工程）"}
       </Button>
     </div>
   );

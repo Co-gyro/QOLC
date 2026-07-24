@@ -85,10 +85,12 @@ export const applicationIntakeSchema = z
 export type ApplicationIntakeInput = z.infer<typeof applicationIntakeSchema>;
 
 /**
- * QOLC加盟店申請フォームのクライアント側スキーマ（必須／形式検証）。
- * ワイヤーフレーム .apply-form の項目に対応する。
+ * QOLC加盟店申請フォームのベーススキーマ（項目定義・形式検証）。
+ * 公開フォームは merchantApplyFormSchema（全必須＋法人番号条件）で検証し、
+ * admin の申請内容編集は merchantApplyFormBaseSchema.partial()（入力済み項目のみ
+ * 形式検証・段階的な入力を許容）を使う。
  */
-export const merchantApplyFormSchema = z.object({
+export const merchantApplyFormBaseSchema = z.object({
   corpType: z.enum(["法人", "個人事業主"]),
   corpName: z.string().trim().min(1, "法人名を入力してください").max(50),
   corpNameKana: katakanaSchema("法人名フリガナ", 50),
@@ -112,7 +114,10 @@ export const merchantApplyFormSchema = z.object({
   contactPhone: phoneSchema,
   contactTime: z.enum(["いつでも", "午前中", "午後"]),
   note: z.string().trim().max(500).optional(),
-})
+});
+
+/** 公開申請フォームの検証スキーマ（全必須＋法人番号の条件必須） */
+export const merchantApplyFormSchema = merchantApplyFormBaseSchema
   // JCB申請書は法人（区分1）の場合に法人番号が必須。全法人には国税庁が
   // 法人番号を指定しているため、法人選択時は入力必須にして申請書作成の手戻りを防ぐ。
   .superRefine((v, ctx) => {

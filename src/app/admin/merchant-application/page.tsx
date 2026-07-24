@@ -43,10 +43,21 @@ export default function MerchantApplicationPage({
           <Card>
             <CardHeader>
               <CardTitle>セゾン</CardTitle>
-              <CardDescription>セゾン加盟店申請用フォーマット。</CardDescription>
+              <CardDescription>セゾン申込書（審査FMT）は案件から自動生成します。</CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">準備中</p>
+            <CardContent className="flex flex-col gap-2">
+              <p className="text-sm text-muted-foreground">
+                セゾンは手入力の確認画面が不要なため、このページではなく
+                「加盟店申請・登録」の各案件（③ UD追記情報・申請書の作成）から
+                ワンクリックでExcelを生成できます。提出はクリプト便です。
+              </p>
+              <a
+                href={applicationId ? `/admin/applications/${applicationId}` : "/admin/applications"}
+                className="text-sm underline font-medium"
+                style={{ color: "var(--qolc-primary)" }}
+              >
+                {applicationId ? "この案件の詳細へ戻って生成する" : "加盟店申請・登録の一覧へ"}
+              </a>
             </CardContent>
           </Card>
         </TabsContent>

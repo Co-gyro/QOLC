@@ -1,22 +1,16 @@
 "use client";
 
 /**
- * 申請詳細ドロワーの各タブパネル。
+ * 案件詳細のパネル部品（相談・問い合わせの縦流れ／加盟店の対応記録パネルで使用）。
  * - 申請内容: お客様が入力した情報の閲覧（読み取り中心）
  * - 進行管理: UD側の対応状況の管理（状態・担当・メモ・履歴）
- * - 登録手続き: 加盟店登録の実務入力（工程・UD追記・審査・変換）
+ * 加盟店申請の実務入力は merchant-work-sections.tsx（業務カード群）が担う。
  */
 import { EventTimeline } from "./event-timeline";
 import { PayloadView } from "./payload-view";
 import { EditForm } from "./detail-edit-form";
 import { ApplicantInfo } from "./applicant-info";
 import { CommentForm } from "./comment-form";
-import { WorkflowSection } from "./workflow-section";
-import { AssignCodesSection } from "./assign-codes-section";
-import { SaisonDocSection } from "./saison-doc-section";
-import { UsenCsvSection } from "./usen-csv-section";
-import { UdInputForm } from "./ud-input-form";
-import { ReviewSection } from "./review-section";
 import { FlowStepper } from "@/components/workflow/flow-stepper";
 import { buildStatusFlow } from "@/lib/applications/status-flow";
 import { STATUS_LABELS } from "@/lib/applications/labels";
@@ -95,61 +89,5 @@ export function DrawerManageTab({
   );
 }
 
-export interface DrawerProcedureTabProps {
-  detail: ApplicationDetail;
-  saving: boolean;
-  onSave: (patch: ApplicationPatch) => void;
-  onRefresh: () => void;
-}
-
-/** タブ「登録手続き」（加盟店申請のみ）: 工程・UD追記・申請書・審査結果・変換 */
-export function DrawerProcedureTab({
-  detail,
-  saving,
-  onSave,
-  onRefresh,
-}: DrawerProcedureTabProps) {
-  return (
-    <div className="flex flex-col gap-6">
-      <p className="text-sm" style={{ color: "var(--qolc-muted)" }}>
-        加盟店登録までの実務をここで進めます: ①工程チェックリストの起票 → ②採番 →
-        ③UD追記情報の入力・申請書の作成 → ④カード会社へ提出 → ⑤審査結果の登録 →
-        ⑥加盟店として登録（施設登録・USEN／セルフィッシュへの入力は工程チェックリストで管理）。
-      </p>
-
-      <Section title="① 申請工程（チェックリスト）">
-        <WorkflowSection detail={detail} onStarted={onRefresh} />
-      </Section>
-
-      <Section title="② 採番（モールコード・端末識別番号）">
-        <AssignCodesSection detail={detail} onAssigned={onRefresh} />
-      </Section>
-
-      <Section title="③ UD追記情報・申請書作成">
-        <UdInputForm
-          udInput={detail.udInput}
-          saving={saving}
-          onSave={(ud) => onSave({ ud_input: ud })}
-        />
-        <a
-          href={`/admin/merchant-application?applicationId=${detail.id}`}
-          className="mt-2 inline-flex items-center text-sm underline font-medium"
-          style={{ color: "var(--qolc-primary)", minHeight: 44 }}
-        >
-          JCB申請書を作成（この申請の内容を反映して開く）
-        </a>
-        <div className="mt-4">
-          <SaisonDocSection detail={detail} />
-        </div>
-      </Section>
-
-      <Section title="④⑤⑥ 審査結果の登録・加盟店へ変換">
-        <ReviewSection detail={detail} onSaved={onRefresh} />
-      </Section>
-
-      <Section title="⑦ USEN連携用CSV（審査通過後）">
-        <UsenCsvSection detail={detail} />
-      </Section>
-    </div>
-  );
-}
+// 旧「登録手続き」タブ（DrawerProcedureTab）は業務ファースト再編（2026-07-24）で
+// merchant-work-sections.tsx の業務カード群に置き換えられ廃止された。

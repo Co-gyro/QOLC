@@ -18,6 +18,7 @@ import {
 } from "@/lib/applications/mappers";
 import { apiError, apiOk } from "@/types/api";
 import { ALL_STATUSES, ALL_PRIORITIES } from "@/lib/applications/labels";
+import { merchantApplyFormBaseSchema } from "@/lib/applications/schema";
 import {
   parseUdInput,
   describeUdFieldChanges,
@@ -50,6 +51,20 @@ const patchSchema = z
         if (msg) ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg });
       })
       .nullable()
+      .optional(),
+    // 申請内容の補完・修正（手動起票案件用）。入力済み項目のみ形式検証し、
+    // 段階的な入力を許容する（完全性は申請書生成時に担保）。
+    payload: z
+      .record(z.string(), z.unknown())
+      .superRefine((v, ctx) => {
+        const r = merchantApplyFormBaseSchema.partial().safeParse(v);
+        if (!r.success) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: r.error.issues[0]?.message ?? "申請内容の形式が正しくありません",
+          });
+        }
+      })
       .optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "更新項目がありません" });
@@ -180,7 +195,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   // 変更前の値を取得（履歴の before/after 記録用）。
   // ud_input（migration 031）未適用の環境では ud_input を除いて取得する。
   const needsUdInput = patch.ud_input !== undefined;
-  const beforeCols = "status, priority, assignee_id, due_date, next_action";
+  const beforeCols = "status, priority, assignee_id, due_date, next_action, payload";
   const firstBefore = await admin
     .from("applications")
     .select(`${beforeCols}, ud_input`)
@@ -222,6 +237,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     assignee_id: string | null;
     due_date: string | null;
     next_action: string | null;
+    payload: Record<string, unknown> | null;
     ud_input?: Record<string, unknown> | null;
   };
 
@@ -250,6 +266,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (patch.next_action !== undefined && norm(patch.next_action) !== prev.next_action) {
     updates.next_action = norm(patch.next_action);
     events.push({ kind: "next_action", detail: { from: prev.next_action, to: norm(patch.next_action) } });
+  }
+  if (patch.payload !== undefined) {
+    const prevPayload = prev.payload ?? {};
+    if (JSON.stringify(prevPayload) !== JSON.stringify(patch.payload)) {
+      updates.payload = patch.payload;
+      const changed = Object.keys({ ...prevPayload, ...patch.payload }).filter(
+        (k) => JSON.stringify(prevPayload[k]) !== JSON.stringify(patch.payload?.[k])
+      );
+      events.push({
+        kind: "payload_updated",
+        detail: { changed, before: prevPayload, after: patch.payload },
+      });
+    }
   }
   if (patch.ud_input !== undefined) {
     const prevUd = prev.ud_input ?? null;

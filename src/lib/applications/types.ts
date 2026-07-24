@@ -77,4 +77,6 @@ export interface ApplicationPatch {
   next_action?: string | null;
   /** UD追記情報（migration 031。全置換で保存する想定） */
   ud_input?: Record<string, unknown> | null;
+  /** 申請内容（手動起票案件の補完・修正用。全置換で保存する想定） */
+  payload?: Record<string, unknown>;
 }

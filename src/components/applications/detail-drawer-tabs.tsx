@@ -13,6 +13,7 @@ import { ApplicantInfo } from "./applicant-info";
 import { CommentForm } from "./comment-form";
 import { WorkflowSection } from "./workflow-section";
 import { AssignCodesSection } from "./assign-codes-section";
+import { SaisonDocSection } from "./saison-doc-section";
 import { UsenCsvSection } from "./usen-csv-section";
 import { UdInputForm } from "./ud-input-form";
 import { ReviewSection } from "./review-section";
@@ -135,8 +136,11 @@ export function DrawerProcedureTab({
           className="mt-2 inline-flex items-center text-sm underline font-medium"
           style={{ color: "var(--qolc-primary)", minHeight: 44 }}
         >
-          申請書を作成（この申請の内容を反映して開く）
+          JCB申請書を作成（この申請の内容を反映して開く）
         </a>
+        <div className="mt-4">
+          <SaisonDocSection detail={detail} />
+        </div>
       </Section>
 
       <Section title="④⑤⑥ 審査結果の登録・加盟店へ変換">

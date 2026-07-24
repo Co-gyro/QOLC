@@ -4,6 +4,7 @@ import { PortalLayout } from "@/components/layout/portal-layout";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { JcbEcForm } from "./_components/jcb-ec-form";
 import { PrefillLoader } from "./_components/prefill-loader";
+import { SaisonTab } from "./_components/saison-tab";
 
 /** UUID 形式チェック（不正な applicationId はプリフィルせず空フォームにする） */
 function isUuid(id: string): boolean {
@@ -21,11 +22,18 @@ export default function MerchantApplicationPage({
       : null;
   return (
     <PortalLayout portal="admin">
-      <Breadcrumb items={[{ label: "ダッシュボード", href: "/admin/dashboard" }, { label: "加盟店管理", href: "/admin/merchants" }, { label: "申請書出力" }]} />
+      <Breadcrumb
+        items={[
+          { label: "今日のUD", href: "/admin/today" },
+          { label: "加盟店申請・登録", href: "/admin/applications" },
+          { label: "申請書の作成" },
+        ]}
+      />
       <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight">加盟店申請管理</h1>
+        <h1 className="text-2xl font-bold tracking-tight">申請書の作成</h1>
         <p className="mt-2" style={{ color: "var(--qolc-muted)" }}>
-          JCB / セゾンへの加盟申請に必要なExcelフォーマットを生成します。
+          JCB・セゾンへの加盟申請に必要なExcelをここで出力します（案件詳細の「③
+          申請書を作成」から開くと内容が自動反映されます）。
         </p>
       </div>
 
@@ -42,22 +50,13 @@ export default function MerchantApplicationPage({
         <TabsContent value="saison" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>セゾン</CardTitle>
-              <CardDescription>セゾン申込書（審査FMT）は案件から自動生成します。</CardDescription>
+              <CardTitle>セゾン申込書（審査FMT）</CardTitle>
+              <CardDescription>
+                案件の内容を自動転記してExcelを出力します。提出はクリプト便です。
+              </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              <p className="text-sm text-muted-foreground">
-                セゾンは手入力の確認画面が不要なため、このページではなく
-                「加盟店申請・登録」の各案件（③ UD追記情報・申請書の作成）から
-                ワンクリックでExcelを生成できます。提出はクリプト便です。
-              </p>
-              <a
-                href={applicationId ? `/admin/applications/${applicationId}` : "/admin/applications"}
-                className="text-sm underline font-medium"
-                style={{ color: "var(--qolc-primary)" }}
-              >
-                {applicationId ? "この案件の詳細へ戻って生成する" : "加盟店申請・登録の一覧へ"}
-              </a>
+            <CardContent>
+              <SaisonTab applicationId={applicationId} />
             </CardContent>
           </Card>
         </TabsContent>

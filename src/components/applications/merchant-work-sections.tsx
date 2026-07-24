@@ -4,8 +4,8 @@
  * 加盟店申請・登録の業務カード群（案件詳細ページのメインカラム）
  *
  * メインカラムは「業務」だけを上から順に並べる:
- * ①申請内容（読む・手動起票分は編集）→ ②採番 → ③UD追記・申請書作成（JCB/セゾン並列）
- * → ④審査結果・加盟店変換 → ⑤USEN連携CSV
+ * ①申請内容（読む・手動起票分は編集）→ ②採番 → ③UD追記＋申請書作成画面への導線
+ * （JCB・セゾンとも /admin/merchant-application に集約）→ ④審査結果・加盟店変換 → ⑤USEN連携CSV
  * 工程チェックリストは業務ではなく「進捗の記録」なので、別枠（グレー見出し・
  * アウトラインボタン）として最後に置き、業務アクション（緑ボタン）と混ぜない。
  */
@@ -15,7 +15,6 @@ import { PayloadView } from "./payload-view";
 import { PayloadEditForm } from "./payload-edit-form";
 import { AssignCodesSection } from "./assign-codes-section";
 import { UdInputForm } from "./ud-input-form";
-import { SaisonDocSection } from "./saison-doc-section";
 import { ReviewSection } from "./review-section";
 import { UsenCsvSection } from "./usen-csv-section";
 import { WorkflowSection } from "./workflow-section";
@@ -92,7 +91,7 @@ export function MerchantWorkSections({ detail, saving, onSave, onRefresh }: Merc
 
       <Card
         title="③ UD追記情報・申請書の作成"
-        hint="UD側の補足を保存してから、JCB・セゾンの申請書を作成します。"
+        hint="UD側の補足を保存してから、申請書の作成画面（JCB・セゾン共通）で出力します。"
       >
         <UdInputForm
           udInput={detail.udInput}
@@ -100,23 +99,17 @@ export function MerchantWorkSections({ detail, saving, onSave, onRefresh }: Merc
           onSave={(ud) => onSave({ ud_input: ud })}
         />
         <div className="mt-5 pt-4 border-t" style={{ borderColor: "var(--qolc-border)" }}>
-          <p className="text-sm font-medium mb-2" style={{ color: "var(--qolc-text)" }}>
-            申請書の作成
+          <a
+            href={`/admin/merchant-application?applicationId=${detail.id}`}
+            className="inline-flex items-center justify-center rounded font-medium text-sm px-4"
+            style={{ backgroundColor: "var(--qolc-primary)", color: "white", minHeight: 44 }}
+          >
+            申請書を作成（JCB・セゾン）
+          </a>
+          <p className="text-sm mt-1" style={{ color: "var(--qolc-muted)" }}>
+            この申請の内容を反映した作成画面が開きます。JCBタブ＝最終確認のうえExcel出力
+            （提出先: accel.jcb.jp）、セゾンタブ＝審査FMTのExcelを出力（提出: クリプト便）。
           </p>
-          <div className="mb-4">
-            <a
-              href={`/admin/merchant-application?applicationId=${detail.id}`}
-              className="inline-flex items-center justify-center rounded font-medium text-sm px-4"
-              style={{ backgroundColor: "var(--qolc-primary)", color: "white", minHeight: 44 }}
-            >
-              JCB申請書を作成（確認画面を開く）
-            </a>
-            <p className="text-sm mt-1" style={{ color: "var(--qolc-muted)" }}>
-              JCBは業態コード・契約コード等の最終確認が必要なため、内容を反映した確認画面で
-              仕上げてからExcelを出力します（提出先: accel.jcb.jp）。
-            </p>
-          </div>
-          <SaisonDocSection detail={detail} />
         </div>
       </Card>
 

@@ -74,11 +74,11 @@ export function PrefillLoader({ applicationId }: { applicationId: string }) {
         <p className="mt-1" style={{ color: "var(--qolc-muted)" }}>
           お客さまの入力とUD追記情報から自動入力済みです。カナ・業態コードなどの不足分だけ補完してください。
           <a
-            href="/admin/applications"
+            href={`/admin/applications/${detail.id}`}
             className="underline ml-1 font-medium"
             style={{ color: "var(--qolc-primary)" }}
           >
-            加盟店申請・登録へ戻る
+            案件詳細へ戻る
           </a>
         </p>
       </div>

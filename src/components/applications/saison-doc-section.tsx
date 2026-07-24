@@ -55,32 +55,40 @@ export function SaisonDocSection({ detail }: SaisonDocSectionProps) {
         セゾン提供の審査FMT（Excel）に申請内容・UD追記・採番値を自動転記します。
         カナ列は半角カナへ自動変換されます。
       </p>
-      {errors.length > 0 ? (
-        <ul className="text-sm list-disc pl-5" style={{ color: "#B45309" }}>
-          {errors.map((e) => (
-            <li key={e}>{e}</li>
+      {/* ボタンは常に表示する（不足時は無効化＋理由表示。動線が消えて迷子にならないように） */}
+      <div>
+        <Button
+          type="button"
+          disabled={downloading || errors.length > 0}
+          onClick={() => void handleDownload()}
+          style={{
+            backgroundColor: "var(--qolc-primary)",
+            color: "white",
+            minHeight: 44,
+            opacity: errors.length > 0 ? 0.5 : 1,
+          }}
+        >
+          {downloading ? "生成中…" : "セゾン申込書（Excel）をダウンロード"}
+        </Button>
+      </div>
+      {errors.length > 0 && (
+        <div>
+          <p className="text-sm font-medium" style={{ color: "#B45309" }}>
+            ダウンロードには以下の入力が必要です（案件詳細で補完してください）:
+          </p>
+          <ul className="text-sm list-disc pl-5" style={{ color: "#B45309" }}>
+            {errors.map((e) => (
+              <li key={e}>{e}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {errors.length === 0 && manualNotes.length > 0 && (
+        <ul className="text-sm list-disc pl-5" style={{ color: "var(--qolc-muted)" }}>
+          {manualNotes.map((n) => (
+            <li key={n}>ダウンロード後にExcelで補完: {n}</li>
           ))}
         </ul>
-      ) : (
-        <>
-          <div>
-            <Button
-              type="button"
-              disabled={downloading}
-              onClick={() => void handleDownload()}
-              style={{ backgroundColor: "var(--qolc-primary)", color: "white", minHeight: 44 }}
-            >
-              {downloading ? "生成中…" : "セゾン申込書（Excel）をダウンロード"}
-            </Button>
-          </div>
-          {manualNotes.length > 0 && (
-            <ul className="text-sm list-disc pl-5" style={{ color: "var(--qolc-muted)" }}>
-              {manualNotes.map((n) => (
-                <li key={n}>ダウンロード後にExcelで補完: {n}</li>
-              ))}
-            </ul>
-          )}
-        </>
       )}
       {fetchError && (
         <p className="text-sm" style={{ color: "#DC2626" }}>

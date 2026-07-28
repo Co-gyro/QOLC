@@ -1,0 +1,138 @@
+/*
+ * UD Payment（仮）デモのスタイル。
+ * すべて .udpay-root 配下にスコープし、QOLCアプリ本体・紹介サイトと衝突させない。
+ * ブランド: ネイビー×ブルーのフィンテック調（QOLC緑とは意図的に切り離す）。
+ */
+.udpay-root {
+  --navy: #16233e;
+  --navy-2: #1f3155;
+  --blue: #2563eb;
+  --blue-dark: #1d4ed8;
+  --blue-bg: #eff4ff;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --border: #e2e6ee;
+  --bg: #f6f8fb;
+  --green: #15803d;
+  --green-bg: #e9f7ef;
+  --red: #b91c1c;
+  --red-bg: #fdecec;
+  --amber: #b45309;
+  --amber-bg: #fef4e2;
+  color: var(--text);
+  background: var(--bg);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.udpay-root * { box-sizing: border-box; }
+.udpay-root ol { list-style: decimal; }
+
+/* ── ヘッダー ─────────────────────────── */
+.udpay-root .up-header {
+  background: var(--navy);
+  color: #fff;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  height: 60px;
+}
+.udpay-root .up-brand { display: flex; align-items: baseline; gap: 8px; }
+.udpay-root .up-brand-name { font-size: 19px; font-weight: 800; letter-spacing: 0.02em; color: #fff; }
+.udpay-root .up-brand-name span { color: #7fa8ff; }
+.udpay-root .up-brand-sub { font-size: 14px; color: #9fb0cc; }
+.udpay-root .up-nav { display: flex; gap: 4px; flex: 1; }
+.udpay-root .up-nav a {
+  color: #c7d2e6; text-decoration: none; font-weight: 600;
+  padding: 8px 14px; border-radius: 8px; min-height: 0;
+}
+.udpay-root .up-nav a:hover { background: var(--navy-2); color: #fff; }
+.udpay-root .up-nav a.active { background: var(--blue); color: #fff; }
+.udpay-root .up-demo-badge {
+  font-size: 14px; color: #ffd9a8; border: 1px solid #8a6a3a;
+  border-radius: 999px; padding: 2px 12px; white-space: nowrap;
+}
+
+/* ── レイアウト ───────────────────────── */
+.udpay-root .up-container { max-width: 1080px; margin: 0 auto; padding: 28px 24px 64px; }
+.udpay-root h1 { font-size: 22px; font-weight: 800; margin: 0 0 4px; }
+.udpay-root h2 { font-size: 17px; font-weight: 700; margin: 0 0 12px; }
+.udpay-root .up-lead { color: var(--muted); margin: 0 0 24px; }
+.udpay-root .up-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.udpay-root .up-section { margin-top: 28px; }
+
+/* ── カード・統計 ─────────────────────── */
+.udpay-root .up-card {
+  background: #fff; border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px; box-shadow: 0 1px 2px rgba(22, 35, 62, 0.04);
+}
+.udpay-root .up-stat-label { font-size: 14px; color: var(--muted); }
+.udpay-root .up-stat-value { font-size: 26px; font-weight: 800; margin-top: 2px; }
+.udpay-root .up-stat-value.green { color: var(--green); }
+.udpay-root .up-stat-value.red { color: var(--red); }
+
+/* ── テーブル ─────────────────────────── */
+.udpay-root .up-table { width: 100%; border-collapse: collapse; background: #fff; }
+.udpay-root .up-table th {
+  text-align: left; font-size: 14px; color: var(--muted); font-weight: 600;
+  padding: 10px 12px; border-bottom: 2px solid var(--border); white-space: nowrap;
+}
+.udpay-root .up-table td { padding: 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.udpay-root .up-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.udpay-root .up-table-wrap { overflow-x: auto; background: #fff; border: 1px solid var(--border); border-radius: 12px; }
+
+/* ── バッジ ───────────────────────────── */
+.udpay-root .up-badge {
+  display: inline-block; font-size: 14px; font-weight: 700;
+  border-radius: 999px; padding: 2px 12px; white-space: nowrap;
+}
+.udpay-root .up-badge.paid { color: var(--green); background: var(--green-bg); }
+.udpay-root .up-badge.failed { color: var(--red); background: var(--red-bg); }
+.udpay-root .up-badge.scheduled { color: var(--blue-dark); background: var(--blue-bg); }
+.udpay-root .up-badge.draft { color: var(--amber); background: var(--amber-bg); }
+.udpay-root .up-badge.confirmed { color: var(--green); background: var(--green-bg); }
+.udpay-root .up-badge.none { color: var(--muted); background: #eef0f4; }
+
+/* ── ボタン・フォーム ─────────────────── */
+.udpay-root .up-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 44px; padding: 0 20px; border-radius: 10px; border: none;
+  background: var(--blue); color: #fff; font-size: 14px; font-weight: 700;
+  cursor: pointer; text-decoration: none;
+}
+.udpay-root .up-btn:hover { background: var(--blue-dark); }
+.udpay-root .up-btn:disabled { background: #b6c3d9; cursor: not-allowed; }
+.udpay-root .up-btn.secondary { background: #fff; color: var(--navy); border: 1.5px solid var(--border); }
+.udpay-root .up-btn.secondary:hover { background: var(--blue-bg); }
+.udpay-root .up-btn.small { min-height: 36px; padding: 0 14px; }
+.udpay-root .up-btn.danger { background: var(--red); }
+.udpay-root input, .udpay-root select {
+  min-height: 44px; padding: 0 12px; border: 1.5px solid var(--border);
+  border-radius: 10px; font-size: 14px; width: 100%; background: #fff; color: var(--text);
+}
+.udpay-root input:focus, .udpay-root select:focus { outline: 2px solid var(--blue); border-color: var(--blue); }
+.udpay-root label { font-size: 14px; font-weight: 600; display: block; margin-bottom: 4px; }
+.udpay-root .up-field { margin-bottom: 14px; }
+.udpay-root .up-error { color: var(--red); background: var(--red-bg); border-radius: 8px; padding: 10px 14px; margin: 12px 0; }
+.udpay-root .up-notice { color: var(--blue-dark); background: var(--blue-bg); border-radius: 8px; padding: 10px 14px; margin: 12px 0; }
+
+/* ── メールプレビュー・領収書 ─────────── */
+.udpay-root .up-mail {
+  background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 20px;
+  font-size: 14px;
+}
+.udpay-root .up-mail-subject { font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 10px; }
+.udpay-root .up-mail-body { white-space: pre-wrap; color: var(--text); }
+.udpay-root .up-receipt { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 40px; max-width: 720px; margin: 0 auto; }
+.udpay-root .up-receipt h1 { text-align: center; letter-spacing: 0.5em; text-indent: 0.5em; margin-bottom: 24px; }
+
+@media print {
+  .udpay-root .up-header, .udpay-root .up-no-print { display: none !important; }
+  .udpay-root { background: #fff; }
+  .udpay-root .up-receipt { border: none; }
+}
+@media (max-width: 720px) {
+  .udpay-root .up-header { padding: 0 12px; gap: 12px; overflow-x: auto; }
+  .udpay-root .up-container { padding: 20px 14px 48px; }
+}

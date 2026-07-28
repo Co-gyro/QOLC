@@ -58,3 +58,7 @@ next-env.d.ts
 
 # 領収書プレビュー等の一時出力（コミットしない）
 /tmp/
+
+# UD Payment デモのファイルストア（コミットしない）
+/.udpay-demo/
+.env*

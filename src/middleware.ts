@@ -36,6 +36,8 @@ const PUBLIC_PATH_PREFIXES = [
   "/liff",
   "/api/webhook",
   "/api/health",
+  "/udpay",
+  "/api/udpay",
   "/_next",
   "/favicon",
   "/QOLC_design_system.html",
@@ -88,6 +90,40 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = pathname === "/" ? "/site" : `/site${pathname}`;
     return NextResponse.rewrite(url);
+  }
+  // --------------------------------------------------------------------------
+
+  // --- UD Payment 常設デモの合言葉キーゲート ---------------------------------
+  // UDPAY_DEMO_KEY 設定時のみ有効（ローカル・E2Eでは未設定でゲートなし）。
+  // /udpay/card/*（顧客向けカード登録・独自トークンで保護）と /api/udpay
+  // （カード登録POSTに必要・デモデータのみ）はキー不要。
+  const udpayKey = process.env.UDPAY_DEMO_KEY;
+  if (
+    udpayKey &&
+    pathname.startsWith("/udpay") &&
+    !pathname.startsWith("/udpay/card/")
+  ) {
+    const cookieKey = request.cookies.get("udpay_demo_key")?.value;
+    if (cookieKey !== udpayKey) {
+      const queryKey = request.nextUrl.searchParams.get("key");
+      if (queryKey === udpayKey) {
+        const url = request.nextUrl.clone();
+        url.searchParams.delete("key");
+        const redirect = NextResponse.redirect(url);
+        redirect.cookies.set("udpay_demo_key", udpayKey, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "lax",
+          path: "/udpay",
+          maxAge: 60 * 60 * 24 * 90,
+        });
+        return redirect;
+      }
+      return new NextResponse(
+        "アクセスキーが必要です。案内されたキー付きURLからアクセスしてください。",
+        { status: 401, headers: { "Content-Type": "text/plain; charset=utf-8" } },
+      );
+    }
   }
   // --------------------------------------------------------------------------
 

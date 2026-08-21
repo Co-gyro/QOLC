@@ -23,6 +23,9 @@ npm run dev    # http://localhost:3000
 テストモードで決済まで通すには、次の**3点セット**が必要:
 
 1. `.env.local` を TSJL/TSJM に切替（site鍵/mall鍵/GROUP_ID/トークンJS URLも全部テスト値に）
+   - **テスト環境のホストも `inet-uketsuke1.netmove.jp`**（`inet-uketsuke.netmove.jp` はDNS未解決＝廃止。2026-08-18確認）
+   - ホスト名判定の誤送信ガードに掛かるため、テストモードでも **`ALLOW_USEN_PROD=1`** を設定する
+     （TSJL鍵/TSJMモールではS203への実課金は成立しないため安全）
 2. デモ加盟店の `mall_code` を `TSJM` に変更（例: テスト診療所 `69fd9433-…`）。**デモ後は `A300` に戻す**
 3. カード会員は**サイト単位**。本番(S203)で登録した会員はテスト(TSJL)に存在しないため、
    `resident_accounts.usen_member_id` を一旦 NULL にして `/user/card` から**テストカード

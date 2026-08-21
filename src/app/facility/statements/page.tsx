@@ -14,10 +14,10 @@ export default function FacilityStatementsPage() {
         </CardHeader>
         <CardContent>
           <p className="text-sm mb-3" style={{ color: "var(--qolc-muted)" }}>
-            提供者から預かった CSV ファイルをアップロードできます。
+            提供者から預かった CSV ファイルを、施設から代わりにアップロードできます。
           </p>
           <a
-            href="/provider/upload"
+            href="/facility/upload"
             className="qolc-btn inline-block px-4 py-2 rounded text-white font-medium"
             style={{ backgroundColor: "var(--qolc-primary)" }}
           >

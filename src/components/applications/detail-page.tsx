@@ -23,6 +23,7 @@ import {
   fetchAssignees,
 } from "@/lib/applications/client";
 import { SOURCE_LABELS } from "@/lib/applications/labels";
+import { APPLY_TYPE_COPY } from "@/lib/applications/apply-type";
 import type { ApplicationDetail, AssigneeOption, ApplicationPatch } from "@/lib/applications/types";
 
 export interface ApplicationDetailPageProps {
@@ -141,6 +142,17 @@ export function ApplicationDetailPage({ applicationId, listHref, listLabel }: Ap
             {detail && (
               <span className="ml-3 text-base font-normal" style={{ color: "var(--qolc-muted)" }}>
                 {SOURCE_LABELS[detail.source]}
+              </span>
+            )}
+            {isMerchant && detail && (
+              <span
+                className="ml-2 align-middle text-sm px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
+                style={{
+                  backgroundColor: APPLY_TYPE_COPY[detail.applyType].badgeColor.bg,
+                  color: APPLY_TYPE_COPY[detail.applyType].badgeColor.fg,
+                }}
+              >
+                {APPLY_TYPE_COPY[detail.applyType].badge}
               </span>
             )}
           </h1>

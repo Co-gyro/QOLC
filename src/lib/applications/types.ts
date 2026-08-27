@@ -7,6 +7,7 @@ import type {
   ApplicationPriority,
   ApplicationEventKind,
 } from "./labels";
+import type { MerchantApplyType } from "./apply-type";
 
 /** 一覧・詳細で共通する申請1件（担当者表示名を解決済み） */
 export interface ApplicationRow {
@@ -24,6 +25,11 @@ export interface ApplicationRow {
   dueDate: string | null;
   nextAction: string | null;
   merchantId: string | null;
+  /**
+   * 加盟店申請の区分（payload.applyType 由来）。介護施設向け=care / 一般=general。
+   * 区分導入前の申請は care 扱い。加盟店申請以外の source では表示に使わない。
+   */
+  applyType: MerchantApplyType;
   /** UD追記情報（migration 031 の ud_input。審査ステージ判定・詳細表示に使用） */
   udInput?: Record<string, unknown> | null;
   createdAt: string;

@@ -2,6 +2,7 @@
  * DB 生レコード → API 出力型への変換
  */
 import type { ApplicationRow, ApplicationEvent } from "./types";
+import { applyTypeOfPayload } from "./apply-type";
 import type {
   ApplicationSource,
   ApplicationStatus,
@@ -63,6 +64,7 @@ export function toApplicationRow(
     dueDate: r.due_date,
     nextAction: r.next_action,
     merchantId: r.merchant_id,
+    applyType: applyTypeOfPayload(r.payload),
     udInput: r.ud_input ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,

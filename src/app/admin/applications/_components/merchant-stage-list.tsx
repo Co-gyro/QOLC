@@ -15,6 +15,7 @@ import {
   MERCHANT_STAGE_WAITING,
   MERCHANT_STAGE_COLORS,
 } from "@/lib/applications/merchant-stage";
+import { APPLY_TYPE_COPY } from "@/lib/applications/apply-type";
 import type { ApplicationRow } from "@/lib/applications/types";
 
 /** ISO 日時 → "YYYY/MM/DD" */
@@ -50,6 +51,21 @@ export function MerchantStageList({ rows, onSelect }: MerchantStageListProps) {
               )}
             </div>
           ),
+        },
+        {
+          key: "applyType",
+          header: "区分",
+          render: (r) => {
+            const c = APPLY_TYPE_COPY[r.applyType];
+            return (
+              <span
+                className="text-sm px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
+                style={{ backgroundColor: c.badgeColor.bg, color: c.badgeColor.fg }}
+              >
+                {c.badge}
+              </span>
+            );
+          },
         },
         { key: "created", header: "受付日", render: (r) => fmtDate(r.createdAt) },
         {

@@ -6,12 +6,17 @@ import {
   merchantApplyFormSchema,
   type MerchantApplyForm,
 } from "@/lib/applications/schema";
+import {
+  APPLY_TYPE_COPY,
+  applySiteLabels,
+  type MerchantApplyType,
+} from "@/lib/applications/apply-type";
 
 /** ご連絡希望時間帯の選択肢。 */
 const CONTACT_TIMES = ["いつでも", "午前中", "午後"] as const;
 
-/** フォームの初期値。 */
-const INITIAL: MerchantApplyForm = {
+/** フォームの初期値（申請区分は入口の選択に従う）。 */
+const INITIAL: Omit<MerchantApplyForm, "applyType"> = {
   corpType: "法人",
   corpName: "",
   corpNameKana: "",
@@ -43,14 +48,24 @@ type FieldErrors = Partial<Record<keyof MerchantApplyForm, string>>;
 /**
  * 加盟店申請フォーム本体。クライアント側 zod 検証・二重送信防止・
  * 送信成功時に onComplete で完了表示へ切替。
+ * 申請区分（介護施設向け / 一般）はラベル・プレースホルダの文言だけを
+ * 切り替え、送信する項目キーは共通に保つ。
+ * @param applyType 申請区分（入口で選択済みの値）
  * @param onComplete 送信成功時のコールバック
  */
 export default function ApplyForm({
+  applyType,
   onComplete,
 }: {
+  applyType: MerchantApplyType;
   onComplete: () => void;
 }): JSX.Element {
-  const [form, setForm] = useState<MerchantApplyForm>(INITIAL);
+  const copy = APPLY_TYPE_COPY[applyType];
+  const siteLabels = applySiteLabels(applyType);
+  const [form, setForm] = useState<MerchantApplyForm>({
+    ...INITIAL,
+    applyType,
+  });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -66,7 +81,9 @@ export default function ApplyForm({
   /** 送信処理。検証→API呼び出し→完了切替。 */
   async function handleSubmit(): Promise<void> {
     setSubmitError(null);
-    const result = merchantApplyFormSchema.safeParse(form);
+    // 入口の切替後も確実に現在の区分で送るため、送信直前に applyType を上書きする
+    // （切替時にフォーム入力を保持したまま state を作り直さない設計のため）。
+    const result = merchantApplyFormSchema.safeParse({ ...form, applyType });
     if (!result.success) {
       const next: FieldErrors = {};
       for (const issue of result.error.issues) {
@@ -146,7 +163,7 @@ export default function ApplyForm({
           <input
             className="apply-form-input"
             type="text"
-            placeholder="例：株式会社サンプルケア"
+            placeholder={copy.corpNamePlaceholder}
             maxLength={50}
             value={form.corpName}
             onChange={(e) => set("corpName", e.target.value)}
@@ -161,7 +178,7 @@ export default function ApplyForm({
           <input
             className="apply-form-input"
             type="text"
-            placeholder="例：カブシキガイシャサンプルケア"
+            placeholder={copy.corpNameKanaPlaceholder}
             maxLength={50}
             value={form.corpNameKana}
             onChange={(e) => set("corpNameKana", e.target.value)}
@@ -302,10 +319,10 @@ export default function ApplyForm({
           />
         </Field>
 
-        {/* 施設情報 */}
-        <div className="apply-form-section">施設情報</div>
+        {/* 屋号情報（介護=施設 / 一般=店舗・事業所） */}
+        <div className="apply-form-section">{siteLabels.section}</div>
         <Field
-          label="施設名"
+          label={siteLabels.name}
           required
           hint="全角20文字以内。カード明細に表示される名称となります"
           error={errors.facilityName}
@@ -313,14 +330,14 @@ export default function ApplyForm({
           <input
             className="apply-form-input"
             type="text"
-            placeholder="例：サンプルケア有料老人ホーム東京"
+            placeholder={copy.siteNamePlaceholder}
             maxLength={20}
             value={form.facilityName}
             onChange={(e) => set("facilityName", e.target.value)}
           />
         </Field>
         <Field
-          label="施設名フリガナ"
+          label={siteLabels.nameKana}
           required
           hint="全角カタカナ。カード明細のカナ表記に使用します"
           error={errors.facilityNameKana}
@@ -328,14 +345,14 @@ export default function ApplyForm({
           <input
             className="apply-form-input"
             type="text"
-            placeholder="例：サンプルケアユウリョウロウジンホームトウキョウ"
+            placeholder={copy.siteNameKanaPlaceholder}
             maxLength={30}
             value={form.facilityNameKana}
             onChange={(e) => set("facilityNameKana", e.target.value)}
           />
         </Field>
         <Field
-          label="施設 郵便番号"
+          label={siteLabels.postalCode}
           required
           hint="半角数字7桁"
           error={errors.facilityPostalCode}
@@ -352,7 +369,7 @@ export default function ApplyForm({
           />
         </Field>
         <Field
-          label="施設 所在地"
+          label={siteLabels.address}
           required
           hint="全角60文字以内。都道府県名から番地・建物名まで"
           error={errors.facilityAddress}
@@ -367,7 +384,7 @@ export default function ApplyForm({
           />
         </Field>
         <Field
-          label="施設 電話番号"
+          label={siteLabels.phone}
           required
           hint="半角数字+ハイフン、13文字以内"
           error={errors.facilityPhone}
@@ -467,7 +484,7 @@ export default function ApplyForm({
             className="apply-form-input"
             rows={3}
             maxLength={500}
-            placeholder="施設の入居者数、利用予定のサービス、ご質問など"
+            placeholder={copy.notePlaceholder}
             value={form.note ?? ""}
             onChange={(e) => set("note", e.target.value)}
           />

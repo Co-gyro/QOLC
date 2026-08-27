@@ -630,6 +630,47 @@
 .site-root .apply-hero h1 { font-size: 22px; font-weight: 900; color: var(--text-dark); margin-bottom: 8px; }
 .site-root .apply-hero p { font-size: 14px; color: var(--text-muted); line-height: 1.7; }
 
+/* 入口の選択（介護施設向け / 一般の店舗・事業所向け） */
+.site-root .apply-choose {
+  display: flex; flex-direction: column; gap: 14px; padding: 20px 24px;
+}
+.site-root .apply-choose-card {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  background: var(--white); border: 2px solid var(--border);
+  border-radius: 14px; padding: 20px; min-height: 44px;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.site-root .apply-choose-card:hover,
+.site-root .apply-choose-card:focus-visible {
+  border-color: var(--green); box-shadow: 0 4px 16px rgba(76,152,106,.14);
+  transform: translateY(-1px); outline: none;
+}
+.site-root .apply-choose-icon { font-size: 28px; line-height: 1; margin-bottom: 10px; }
+.site-root .apply-choose-title {
+  font-size: 16px; font-weight: 800; color: var(--text-dark); margin-bottom: 6px;
+}
+.site-root .apply-choose-tagline {
+  font-size: 14px; color: var(--text-body); line-height: 1.7; margin-bottom: 8px;
+}
+.site-root .apply-choose-examples {
+  font-size: 14px; color: var(--text-muted); line-height: 1.6; margin-bottom: 12px;
+}
+.site-root .apply-choose-cta { font-size: 14px; font-weight: 700; color: var(--green-deep); }
+
+/* フォーム上部の「もう一方の入口へ」切替リンク */
+.site-root .apply-switch {
+  margin-top: 12px; min-height: 44px; padding: 10px 16px; cursor: pointer;
+  background: var(--white); border: 1px solid var(--green);
+  border-radius: 999px; font-size: 14px; font-weight: 700; color: var(--green-deep);
+}
+.site-root .apply-switch:hover { background: var(--green-pale); }
+
+@media (min-width: 768px) {
+  .site-root .apply-choose { flex-direction: row; align-items: stretch; }
+  .site-root .apply-choose-card { flex: 1; display: flex; flex-direction: column; }
+  .site-root .apply-choose-cta { margin-top: auto; }
+}
+
 .site-root .apply-flow {
   margin: 16px 20px; background: var(--green-bg); border-radius: 12px;
   padding: 20px 20px 18px; border-left: 4px solid var(--green);

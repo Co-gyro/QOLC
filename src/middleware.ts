@@ -8,6 +8,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseMiddlewareClient } from "@/lib/supabase/middleware-client";
+import { appRedirectUrl } from "@/lib/site/app-redirect";
 import type { UserRole, PortalType } from "@/types";
 
 /**
@@ -87,6 +88,15 @@ export async function middleware(request: NextRequest) {
     ) {
       return NextResponse.next();
     }
+    // アプリ本体にしか無いパス（/login・/admin など）は 404 にせず app.qolc.jp へ転送。
+    // 「qolc.jp/admin を開いたらログイン画面すら出ない」導線の断絶を防ぐ。
+    const appUrl = appRedirectUrl(
+      pathname,
+      request.nextUrl.search,
+      process.env.NEXT_PUBLIC_APP_URL
+    );
+    if (appUrl) return NextResponse.redirect(appUrl, 308);
+
     const url = request.nextUrl.clone();
     url.pathname = pathname === "/" ? "/site" : `/site${pathname}`;
     return NextResponse.rewrite(url);

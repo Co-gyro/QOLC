@@ -91,6 +91,10 @@ export type ApplicationIntakeInput = z.infer<typeof applicationIntakeSchema>;
  * 形式検証・段階的な入力を許容）を使う。
  */
 export const merchantApplyFormBaseSchema = z.object({
+  // 申請区分（介護施設向け / 一般の店舗・事業所向け）。文言の出し分けにのみ使い、
+  // 以降の項目キーは共通のまま（下流の申請書生成を変えない）。
+  // applyType 追加前に受け付けた申請には存在しないため optional。
+  applyType: z.enum(["care", "general"]).optional(),
   corpType: z.enum(["法人", "個人事業主"]),
   corpName: z.string().trim().min(1, "法人名を入力してください").max(50),
   corpNameKana: katakanaSchema("法人名フリガナ", 50),

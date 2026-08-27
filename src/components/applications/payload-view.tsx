@@ -1,6 +1,7 @@
 /**
  * 申請フォーム全項目（payload jsonb）の整形表示
  */
+import { APPLY_TYPE_COPY, isApplyType } from "@/lib/applications/apply-type";
 
 /** payload の値を文字列へ整形 */
 function stringify(v: unknown): string {
@@ -12,6 +13,7 @@ function stringify(v: unknown): string {
 
 /** キー名の簡易日本語化（未知キーはそのまま表示） */
 const KEY_LABELS: Record<string, string> = {
+  applyType: "申請区分",
   company_name: "会社名",
   facility_name: "施設名",
   contact_name: "ご担当者名",
@@ -44,7 +46,9 @@ export function PayloadView({ payload }: { payload: Record<string, unknown> | nu
             className="text-sm whitespace-pre-wrap break-words"
             style={{ color: "var(--qolc-text)" }}
           >
-            {stringify(v)}
+            {k === "applyType" && isApplyType(v)
+              ? APPLY_TYPE_COPY[v].badge
+              : stringify(v)}
           </dd>
         </div>
       ))}

@@ -28,6 +28,7 @@ const base = (over: Partial<ApplicationRow>): ApplicationRow => ({
   dueDate: null,
   nextAction: null,
   merchantId: null,
+  applyType: "care",
   udInput: null,
   createdAt: "2026-07-01T00:00:00Z",
   updatedAt: "2026-07-01T00:00:00Z",

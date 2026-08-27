@@ -19,6 +19,7 @@ import {
 import { apiError, apiOk } from "@/types/api";
 import { ALL_STATUSES, ALL_PRIORITIES } from "@/lib/applications/labels";
 import { merchantApplyFormBaseSchema } from "@/lib/applications/schema";
+import { mergePreservedPayload } from "@/lib/applications/payload-preserve";
 import {
   parseUdInput,
   describeUdFieldChanges,
@@ -269,14 +270,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
   if (patch.payload !== undefined) {
     const prevPayload = prev.payload ?? {};
-    if (JSON.stringify(prevPayload) !== JSON.stringify(patch.payload)) {
-      updates.payload = patch.payload;
-      const changed = Object.keys({ ...prevPayload, ...patch.payload }).filter(
-        (k) => JSON.stringify(prevPayload[k]) !== JSON.stringify(patch.payload?.[k])
+    // 内容編集フォームは自分が持つ項目だけで payload を組み立てて全置換するため、
+    // 申請区分・規約同意の証跡が消える。保護対象キーは元の値を引き継ぐ。
+    const nextPayload = mergePreservedPayload(prevPayload, patch.payload);
+    if (JSON.stringify(prevPayload) !== JSON.stringify(nextPayload)) {
+      updates.payload = nextPayload;
+      const changed = Object.keys({ ...prevPayload, ...nextPayload }).filter(
+        (k) => JSON.stringify(prevPayload[k]) !== JSON.stringify(nextPayload[k])
       );
       events.push({
         kind: "payload_updated",
-        detail: { changed, before: prevPayload, after: patch.payload },
+        detail: { changed, before: prevPayload, after: nextPayload },
       });
     }
   }

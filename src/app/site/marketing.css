@@ -712,6 +712,33 @@
 }
 .site-root .apply-caution p { font-size: 12px; color: #6B5200; line-height: 1.7; }
 
+/* 加盟店規約への同意（送信前の必須チェック） */
+.site-root .apply-terms {
+  margin: 0 24px; padding: 20px; border-radius: 10px;
+  background: var(--green-bg); border: 1px solid var(--border);
+}
+.site-root .apply-terms-title {
+  font-size: 15px; font-weight: 700; color: var(--green-deep); margin-bottom: 8px;
+}
+.site-root .apply-terms-lead {
+  font-size: 14px; color: var(--text-body); line-height: 1.7; margin-bottom: 12px;
+}
+.site-root .apply-terms-list { list-style: none; margin: 0 0 14px; padding: 0; }
+.site-root .apply-terms-list li { margin-bottom: 6px; }
+.site-root .apply-terms-list a {
+  font-size: 14px; font-weight: 700; color: var(--green-deep); text-decoration: underline;
+}
+.site-root .apply-terms-check {
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  min-height: 44px; padding: 10px 14px; border-radius: 8px;
+  background: var(--white); border: 2px solid var(--border);
+  font-size: 14px; font-weight: 700; color: var(--text-dark);
+}
+.site-root .apply-terms-check.checked { border-color: var(--green); background: var(--green-pale); }
+.site-root .apply-terms-check input[type="checkbox"] {
+  width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--green); cursor: pointer;
+}
+
 .site-root .apply-submit-error {
   margin: 16px 24px 0; padding: 12px 14px; background: #FDECEA;
   border: 1px solid #F5C6C0; border-radius: 8px;

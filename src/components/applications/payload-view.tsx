@@ -2,6 +2,7 @@
  * 申請フォーム全項目（payload jsonb）の整形表示
  */
 import { APPLY_TYPE_COPY, isApplyType } from "@/lib/applications/apply-type";
+import { formatTermsAgreement } from "@/lib/applications/merchant-terms";
 
 /** payload の値を文字列へ整形 */
 function stringify(v: unknown): string {
@@ -14,6 +15,7 @@ function stringify(v: unknown): string {
 /** キー名の簡易日本語化（未知キーはそのまま表示） */
 const KEY_LABELS: Record<string, string> = {
   applyType: "申請区分",
+  termsAgreement: "加盟店規約への同意",
   company_name: "会社名",
   facility_name: "施設名",
   contact_name: "ご担当者名",
@@ -48,7 +50,9 @@ export function PayloadView({ payload }: { payload: Record<string, unknown> | nu
           >
             {k === "applyType" && isApplyType(v)
               ? APPLY_TYPE_COPY[v].badge
-              : stringify(v)}
+              : k === "termsAgreement"
+                ? (formatTermsAgreement(v) ?? "未同意")
+                : stringify(v)}
           </dd>
         </div>
       ))}

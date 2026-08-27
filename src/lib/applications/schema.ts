@@ -118,6 +118,25 @@ export const merchantApplyFormBaseSchema = z.object({
   contactPhone: phoneSchema,
   contactTime: z.enum(["いつでも", "午前中", "午後"]),
   note: z.string().trim().max(500).optional(),
+  // 加盟店規約への同意。UD は包括加盟店であり新規申込店舗の審査は当社が行うため、
+  // 申込時にお客様が各カード会社の加盟店規約へ同意した事実を証跡として残す。
+  // agreedAt / documents はサーバー側で確定させるので、入力としては任意
+  // （申込者の端末時刻や改変された値を証跡にしない）。
+  termsAgreement: z.object({
+    agreed: z
+      .boolean()
+      .refine((v) => v === true, "加盟店規約への同意が必要です"),
+    agreedAt: z.string().optional(),
+    documents: z
+      .array(
+        z.object({
+          issuer: z.string(),
+          title: z.string(),
+          url: z.string(),
+        })
+      )
+      .optional(),
+  }),
 });
 
 /** 公開申請フォームの検証スキーマ（全必須＋法人番号の条件必須） */

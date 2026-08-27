@@ -12,7 +12,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "加盟店申請 | 株式会社ユニバーサル・デベロップメント",
   description:
-    "クレジットカード決済の加盟店登録お申し込みフォームです。業種は問いません。お申し込み後、担当者がヒアリングのうえカード会社への申請手続きを代行いたします。",
+    "クレジットカード決済の加盟店登録お申し込みフォームです。業種は問いません。お申し込み後、担当者がヒアリングのうえ当社にて加盟店審査を行います。",
 };
 
 export default function MerchantLayout({

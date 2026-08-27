@@ -11,6 +11,7 @@ import {
   applySiteLabels,
   type MerchantApplyType,
 } from "@/lib/applications/apply-type";
+import { MERCHANT_TERMS_DOCUMENTS } from "@/lib/applications/merchant-terms";
 
 /** ご連絡希望時間帯の選択肢。 */
 const CONTACT_TIMES = ["いつでも", "午前中", "午後"] as const;
@@ -40,6 +41,8 @@ const INITIAL: Omit<MerchantApplyForm, "applyType"> = {
   contactPhone: "",
   contactTime: "いつでも",
   note: "",
+  // 規約同意は未チェックから始める（同意日時・規約一覧はサーバー側で確定）
+  termsAgreement: { agreed: false },
 };
 
 /** フィールドキーごとのエラーメッセージ集合。 */
@@ -172,7 +175,7 @@ export default function ApplyForm({
         <Field
           label="法人名フリガナ"
           required
-          hint="全角カタカナ。カード会社への申請書類に使用します"
+          hint="全角カタカナ。加盟店登録に使用します"
           error={errors.corpNameKana}
         >
           <input
@@ -188,7 +191,7 @@ export default function ApplyForm({
           <Field
             label="法人番号（13桁）"
             required
-            hint="半角数字13桁。国税庁法人番号公表サイトで確認できます。カード会社への申請に必要です"
+            hint="半角数字13桁。国税庁法人番号公表サイトで確認できます"
             error={errors.corporateNumber}
           >
             <input
@@ -491,14 +494,36 @@ export default function ApplyForm({
         </Field>
       </div>
 
-      {/* カード会社審査に関する注意書き */}
-      <div className="apply-caution">
-        <div className="apply-caution-title">
-          <span aria-hidden>&#9888;</span> カード会社審査に関するご注意
-        </div>
-        <p>
-          加盟店審査はJCB・セゾン各社が行います。審査基準は各社の判断によるため、結果をお約束するものではございません。ヒアリング時に、カナ表記や業種分類など、審査に必要な追加情報をお伺いすることがあります。正確な情報をご提供いただくことで審査がスムーズに進みます。
+      {/* 加盟店規約への同意（必須） */}
+      <div className="apply-terms">
+        <div className="apply-terms-title">加盟店規約への同意</div>
+        <p className="apply-terms-lead">
+          本申込にあたり、以下の加盟店規約の内容をご確認のうえ、同意してお申し込みください。
         </p>
+        <ul className="apply-terms-list">
+          {MERCHANT_TERMS_DOCUMENTS.map((doc) => (
+            <li key={doc.issuer}>
+              <a href={doc.url} target="_blank" rel="noopener noreferrer">
+                {doc.title} ↗
+              </a>
+            </li>
+          ))}
+        </ul>
+        <label
+          className={`apply-terms-check${form.termsAgreement.agreed ? " checked" : ""}`}
+        >
+          <input
+            type="checkbox"
+            name="termsAgreed"
+            checked={form.termsAgreement.agreed}
+            onChange={(e) => set("termsAgreement", { agreed: e.target.checked })}
+          />
+          <span>上記の加盟店規約に同意します</span>
+          <span className="apply-form-required">必須</span>
+        </label>
+        {errors.termsAgreement && (
+          <div className="apply-form-error">{errors.termsAgreement}</div>
+        )}
       </div>
 
       {submitError && <p className="apply-submit-error">{submitError}</p>}

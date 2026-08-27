@@ -273,7 +273,7 @@ export default function MarketingHome(): JSX.Element {
             <div className="onboarding-step-dot"><div className="onboarding-step-dot-inner" /></div>
             <div className="onboarding-step-body">
               <div className="onboarding-step-title">加盟店申請・審査</div>
-              <div className="onboarding-step-desc">JCB・セゾンの包括加盟店契約により、施設様の手続きは最小限。QOLCが申請をサポートします。</div>
+              <div className="onboarding-step-desc">QOLCがJCB・セゾンの包括加盟店であるため、施設様の手続きは最小限。加盟店審査は当社が行います。</div>
               <div className="onboarding-step-time">約1週間</div>
             </div>
           </div>

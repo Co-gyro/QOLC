@@ -124,6 +124,7 @@ describe("POST /api/applications", () => {
     contactEmail: "hanako@example.com",
     contactPhone: "03-1234-5678",
     contactTime: "いつでも",
+    termsAgreement: { agreed: true },
   };
 
   it("qolc_merchant は全必須項目つき payload で成功する＋自動返信も送る", async () => {
@@ -141,6 +142,66 @@ describe("POST /api/applications", () => {
     expect(res.status).toBe(200);
     expect(state.emailCalls).toHaveLength(1);
     expect(state.insertedEvents.map((e) => e.kind)).toEqual(["created", "email_sent"]);
+  });
+
+  it("規約に同意していない申込は 400 で弾く", async () => {
+    const res = await POST(
+      makeReq(
+        {
+          source: "qolc_merchant",
+          applicant_name: "佐藤 花子",
+          payload: { ...FULL_MERCHANT_PAYLOAD, termsAgreement: { agreed: false } },
+        },
+        "10.0.0.31"
+      )
+    );
+    expect(res.status).toBe(400);
+    expect(state.insertedApplications).toHaveLength(0);
+  });
+
+  it("同意欄そのものが無い申込も 400 で弾く", async () => {
+    const { termsAgreement: _omit, ...withoutTerms } = FULL_MERCHANT_PAYLOAD;
+    const res = await POST(
+      makeReq(
+        { source: "qolc_merchant", applicant_name: "佐藤 花子", payload: withoutTerms },
+        "10.0.0.32"
+      )
+    );
+    expect(res.status).toBe(400);
+    expect(state.insertedApplications).toHaveLength(0);
+  });
+
+  it("同意日時と規約一覧はサーバー側で確定させる（クライアント値は採用しない）", async () => {
+    const res = await POST(
+      makeReq(
+        {
+          source: "qolc_merchant",
+          applicant_name: "佐藤 花子",
+          payload: {
+            ...FULL_MERCHANT_PAYLOAD,
+            // 改変された同意日時・規約一覧を送りつけても記録には使わせない
+            termsAgreement: {
+              agreed: true,
+              agreedAt: "1999-01-01T00:00:00.000Z",
+              documents: [{ issuer: "fake", title: "偽の規約", url: "https://evil.example" }],
+            },
+          },
+        },
+        "10.0.0.33"
+      )
+    );
+    expect(res.status).toBe(200);
+    const saved = state.insertedApplications[0].payload as Record<string, unknown>;
+    const terms = saved.termsAgreement as {
+      agreed: boolean;
+      agreedAt: string;
+      documents: Array<{ issuer: string; url: string }>;
+    };
+    expect(terms.agreed).toBe(true);
+    expect(terms.agreedAt).not.toBe("1999-01-01T00:00:00.000Z");
+    expect(new Date(terms.agreedAt).getTime()).toBeGreaterThan(Date.now() - 60_000);
+    expect(terms.documents.map((d) => d.issuer)).toEqual(["saison", "jcb"]);
+    expect(terms.documents.some((d) => d.url.includes("evil"))).toBe(false);
   });
 
   it("法人なのに法人番号が空の payload は 400 で弾く（JCB申請書で必須のため）", async () => {

@@ -119,6 +119,7 @@ describe("merchantApplyFormSchema と applyType", () => {
     contactEmail: "sample@example.com",
     contactPhone: "090-1234-5678",
     contactTime: "いつでも" as const,
+    termsAgreement: { agreed: true },
   };
 
   it("applyType=general を保持したまま検証を通す", () => {

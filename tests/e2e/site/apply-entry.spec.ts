@@ -31,6 +31,35 @@ test.describe("介護施設向け 加盟店申請（/apply）", () => {
   });
 });
 
+test.describe("加盟店規約への同意（両窓口共通）", () => {
+  for (const path of ["/site/apply", "/site/merchant"]) {
+    test(`${path}: 規約リンクと同意チェックがあり、未同意では送信できない`, async ({
+      page,
+    }) => {
+      await page.goto(path);
+      await expect(
+        page.getByRole("link", { name: /クレディセゾン加盟店規約/ })
+      ).toBeVisible();
+      await expect(page.getByRole("link", { name: /JCB加盟店規約/ })).toBeVisible();
+
+      const check = page.locator('input[name="termsAgreed"]');
+      await expect(check).not.toBeChecked();
+      await page.getByRole("button", { name: /この内容で申請する/ }).click();
+      await expect(page.getByText("加盟店規約への同意が必要です")).toBeVisible();
+    });
+
+    test(`${path}: カード会社が審査するという記載を持たない`, async ({ page }) => {
+      await page.goto(path);
+      // UD は包括加盟店であり、新規申込店舗の審査は当社が行う建付け
+      await expect(page.getByText("カード会社審査に関するご注意")).toHaveCount(0);
+      await expect(page.locator(".apply-form")).not.toContainText("カード会社");
+      await expect(page.locator(".apply-flow")).not.toContainText(
+        "申請書類を作成・提出"
+      );
+    });
+  }
+});
+
 test.describe("一般加盟店 申請（/merchant）", () => {
   test("店舗・事業所表記のフォームが表示される", async ({ page }) => {
     await page.goto("/site/merchant");

@@ -18,6 +18,7 @@ import { apiError, apiOk } from "@/types/api";
 import { applicationIntakeSchema } from "@/lib/applications/schema";
 import { sendApplicationReceivedEmail } from "@/lib/applications/intake-email";
 import { applyTypeOfPayload } from "@/lib/applications/apply-type";
+import { buildTermsAgreementRecord } from "@/lib/applications/merchant-terms";
 import { brandOfApplyType } from "@/lib/email/templates";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -64,6 +65,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
   const input = parsed.data;
 
+  // 規約同意の証跡は、同意日時と提示した規約一覧をサーバー側で確定させる
+  // （クライアントから送られた値は採用しない）。検証済みなので agreed は true。
+  const payload =
+    input.source === "qolc_merchant"
+      ? {
+          ...(input.payload ?? {}),
+          termsAgreement: buildTermsAgreementRecord(new Date().toISOString()),
+        }
+      : (input.payload ?? {});
+
   try {
     const admin = getSupabaseAdminClient();
 
@@ -76,7 +87,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         applicant_email: input.applicant_email ?? null,
         applicant_phone: input.applicant_phone ?? null,
         message: input.message ?? null,
-        payload: input.payload ?? {},
+        payload,
         // status/priority はDB既定値（new/normal）に委ねる
       })
       .select("id")

@@ -78,10 +78,6 @@ describe("APPLY_TYPE_COPY", () => {
   it("一般向けの文言には「介護」「施設」が一切出てこない", () => {
     const c = APPLY_TYPE_COPY.general;
     const text = [
-      c.title,
-      c.tagline,
-      c.examples,
-      c.heroTitle,
       c.heroLead,
       c.siteNoun,
       c.siteNamePlaceholder,
@@ -89,8 +85,6 @@ describe("APPLY_TYPE_COPY", () => {
       c.corpNamePlaceholder,
       c.corpNameKanaPlaceholder,
       c.notePlaceholder,
-      c.flowLead,
-      c.agentName,
       c.badge,
     ].join(" ");
     expect(text).not.toContain("介護");

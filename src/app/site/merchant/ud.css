@@ -1,0 +1,83 @@
+/* =====================================================================
+   一般加盟店 申請サイト（qolc.jp/merchant）専用スタイル
+
+   方針: フォーム部品（.apply-form-* / .apply-hero / .apply-flow / .apply-note
+   / .apply-caution / .apply-complete-*）は marketing.css の実装をそのまま流用し、
+   ここでは配色トークンだけを UD コーポレートの色に差し替える。
+   そのため本サイトのルート要素は `.site-root .ud-root` の2クラスを持つ。
+
+   変数名（--green など）は marketing.css 側の定義に合わせる必要があるため
+   QOLC 由来の名前のままにしている。値は UD のネイビー／ティールに置換される。
+   ===================================================================== */
+
+.site-root.ud-root {
+  /* UD コーポレート配色（docs/website/wireframes/ud-corporate-wireframe.html 準拠） */
+  --ud-navy: #1A2744;
+  --ud-navy-mid: #2A3D62;
+  --ud-accent: #2E7D96;
+  --ud-accent-light: #3A9AB5;
+  --ud-accent-pale: #E8F4F8;
+  --ud-bg-gray: #F5F5F7;
+
+  /* marketing.css のフォーム部品が参照するトークンを UD 色へ再割当て */
+  --green: #2E7D96;
+  --green-dark: #256A80;
+  --green-deep: #1A2744;
+  --green-light: #3A9AB5;
+  --green-pale: #E8F4F8;
+  --green-bg: #F5F5F7;
+  --border: #E0DEE0;
+  --border-light: #F0EEF0;
+  --text-dark: #1a1a1a;
+  --text-body: #3D3D3D;
+}
+
+/* ボタンの影だけは marketing.css 側で緑がハードコードされているため上書き */
+.site-root.ud-root .btn-green {
+  box-shadow: 0 2px 8px rgba(46, 125, 150, 0.3);
+}
+
+/* ---- ヘッダー ---------------------------------------------------------- */
+.site-root.ud-root .ud-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 14px 24px;
+  background: var(--white); border-bottom: 1px solid var(--border);
+}
+.site-root.ud-root .ud-header-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.site-root.ud-root .ud-header-logo img { height: 26px; width: auto; display: block; }
+.site-root.ud-root .ud-header-name {
+  font-size: 14px; font-weight: 700; color: var(--ud-navy); white-space: nowrap;
+}
+.site-root.ud-root .ud-header-tag {
+  font-size: 14px; color: var(--text-muted); text-align: right; line-height: 1.5;
+}
+
+/* ---- ヒーロー（UD ネイビー） ------------------------------------------- */
+.site-root.ud-root .apply-hero {
+  background: var(--ud-navy); color: #fff;
+}
+.site-root.ud-root .apply-hero h1 { color: #fff; }
+.site-root.ud-root .apply-hero p { color: rgba(255, 255, 255, 0.82); }
+.site-root.ud-root .apply-hero .ud-hero-eng {
+  font-size: 14px; letter-spacing: 2px; color: var(--ud-accent-light);
+  margin-bottom: 6px; font-weight: 500;
+}
+
+/* ---- フッター ---------------------------------------------------------- */
+.site-root.ud-root .ud-footer {
+  background: var(--ud-navy); color: rgba(255, 255, 255, 0.75);
+  padding: 28px 24px; text-align: center; margin-top: 32px;
+}
+.site-root.ud-root .ud-footer-name {
+  font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 8px;
+}
+.site-root.ud-root .ud-footer-contact { font-size: 14px; margin-bottom: 10px; }
+.site-root.ud-root .ud-footer-contact a { color: var(--ud-accent-light); text-decoration: none; }
+.site-root.ud-root .ud-footer-links {
+  display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px;
+}
+.site-root.ud-root .ud-footer-links a {
+  font-size: 14px; color: rgba(255, 255, 255, 0.75); text-decoration: none;
+}
+.site-root.ud-root .ud-footer-links a:hover { color: #fff; }
+.site-root.ud-root .ud-footer-copy { font-size: 14px; color: rgba(255, 255, 255, 0.4); }

@@ -2,23 +2,26 @@
 
 import { useState } from "react";
 import type { JSX } from "react";
-import SiteHeader from "../../_components/SiteHeader";
-import SiteFooter from "../../_components/SiteFooter";
-import ApplyForm from "./ApplyForm";
+import UdHeader from "./UdHeader";
+import UdFooter from "./UdFooter";
+import ApplyForm from "../../apply/_components/ApplyForm";
+import { APPLY_TYPE_COPY } from "@/lib/applications/apply-type";
+
+/** このサイトが扱う申請区分は一般の店舗・事業所向けに固定。 */
+const COPY = APPLY_TYPE_COPY.general;
 
 /**
- * 加盟店申請ページ（介護施設向け）の本体。
- * フォーム → 完了 の2状態のみ。区分の選択・切替は持たない
- * （一般の店舗・事業所向けは /merchant に独立した窓口として分離済み）。
+ * 一般加盟店の申請ページ本体。
+ * フォーム → 完了 の2状態のみ（区分の選択・切替は持たない）。
  */
-export default function ApplyPageClient(): JSX.Element {
+export default function MerchantApplyView(): JSX.Element {
   const [completed, setCompleted] = useState(false);
 
   return (
-    <main className="site-root">
-      <SiteHeader />
+    <main className="site-root ud-root">
+      <UdHeader />
       {completed ? <ApplyComplete /> : <ApplyBody onComplete={() => setCompleted(true)} />}
-      <SiteFooter />
+      <UdFooter />
     </main>
   );
 }
@@ -28,15 +31,11 @@ function ApplyBody({ onComplete }: { onComplete: () => void }): JSX.Element {
   return (
     <>
       <div className="apply-hero">
+        <p className="ud-hero-eng">UNIVERSAL DEVELOPMENT</p>
         <h1>加盟店申請</h1>
-        <p>
-          QOLCのカード決済サービスをご利用いただくための
-          <br />
-          加盟店登録のお申し込みフォームです。
-        </p>
+        <p>{COPY.heroLead}</p>
       </div>
 
-      {/* 申請プロセス説明 */}
       <div className="apply-flow">
         <div className="apply-flow-title">
           <span aria-hidden>&#9432;</span> お申し込みからご利用開始までの流れ
@@ -44,14 +43,14 @@ function ApplyBody({ onComplete }: { onComplete: () => void }): JSX.Element {
         <p className="apply-flow-lead">
           まずはこちらのフォームで基本情報をお送りください。
           <strong>ここでの入力内容だけで加盟店審査が行われるわけではありません。</strong>
-          フォーム送信後、QOLCの担当スタッフがお電話またはメールにて詳しい内容を聞き取りさせていただきます。ヒアリングの内容をもとに、私たちがカード会社（JCB・セゾン）への正式な申請書類を作成・提出いたしますので、難しい書類作業はございません。
+          フォーム送信後、担当スタッフがお電話またはメールにて詳しい内容を聞き取りさせていただきます。ヒアリングの内容をもとに、当社がカード会社（JCB・セゾン）への正式な申請書類を作成・提出いたしますので、難しい書類作業はございません。
         </p>
         <div className="apply-flow-steps">
           {[
             ["フォーム送信", "以下の基本情報をご入力ください（3分程度）"],
             ["ヒアリング", "担当スタッフがお電話・メールで詳細をお伺いします"],
-            ["審査申請", "QOLCがカード会社への申請書類を作成・提出します"],
-            ["審査完了・ご利用開始", "初期設定とスタッフ研修を経てサービス開始"],
+            ["審査申請", "当社がカード会社への申請書類を作成・提出します"],
+            ["審査完了・ご利用開始", "初期設定とご案内を経てご利用開始"],
           ].map(([title, desc], i) => (
             <div className="apply-flow-step" key={title}>
               <div className="apply-flow-num">{i + 1}</div>
@@ -67,12 +66,12 @@ function ApplyBody({ onComplete }: { onComplete: () => void }): JSX.Element {
         <strong>ログイン不要</strong>で申請できます。以下の項目をご入力のうえ送信してください。
       </div>
 
-      <ApplyForm applyType="care" onComplete={onComplete} />
+      <ApplyForm applyType="general" onComplete={onComplete} />
     </>
   );
 }
 
-/** 申請完了表示。ワイヤーフレーム page-complete 相当。 */
+/** 送信完了表示。 */
 function ApplyComplete(): JSX.Element {
   return (
     <div className="apply-complete">
@@ -82,13 +81,13 @@ function ApplyComplete(): JSX.Element {
         ご登録いただいたメールアドレスに確認メールをお送りしました。
         <br />
         <strong>2営業日以内に担当スタッフよりお電話またはメールにてご連絡</strong>
-        いたします。詳しい内容をヒアリングさせていただいたうえで、私たちがカード会社への正式な申請手続きを代行いたします。
+        いたします。詳しい内容をヒアリングさせていただいたうえで、当社がカード会社への正式な申請手続きを代行いたします。
       </p>
       <div className="apply-complete-flow">
         <div className="apply-complete-flow-title">今後の流れ</div>
         {[
           ["ヒアリングのご連絡", "担当スタッフがお電話・メールで詳細をお伺いします"],
-          ["申請書類の作成・提出", "QOLCがJCB・セゾンへの申請を代行します"],
+          ["申請書類の作成・提出", "当社がJCB・セゾンへの申請を代行します"],
           ["審査完了のご連絡", "審査には通常1〜2週間程度かかります"],
         ].map(([title, desc], i) => (
           <div className="apply-complete-step" key={title}>

@@ -26,19 +26,9 @@ export const MERCHANT_APPLY_TYPES: readonly MerchantApplyType[] = [
  */
 export const DEFAULT_APPLY_TYPE: MerchantApplyType = "care";
 
-/** 区分ごとの表示文言一式（フォーム・入口カード・admin バッジ） */
+/** 区分ごとの表示文言一式（フォームのラベル・プレースホルダ・admin バッジ） */
 export interface ApplyTypeCopy {
   key: MerchantApplyType;
-  /** 入口カードの絵文字アイコン */
-  icon: string;
-  /** 入口カード / タブの見出し */
-  title: string;
-  /** 入口カードの1行説明 */
-  tagline: string;
-  /** 入口カードの対象例 */
-  examples: string;
-  /** フォーム冒頭の見出し */
-  heroTitle: string;
   /** フォーム冒頭のリード文 */
   heroLead: string;
   /** 「施設」に相当する呼称（セクション見出し・各ラベルの語幹） */
@@ -53,10 +43,6 @@ export interface ApplyTypeCopy {
   corpNameKanaPlaceholder: string;
   /** 備考欄のプレースホルダ */
   notePlaceholder: string;
-  /** 申請フローの説明文（フォーム上部） */
-  flowLead: string;
-  /** 手続きを代行する主体の呼び方（フロー説明・完了画面で使う） */
-  agentName: string;
   /** admin 一覧・詳細に出す区分バッジの文言 */
   badge: string;
   /** admin 区分バッジの配色 */
@@ -71,11 +57,6 @@ export interface ApplyTypeCopy {
 export const APPLY_TYPE_COPY: Record<MerchantApplyType, ApplyTypeCopy> = {
   care: {
     key: "care",
-    icon: "🏠",
-    title: "介護施設向け（QOLC）",
-    tagline: "入居者の自己負担分をカードで自動決済するQOLCをご利用の方",
-    examples: "有料老人ホーム・サービス付き高齢者向け住宅・グループホーム など",
-    heroTitle: "加盟店申請（介護施設向け）",
     heroLead:
       "QOLCのカード決済サービスをご利用いただくための加盟店登録のお申し込みフォームです。",
     siteNoun: "施設",
@@ -84,19 +65,11 @@ export const APPLY_TYPE_COPY: Record<MerchantApplyType, ApplyTypeCopy> = {
     corpNamePlaceholder: "例：株式会社サンプルケア",
     corpNameKanaPlaceholder: "例：カブシキガイシャサンプルケア",
     notePlaceholder: "施設の入居者数、利用予定のサービス、ご質問など",
-    flowLead:
-      "まずはこちらのフォームで基本情報をお送りください。フォーム送信後、担当スタッフがお電話またはメールにて詳しい内容を聞き取りさせていただきます。ヒアリングの内容をもとに、私たちがカード会社（JCB・セゾン）への正式な申請書類を作成・提出いたしますので、難しい書類作業はございません。",
-    agentName: "QOLC",
     badge: "介護施設向け",
     badgeColor: { bg: "#E6F4EA", fg: "#1B5E20" },
   },
   general: {
     key: "general",
-    icon: "🏪",
-    title: "一般の店舗・事業所向け",
-    tagline: "業種を問わず、クレジットカード決済を導入したい事業者の方",
-    examples: "飲食・小売・サービス業・専門サービス・EC など",
-    heroTitle: "加盟店申請",
     heroLead:
       "クレジットカード決済をご利用いただくための加盟店登録のお申し込みフォームです。業種は問いません。",
     siteNoun: "店舗・事業所",
@@ -105,9 +78,6 @@ export const APPLY_TYPE_COPY: Record<MerchantApplyType, ApplyTypeCopy> = {
     corpNamePlaceholder: "例：株式会社サンプル",
     corpNameKanaPlaceholder: "例：カブシキガイシャサンプル",
     notePlaceholder: "取扱商材・サービス内容、想定の月間売上、ご質問など",
-    flowLead:
-      "まずはこちらのフォームで基本情報をお送りください。フォーム送信後、担当スタッフがお電話またはメールにて詳しい内容を聞き取りさせていただきます。ヒアリングの内容をもとに、私たちがカード会社（JCB・セゾン）への正式な申請書類を作成・提出いたしますので、難しい書類作業はございません。",
-    agentName: "当社",
     badge: "一般加盟店",
     badgeColor: { bg: "#EEF2FF", fg: "#3730A3" },
   },

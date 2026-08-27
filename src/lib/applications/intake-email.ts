@@ -8,7 +8,11 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendEmail, type SendEmailResult } from "@/lib/email/send";
-import { applicationReceived } from "@/lib/email/templates";
+import {
+  applicationReceived,
+  FROM_NAME,
+  type EmailBrand,
+} from "@/lib/email/templates";
 import type { ApplicationSource } from "@/lib/applications/labels";
 
 /**
@@ -35,6 +39,8 @@ export interface ApplicationReceivedEmailParams {
   applicantName: string | null;
   /** 宛先メールアドレス */
   to: string;
+  /** 送信ブランド（加盟店申請の区分に対応。省略時は qolc） */
+  brand?: EmailBrand;
 }
 
 /**
@@ -52,12 +58,19 @@ export async function sendApplicationReceivedEmail(
 ): Promise<SendEmailResult> {
   let result: SendEmailResult;
   try {
+    const brand = params.brand ?? "qolc";
     const tpl = applicationReceived({
       source: params.source,
       applicantName: params.applicantName,
       caseNumber: params.applicationId,
+      brand,
     });
-    result = await send({ to: params.to, subject: tpl.subject, text: tpl.text });
+    result = await send({
+      to: params.to,
+      subject: tpl.subject,
+      text: tpl.text,
+      fromName: FROM_NAME[brand],
+    });
   } catch (e) {
     // send は throw しない契約だが、万一に備えて握りつぶす
     result = { sent: false, skipped: false, error: e instanceof Error ? e.message : String(e) };

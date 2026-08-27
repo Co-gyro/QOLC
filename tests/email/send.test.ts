@@ -20,10 +20,12 @@ function mockFetch(
 
 const ORIGINAL_KEY = process.env.RESEND_API_KEY;
 const ORIGINAL_FROM = process.env.EMAIL_FROM;
+const ORIGINAL_REPLY_TO = process.env.EMAIL_REPLY_TO;
 
 beforeEach(() => {
   delete process.env.RESEND_API_KEY;
   delete process.env.EMAIL_FROM;
+  delete process.env.EMAIL_REPLY_TO;
   vi.spyOn(console, "warn").mockImplementation(() => undefined);
   vi.spyOn(console, "error").mockImplementation(() => undefined);
 });
@@ -33,6 +35,8 @@ afterEach(() => {
   else process.env.RESEND_API_KEY = ORIGINAL_KEY;
   if (ORIGINAL_FROM === undefined) delete process.env.EMAIL_FROM;
   else process.env.EMAIL_FROM = ORIGINAL_FROM;
+  if (ORIGINAL_REPLY_TO === undefined) delete process.env.EMAIL_REPLY_TO;
+  else process.env.EMAIL_REPLY_TO = ORIGINAL_REPLY_TO;
   vi.restoreAllMocks();
 });
 
@@ -64,7 +68,32 @@ describe("sendEmail", () => {
     const body = JSON.parse(String(capturedInit.body)) as Record<string, unknown>;
     expect(body.to).toEqual(["test@example.com"]);
     expect(body.subject).toBe("件名");
-    expect(body.from).toBe("QOLC <noreply@qolc.jp>"); // 既定の差出人
+    // 既定の差出人＝返信可能な統一アドレス（qolc.jp は MX を持たない）
+    expect(body.from).toBe("QOLC（コルク）運営事務局 <support@uni-dev.jp>");
+    expect(body.reply_to).toBe("support@uni-dev.jp");
+  });
+
+  it("fromName で表示名だけを差し替え、アドレスは EMAIL_FROM のものを保つ", async () => {
+    process.env.RESEND_API_KEY = "re_test_key";
+    let body: Record<string, unknown> = {};
+    const f = mockFetch(200, { id: "x" }, (_u, init) => {
+      body = JSON.parse(String(init.body)) as Record<string, unknown>;
+    });
+    await sendEmail({ ...INPUT, fromName: "ユニバーサルデベロップメント株式会社" }, f);
+    expect(body.from).toBe("ユニバーサルデベロップメント株式会社 <support@uni-dev.jp>");
+    expect(body.reply_to).toBe("support@uni-dev.jp");
+  });
+
+  it("EMAIL_REPLY_TO で返信先を上書きできる", async () => {
+    process.env.RESEND_API_KEY = "re_test_key";
+    process.env.EMAIL_REPLY_TO = "ops@uni-dev.jp";
+    let replyTo = "";
+    const f = mockFetch(200, { id: "x" }, (_u, init) => {
+      replyTo = (JSON.parse(String(init.body)) as { reply_to: string }).reply_to;
+    });
+    await sendEmail(INPUT, f);
+    expect(replyTo).toBe("ops@uni-dev.jp");
+    delete process.env.EMAIL_REPLY_TO;
   });
 
   it("EMAIL_FROM 環境変数で差出人を上書きできる", async () => {

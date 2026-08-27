@@ -10,7 +10,8 @@ import { z } from "zod";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, isUuid } from "@/lib/applications/server";
 import { sendEmail } from "@/lib/email/send";
-import { reviewApproved } from "@/lib/email/templates";
+import { reviewApproved, brandOfApplyType, FROM_NAME } from "@/lib/email/templates";
+import { applyTypeOfPayload } from "@/lib/applications/apply-type";
 import { apiError, apiOk } from "@/types/api";
 
 const bodySchema = z.object({
@@ -72,16 +73,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     typeof application.payload?.facilityName === "string"
       ? application.payload.facilityName
       : null;
+  // 申請区分に合わせてブランドを切り替える（一般加盟店に QOLC 名を出さない）
+  const brand = brandOfApplyType(applyTypeOfPayload(application.payload));
   const mail = reviewApproved({
     applicantName: application.applicant_name,
     merchantName: facilityName ?? application.applicant_org,
     caseNumber: application.id.slice(0, 8).toUpperCase(),
+    brand,
   });
 
   const result = await sendEmail({
     to: application.applicant_email,
     subject: mail.subject,
     text: mail.text,
+    fromName: FROM_NAME[brand],
   });
 
   // 成功・スキップ・失敗を問わず記録する（監査要件）

@@ -17,6 +17,8 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { apiError, apiOk } from "@/types/api";
 import { applicationIntakeSchema } from "@/lib/applications/schema";
 import { sendApplicationReceivedEmail } from "@/lib/applications/intake-email";
+import { applyTypeOfPayload } from "@/lib/applications/apply-type";
+import { brandOfApplyType } from "@/lib/email/templates";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 /** payload を含むリクエストボディ全体のサイズ上限（バイト）。 */
@@ -104,6 +106,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         source: input.source,
         applicantName: input.applicant_name ?? null,
         to: input.applicant_email,
+        // 一般加盟店の申請には QOLC（介護向けサービス名）を出さない
+        brand:
+          input.source === "qolc_merchant"
+            ? brandOfApplyType(applyTypeOfPayload(input.payload))
+            : "qolc",
       });
     }
 

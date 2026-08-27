@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   accountInvite,
   applicationReceived,
+  brandOfApplyType,
   reviewApproved,
 } from "@/lib/email/templates";
 import { ALL_SOURCES } from "@/lib/applications/labels";
@@ -18,6 +19,22 @@ describe("applicationReceived", () => {
     expect(m.text).toContain("山田太郎 様");
     expect(m.text).toContain("受付番号: APP-0001");
     expect(m.text).toContain("2営業日以内");
+    // 返信先が実在する統一アドレスであることを本文でも案内する
+    expect(m.text).toContain("support@uni-dev.jp");
+    expect(m.text).not.toContain("送信専用");
+  });
+
+  it("一般加盟店（brand=ud）は QOLC 名を出さず UD 名義で送る", () => {
+    const m = applicationReceived({
+      source: "qolc_merchant",
+      applicantName: "山田太郎",
+      brand: "ud",
+    });
+    expect(m.subject).toBe("【ユニバーサルデベロップメント】加盟店申請を受け付けました");
+    expect(m.text).not.toContain("QOLC");
+    expect(m.text).not.toContain("介護");
+    expect(m.text).toContain("ユニバーサルデベロップメント株式会社");
+    expect(m.text).toContain("support@uni-dev.jp");
   });
 
   it("お問い合わせ（source=contact）はラベルが件名に反映される", () => {
@@ -57,6 +74,19 @@ describe("reviewApproved", () => {
     const m = reviewApproved({});
     expect(m.text).toContain("加盟店審査が完了し");
     expect(m.text).not.toContain("「");
+  });
+
+  it("brand=ud では QOLC 名を出さない", () => {
+    const m = reviewApproved({ merchantName: "サンプルストア", brand: "ud" });
+    expect(m.subject).toBe("【ユニバーサルデベロップメント】加盟店審査通過のご案内");
+    expect(m.text).not.toContain("QOLC");
+  });
+});
+
+describe("brandOfApplyType", () => {
+  it("care→qolc / general→ud", () => {
+    expect(brandOfApplyType("care")).toBe("qolc");
+    expect(brandOfApplyType("general")).toBe("ud");
   });
 });
 

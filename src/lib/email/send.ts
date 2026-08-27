@@ -15,6 +15,14 @@ export interface SendEmailInput {
   subject: string;
   /** 本文（プレーンテキスト） */
   text: string;
+  /**
+   * 差出人の表示名だけを差し替える（アドレスは EMAIL_FROM のものを使う）。
+   * 送信ドメインは Resend で認証したものに固定する必要があるため、
+   * ブランド出し分け（QOLC / UD）は表示名だけで行う。
+   */
+  fromName?: string;
+  /** 返信先。省略時は EMAIL_REPLY_TO、それも無ければ差出人アドレス */
+  replyTo?: string;
 }
 
 /** 送信結果（イベント記録用にそのまま JSON 保存できる形） */
@@ -32,8 +40,34 @@ export interface SendEmailResult {
 /** Resend API のエンドポイント */
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
-/** 差出人の既定値（EMAIL_FROM 環境変数で上書き可能） */
-const DEFAULT_FROM = "QOLC <noreply@qolc.jp>";
+/**
+ * 差出人の既定値（EMAIL_FROM 環境変数で上書き可能）。
+ *
+ * 送信元・問い合わせ窓口は support@uni-dev.jp に統一する。qolc.jp は MX を
+ * 持たず返信を受け取れないため、返信可能な実在メールボックスを使う。
+ * このアドレスで送るには Resend で uni-dev.jp のドメイン認証が必要。
+ */
+const DEFAULT_FROM = "QOLC（コルク）運営事務局 <support@uni-dev.jp>";
+
+/**
+ * From 文字列（"表示名 <addr>" 形式）からメールアドレス部分を取り出す。
+ * 山かっこが無ければ全体をアドレスとみなす。
+ * @param from From 文字列
+ */
+export function extractAddress(from: string): string {
+  const m = from.match(/<([^>]+)>/);
+  return (m ? m[1] : from).trim();
+}
+
+/**
+ * 表示名だけを差し替えた From 文字列を組み立てる。
+ * @param base EMAIL_FROM 相当の From 文字列
+ * @param name 差し替える表示名（未指定なら base をそのまま返す）
+ */
+export function buildFrom(base: string, name?: string): string {
+  if (!name) return base;
+  return `${name} <${extractAddress(base)}>`;
+}
 
 /**
  * メールを1通送信する。いかなる場合も throw しない。
@@ -54,7 +88,11 @@ export async function sendEmail(
     return { sent: false, skipped: true };
   }
 
-  const from = process.env.EMAIL_FROM ?? DEFAULT_FROM;
+  const baseFrom = process.env.EMAIL_FROM ?? DEFAULT_FROM;
+  const from = buildFrom(baseFrom, input.fromName);
+  // 返信先は必ず付ける。受付返信に返信できないと問い合わせが宙に浮くため。
+  const replyTo =
+    input.replyTo ?? process.env.EMAIL_REPLY_TO ?? extractAddress(baseFrom);
   try {
     const res = await fetchFn(RESEND_ENDPOINT, {
       method: "POST",
@@ -65,6 +103,7 @@ export async function sendEmail(
       body: JSON.stringify({
         from,
         to: [input.to],
+        reply_to: replyTo,
         subject: input.subject,
         text: input.text,
       }),

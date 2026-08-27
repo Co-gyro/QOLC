@@ -271,7 +271,7 @@ export default function ConsultForm({
         <div className="form-section">
           <h3 className="form-section-title">個人情報の取り扱い</h3>
           <div className="privacy-box">
-            株式会社ユニバーサルデベロップメント（以下「当社」）は、お客様からお預かりした個人情報を、以下の目的でのみ利用いたします。
+            株式会社ユニバーサル・デベロップメント（以下「当社」）は、お客様からお預かりした個人情報を、以下の目的でのみ利用いたします。
             <br />
             <br />
             1. ご相談内容への回答およびサービスのご案内

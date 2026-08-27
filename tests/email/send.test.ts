@@ -79,8 +79,8 @@ describe("sendEmail", () => {
     const f = mockFetch(200, { id: "x" }, (_u, init) => {
       body = JSON.parse(String(init.body)) as Record<string, unknown>;
     });
-    await sendEmail({ ...INPUT, fromName: "ユニバーサルデベロップメント株式会社" }, f);
-    expect(body.from).toBe("ユニバーサルデベロップメント株式会社 <support@uni-dev.jp>");
+    await sendEmail({ ...INPUT, fromName: "株式会社ユニバーサル・デベロップメント" }, f);
+    expect(body.from).toBe("株式会社ユニバーサル・デベロップメント <support@uni-dev.jp>");
     expect(body.reply_to).toBe("support@uni-dev.jp");
   });
 

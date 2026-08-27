@@ -333,7 +333,7 @@ export default function LandingView({
           </div>
           <div className="foot-bottom">
             <span>&copy; 2026 Universal Development Co., Ltd.</span>
-            <span>運営：株式会社ユニバーサルデベロップメント</span>
+            <span>運営：株式会社ユニバーサル・デベロップメント</span>
           </div>
         </div>
       </footer>

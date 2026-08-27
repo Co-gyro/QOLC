@@ -30,10 +30,10 @@ describe("applicationReceived", () => {
       applicantName: "山田太郎",
       brand: "ud",
     });
-    expect(m.subject).toBe("【ユニバーサルデベロップメント】加盟店申請を受け付けました");
+    expect(m.subject).toBe("【ユニバーサル・デベロップメント】加盟店申請を受け付けました");
     expect(m.text).not.toContain("QOLC");
     expect(m.text).not.toContain("介護");
-    expect(m.text).toContain("ユニバーサルデベロップメント株式会社");
+    expect(m.text).toContain("株式会社ユニバーサル・デベロップメント");
     expect(m.text).toContain("support@uni-dev.jp");
   });
 
@@ -78,7 +78,7 @@ describe("reviewApproved", () => {
 
   it("brand=ud では QOLC 名を出さない", () => {
     const m = reviewApproved({ merchantName: "サンプルストア", brand: "ud" });
-    expect(m.subject).toBe("【ユニバーサルデベロップメント】加盟店審査通過のご案内");
+    expect(m.subject).toBe("【ユニバーサル・デベロップメント】加盟店審査通過のご案内");
     expect(m.text).not.toContain("QOLC");
   });
 });

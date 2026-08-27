@@ -265,8 +265,8 @@ export function formatBenefit(n: number): string {
 
 const ZERO_TAX: ReceiptTaxBucket = { amount: 0, tax: 0 };
 
-/** 既定の集金代行（代理受領）者。運営=株式会社ユニバーサルデベロップメント（前株） */
-const DEFAULT_COLLECTION_AGENT = "株式会社ユニバーサルデベロップメント（QOLC）";
+/** 既定の集金代行（代理受領）者。運営=株式会社ユニバーサル・デベロップメント（前株） */
+const DEFAULT_COLLECTION_AGENT = "株式会社ユニバーサル・デベロップメント（QOLC）";
 
 /** カテゴリ既定のラベル */
 const CATEGORY_DEFAULTS: Record<

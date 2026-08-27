@@ -131,7 +131,7 @@ export default async function UdpayReceiptPage({
             東京都千代田区有楽町2-7-1
             <br />
             <span style={{ color: "var(--muted)" }}>
-              （決済処理: UD Payment ／ ユニバーサルデベロップメント株式会社）
+              （決済処理: UD Payment ／ 株式会社ユニバーサル・デベロップメント）
             </span>
           </div>
         </div>

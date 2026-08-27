@@ -4,7 +4,7 @@ import { buildJcbPrefill } from "@/app/admin/merchant-application/_lib/prefill";
 
 const PAYLOAD = {
   corpType: "法人",
-  corpName: "ユニバーサルデベロップメント株式会社",
+  corpName: "株式会社ユニバーサル・デベロップメント",
   corporateNumber: "1234567890123",
   postalCode: "105-8555",
   address: "東京都港区1-2-3",
@@ -23,7 +23,7 @@ describe("buildJcbPrefill（申請ハブ→JCB申請書のプリフィル）", (
   it("法人の payload をフォーム初期値へ変換する（郵便番号はハイフン除去）", () => {
     const out = buildJcbPrefill(PAYLOAD, null);
     expect(out.corpIndiv).toBe("1");
-    expect(out.companyNameKanji).toBe("ユニバーサルデベロップメント株式会社");
+    expect(out.companyNameKanji).toBe("株式会社ユニバーサル・デベロップメント");
     expect(out.companyPostalCode).toBe("1058555");
     expect(out.companyAddrKanji).toBe("東京都港区1-2-3");
     expect(out.companyTel).toBe("03-1234-5678");

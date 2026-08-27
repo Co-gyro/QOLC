@@ -24,16 +24,19 @@ export type EmailBrand = "qolc" | "ud";
 /** 問い合わせ・返信先の統一アドレス（送信元アドレスと同一） */
 export const SUPPORT_EMAIL = "support@uni-dev.jp";
 
-/** 件名の先頭に付ける差出人表記 */
+/**
+ * 件名の先頭に付ける差出人表記。
+ * 件名は短く保ちたいので「株式会社」は省く（正式商号は署名側に出す）。
+ */
 const SUBJECT_PREFIX: Record<EmailBrand, string> = {
   qolc: "【QOLC】",
-  ud: "【ユニバーサルデベロップメント】",
+  ud: "【ユニバーサル・デベロップメント】",
 };
 
 /** メール差出人の表示名（send.ts の fromName に渡す） */
 export const FROM_NAME: Record<EmailBrand, string> = {
   qolc: "QOLC（コルク）運営事務局",
-  ud: "ユニバーサルデベロップメント株式会社",
+  ud: "株式会社ユニバーサル・デベロップメント",
 };
 
 /** 署名（ブランド別） */
@@ -41,14 +44,14 @@ const SIGNATURES: Record<EmailBrand, string> = {
   qolc: [
     "──────────────────────",
     "QOLC（コルク）運営事務局",
-    "ユニバーサルデベロップメント株式会社",
+    "株式会社ユニバーサル・デベロップメント",
     `お問い合わせ: ${SUPPORT_EMAIL}`,
     "https://www.qolc.jp",
     "──────────────────────",
   ].join("\n"),
   ud: [
     "──────────────────────",
-    "ユニバーサルデベロップメント株式会社",
+    "株式会社ユニバーサル・デベロップメント",
     `お問い合わせ: ${SUPPORT_EMAIL}`,
     "https://uni-dev.jp",
     "──────────────────────",

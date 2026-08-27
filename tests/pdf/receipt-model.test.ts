@@ -329,7 +329,7 @@ describe("buildReceiptModel: カード決済表記", () => {
 
   it("既定でUDの集金代行（代理受領）をラベル形式で明記する", () => {
     const m = buildReceiptModel(kaigoInput());
-    expect(m.agentLine).toBe("集金代行（代理受領）：株式会社ユニバーサルデベロップメント（QOLC）");
+    expect(m.agentLine).toBe("集金代行（代理受領）：株式会社ユニバーサル・デベロップメント（QOLC）");
   });
 
   it("collectionAgent=null で代理受領表記を抑止", () => {

@@ -27,13 +27,13 @@ const APPROVED_BOTH: ApplicationReview = {
 describe("pickMerchantApplyPayload", () => {
   it("payload から必要キーのみ trim して取り出す", () => {
     const picked = pickMerchantApplyPayload({
-      corpName: " ユニバーサルデベロップメント株式会社 ",
+      corpName: " 株式会社ユニバーサル・デベロップメント ",
       facilityName: "介護施設A",
       facilityAddress: "東京都港区1-2-3",
       facilityPhone: "03-1234-5678",
       note: "使わないキー",
     });
-    expect(picked.corpName).toBe("ユニバーサルデベロップメント株式会社");
+    expect(picked.corpName).toBe("株式会社ユニバーサル・デベロップメント");
     expect(picked.facilityName).toBe("介護施設A");
     expect("note" in picked).toBe(false);
   });

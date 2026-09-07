@@ -142,7 +142,7 @@ describe("buildSaisonConnectionInfo", () => {
     },
   };
 
-  it("採番済みなら固定のセンターコード/サブコードと端末識別番号を返す", () => {
+  it("採番済みなら固定のセンターコード/サブコードと採番値を返す", () => {
     const conn = buildSaisonConnectionInfo(CODES);
     expect(conn).not.toBeNull();
     expect(conn!.centerCode).toBe(SAISON_CENTER_CODE);
@@ -150,13 +150,23 @@ describe("buildSaisonConnectionInfo", () => {
     expect(conn!.subCode).toBe(SAISON_SUB_CODE);
     expect(conn!.subCode).toBe("2000");
     expect(conn!.terminalId).toBe("3124620001042");
+    expect(conn!.mallCode).toBe("A3F2");
   });
 
-  it("回答文に3つの接続情報がすべて含まれる", () => {
+  it("接続情報票に店子名と4つの接続情報がすべて含まれる", () => {
+    const conn = buildSaisonConnectionInfo(CODES, "株式会社ランサイド")!;
+    expect(conn.sheetText).toContain("【接続情報票】");
+    expect(conn.sheetText).toContain("対象店子: 株式会社ランサイド");
+    expect(conn.sheetText).toContain("モールコード（相手先管理番号1）: A3F2");
+    expect(conn.sheetText).toContain("センターコード（仕向け会社コード）: 3M31246");
+    expect(conn.sheetText).toContain("サブコード: 2000");
+    expect(conn.sheetText).toContain("端末識別番号: 3124620001042");
+  });
+
+  it("店子名なしでも接続情報票を生成できる（対象店子行は省略）", () => {
     const conn = buildSaisonConnectionInfo(CODES)!;
-    expect(conn.replyText).toContain("センターコード（仕向け会社コード）: 3M31246");
-    expect(conn.replyText).toContain("サブコード: 2000");
-    expect(conn.replyText).toContain("端末識別番号: 3124620001042");
+    expect(conn.sheetText).not.toContain("対象店子");
+    expect(conn.sheetText).toContain("端末識別番号: 3124620001042");
   });
 
   it("未採番（codes なし・形式不正）は null", () => {

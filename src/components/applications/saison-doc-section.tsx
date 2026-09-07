@@ -23,17 +23,23 @@ export function SaisonDocSection({ detail }: SaisonDocSectionProps) {
     () => buildSaisonRow(detail.payload ?? null, detail.udInput ?? null),
     [detail.payload, detail.udInput]
   );
-  const connection = useMemo(
-    () => buildSaisonConnectionInfo(detail.udInput ?? null),
-    [detail.udInput]
-  );
+  const connection = useMemo(() => {
+    const payload = (detail.payload ?? {}) as Record<string, unknown>;
+    const storeName =
+      typeof payload.facilityName === "string" && payload.facilityName.trim()
+        ? payload.facilityName
+        : typeof payload.corpName === "string"
+          ? payload.corpName
+          : undefined;
+    return buildSaisonConnectionInfo(detail.udInput ?? null, storeName);
+  }, [detail.payload, detail.udInput]);
   const [downloading, setDownloading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   async function handleCopyConnection() {
     if (!connection) return;
-    await navigator.clipboard.writeText(connection.replyText);
+    await navigator.clipboard.writeText(connection.sheetText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -121,14 +127,18 @@ export function SaisonDocSection({ detail }: SaisonDocSectionProps) {
         className="text-sm border rounded-md px-4 py-3 flex flex-col gap-2"
         style={{ borderColor: "var(--qolc-border)" }}
       >
-        <p className="font-medium">接続情報（開通時にセゾンへ回答）</p>
+        <p className="font-medium">接続情報票（申請時に同送）</p>
         <p style={{ color: "var(--qolc-muted)" }}>
           加盟店登録だけでは非対面決済のオーソリ・売上受け込みはできません。
-          審査承認後、以下の接続情報をセゾンへ回答してください（2026-07 セゾン連絡）。
+          審査FMTと併せて以下の接続情報票をクリプト便で同送してください
+          （2026-09 セゾンへ申請時同送への一本化を申し入れ済み。経緯は
+          docs/saison-connection-flow-issue-20260907.md）。
         </p>
         {connection ? (
           <>
             <dl className="grid grid-cols-[14em_1fr] gap-y-1">
+              <dt style={{ color: "var(--qolc-muted)" }}>モールコード</dt>
+              <dd className="font-medium tabular-nums">{connection.mallCode}</dd>
               <dt style={{ color: "var(--qolc-muted)" }}>センターコード（仕向け）</dt>
               <dd className="font-medium tabular-nums">{connection.centerCode}</dd>
               <dt style={{ color: "var(--qolc-muted)" }}>サブコード</dt>
@@ -143,7 +153,7 @@ export function SaisonDocSection({ detail }: SaisonDocSectionProps) {
                 style={{ minHeight: 44 }}
                 onClick={() => void handleCopyConnection()}
               >
-                {copied ? "コピーしました" : "回答文をコピー"}
+                {copied ? "コピーしました" : "接続情報票をコピー"}
               </Button>
             </div>
           </>

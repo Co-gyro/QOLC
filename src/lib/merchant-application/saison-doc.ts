@@ -34,16 +34,17 @@ export const SAISON_FIXED: Record<string, string> = {
 
 /**
  * セゾン接続情報の固定値（UD⇔USEN接続の値で全店子共通）。
- * 加盟店登録だけでは非対面決済のオーソリ・売上受け込みはできず、開通時に
- * センターコード・サブコード・端末識別番号の回答が必要（2026-07 セゾン伊藤氏連絡）。
+ * 加盟店登録だけでは非対面決済のオーソリ・売上受け込みはできない
+ * （2026-09-07 セゾン伊藤氏連絡で判明。同日、申請時同送への一本化を申し入れ済み）。
  * 端末識別番号のみ店子ごと（採番プール 3124620001000〜。接頭辞 312462 は
  * センターコード 3M31246 に対応する USEN 採番体系）。
+ * 経緯と証拠は docs/saison-connection-flow-issue-20260907.md を参照。
  */
 export const SAISON_CENTER_CODE = "3M31246";
 /** セゾン接続情報のサブコード（センターコードとセットの固定値） */
 export const SAISON_SUB_CODE = "2000";
 
-/** セゾンへ回答する接続情報 */
+/** セゾンへ提出する接続情報（申請時に審査FMTと同送する） */
 export interface SaisonConnectionInfo {
   /** センターコード（仕向け会社コード） */
   centerCode: string;
@@ -51,22 +52,27 @@ export interface SaisonConnectionInfo {
   subCode: string;
   /** 端末識別番号（採番済みの13桁） */
   terminalId: string;
-  /** セゾンへの回答メールに貼れる本文 */
-  replyText: string;
+  /** モールコード（相手先管理番号1として審査FMTにも記載） */
+  mallCode: string;
+  /** 申請時同送用の「接続情報票」本文（メール・クリプト便添付にそのまま使える） */
+  sheetText: string;
 }
 
 /**
- * セゾンへ回答する接続情報を組み立てる。
+ * 申請時同送用の「接続情報票」を組み立てる。
  * 端末識別番号が未採番（ud_input.codes なし）の場合は null を返す。
+ * storeName は店子の表示名（法人名・屋号）。
  */
 export function buildSaisonConnectionInfo(
   udInput: Record<string, unknown> | null | undefined,
+  storeName?: string,
 ): SaisonConnectionInfo | null {
   const { codes } = parseUdInput(udInput ?? null);
   if (!codes?.terminal_id) return null;
-  const replyText = [
-    "非対面決済の接続情報をご連絡いたします。",
-    "",
+  const sheetText = [
+    "【接続情報票】非対面決済（審査FMTと併せてご確認ください）",
+    ...(storeName ? [`対象店子: ${storeName}`] : []),
+    `モールコード（相手先管理番号1）: ${codes.mall_code}`,
     `センターコード（仕向け会社コード）: ${SAISON_CENTER_CODE}`,
     `サブコード: ${SAISON_SUB_CODE}`,
     `端末識別番号: ${codes.terminal_id}`,
@@ -75,7 +81,8 @@ export function buildSaisonConnectionInfo(
     centerCode: SAISON_CENTER_CODE,
     subCode: SAISON_SUB_CODE,
     terminalId: codes.terminal_id,
-    replyText,
+    mallCode: codes.mall_code,
+    sheetText,
   };
 }
 

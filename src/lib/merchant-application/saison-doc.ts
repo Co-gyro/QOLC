@@ -32,6 +32,53 @@ export const SAISON_FIXED: Record<string, string> = {
   BT: "3",
 };
 
+/**
+ * セゾン接続情報の固定値（UD⇔USEN接続の値で全店子共通）。
+ * 加盟店登録だけでは非対面決済のオーソリ・売上受け込みはできず、開通時に
+ * センターコード・サブコード・端末識別番号の回答が必要（2026-07 セゾン伊藤氏連絡）。
+ * 端末識別番号のみ店子ごと（採番プール 3124620001000〜。接頭辞 312462 は
+ * センターコード 3M31246 に対応する USEN 採番体系）。
+ */
+export const SAISON_CENTER_CODE = "3M31246";
+/** セゾン接続情報のサブコード（センターコードとセットの固定値） */
+export const SAISON_SUB_CODE = "2000";
+
+/** セゾンへ回答する接続情報 */
+export interface SaisonConnectionInfo {
+  /** センターコード（仕向け会社コード） */
+  centerCode: string;
+  /** サブコード */
+  subCode: string;
+  /** 端末識別番号（採番済みの13桁） */
+  terminalId: string;
+  /** セゾンへの回答メールに貼れる本文 */
+  replyText: string;
+}
+
+/**
+ * セゾンへ回答する接続情報を組み立てる。
+ * 端末識別番号が未採番（ud_input.codes なし）の場合は null を返す。
+ */
+export function buildSaisonConnectionInfo(
+  udInput: Record<string, unknown> | null | undefined,
+): SaisonConnectionInfo | null {
+  const { codes } = parseUdInput(udInput ?? null);
+  if (!codes?.terminal_id) return null;
+  const replyText = [
+    "非対面決済の接続情報をご連絡いたします。",
+    "",
+    `センターコード（仕向け会社コード）: ${SAISON_CENTER_CODE}`,
+    `サブコード: ${SAISON_SUB_CODE}`,
+    `端末識別番号: ${codes.terminal_id}`,
+  ].join("\n");
+  return {
+    centerCode: SAISON_CENTER_CODE,
+    subCode: SAISON_SUB_CODE,
+    terminalId: codes.terminal_id,
+    replyText,
+  };
+}
+
 /** 列レター → 値 のマップ */
 export type SaisonRowValues = Record<string, string>;
 

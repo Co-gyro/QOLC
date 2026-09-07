@@ -7,10 +7,13 @@ import path from "node:path";
 import ExcelJS from "exceljs";
 
 import {
+  buildSaisonConnectionInfo,
   buildSaisonRow,
   fillSaisonWorkbook,
   buildSaisonFilename,
   SAISON_DATA_ROW,
+  SAISON_CENTER_CODE,
+  SAISON_SUB_CODE,
 } from "@/lib/merchant-application/saison-doc";
 
 const PAYLOAD = {
@@ -127,5 +130,42 @@ describe("buildSaisonFilename", () => {
     expect(buildSaisonFilename("サンプルケアホーム", { year: 2026, month: 7, day: 24 })).toBe(
       "セゾン新規_20260724_サンプルケアホーム.xlsx"
     );
+  });
+});
+
+describe("buildSaisonConnectionInfo", () => {
+  const CODES = {
+    codes: {
+      mall_code: "A3F2",
+      terminal_id: "3124620001042",
+      assigned_at: "2026-07-28T09:00:00+09:00",
+    },
+  };
+
+  it("採番済みなら固定のセンターコード/サブコードと端末識別番号を返す", () => {
+    const conn = buildSaisonConnectionInfo(CODES);
+    expect(conn).not.toBeNull();
+    expect(conn!.centerCode).toBe(SAISON_CENTER_CODE);
+    expect(conn!.centerCode).toBe("3M31246");
+    expect(conn!.subCode).toBe(SAISON_SUB_CODE);
+    expect(conn!.subCode).toBe("2000");
+    expect(conn!.terminalId).toBe("3124620001042");
+  });
+
+  it("回答文に3つの接続情報がすべて含まれる", () => {
+    const conn = buildSaisonConnectionInfo(CODES)!;
+    expect(conn.replyText).toContain("センターコード（仕向け会社コード）: 3M31246");
+    expect(conn.replyText).toContain("サブコード: 2000");
+    expect(conn.replyText).toContain("端末識別番号: 3124620001042");
+  });
+
+  it("未採番（codes なし・形式不正）は null", () => {
+    expect(buildSaisonConnectionInfo(null)).toBeNull();
+    expect(buildSaisonConnectionInfo({})).toBeNull();
+    expect(
+      buildSaisonConnectionInfo({
+        codes: { mall_code: "A3F2", terminal_id: "bad", assigned_at: "x" },
+      }),
+    ).toBeNull();
   });
 });

@@ -8,7 +8,10 @@
  */
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { buildSaisonRow } from "@/lib/merchant-application/saison-doc";
+import {
+  buildSaisonConnectionInfo,
+  buildSaisonRow,
+} from "@/lib/merchant-application/saison-doc";
 import type { ApplicationDetail } from "@/lib/applications/types";
 
 export interface SaisonDocSectionProps {
@@ -20,8 +23,20 @@ export function SaisonDocSection({ detail }: SaisonDocSectionProps) {
     () => buildSaisonRow(detail.payload ?? null, detail.udInput ?? null),
     [detail.payload, detail.udInput]
   );
+  const connection = useMemo(
+    () => buildSaisonConnectionInfo(detail.udInput ?? null),
+    [detail.udInput]
+  );
   const [downloading, setDownloading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopyConnection() {
+    if (!connection) return;
+    await navigator.clipboard.writeText(connection.replyText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   async function handleDownload() {
     setDownloading(true);
@@ -102,6 +117,42 @@ export function SaisonDocSection({ detail }: SaisonDocSectionProps) {
         提出方法: セゾンへは<span className="font-medium">クリプト便</span>で送付します
         （2026-07 セゾン連絡。メール添付ではありません）。送付したら「④ 提出の記録」を忘れずに。
       </p>
+      <div
+        className="text-sm border rounded-md px-4 py-3 flex flex-col gap-2"
+        style={{ borderColor: "var(--qolc-border)" }}
+      >
+        <p className="font-medium">接続情報（開通時にセゾンへ回答）</p>
+        <p style={{ color: "var(--qolc-muted)" }}>
+          加盟店登録だけでは非対面決済のオーソリ・売上受け込みはできません。
+          審査承認後、以下の接続情報をセゾンへ回答してください（2026-07 セゾン連絡）。
+        </p>
+        {connection ? (
+          <>
+            <dl className="grid grid-cols-[14em_1fr] gap-y-1">
+              <dt style={{ color: "var(--qolc-muted)" }}>センターコード（仕向け）</dt>
+              <dd className="font-medium tabular-nums">{connection.centerCode}</dd>
+              <dt style={{ color: "var(--qolc-muted)" }}>サブコード</dt>
+              <dd className="font-medium tabular-nums">{connection.subCode}</dd>
+              <dt style={{ color: "var(--qolc-muted)" }}>端末識別番号</dt>
+              <dd className="font-medium tabular-nums">{connection.terminalId}</dd>
+            </dl>
+            <div>
+              <Button
+                type="button"
+                variant="outline"
+                style={{ minHeight: 44 }}
+                onClick={() => void handleCopyConnection()}
+              >
+                {copied ? "コピーしました" : "回答文をコピー"}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <p style={{ color: "#B45309" }}>
+            端末識別番号が未採番のため表示できません。先に「② 採番」を実行してください。
+          </p>
+        )}
+      </div>
     </div>
   );
 }

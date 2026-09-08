@@ -20,6 +20,7 @@ import {
   ListChecks,
   MessagesSquare,
   ClipboardCheck,
+  Calculator,
   type LucideIcon,
 } from "lucide-react";
 
@@ -42,4 +43,5 @@ export const MENU_ICONS: Record<string, LucideIcon> = {
   ListChecks,
   MessagesSquare,
   ClipboardCheck,
+  Calculator,
 };

@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from "vitest";
 
-import { PORTAL_MENUS, PORTAL_MENU_SECTIONS } from "@/lib/portal/menu";
+import { PORTAL_MENUS, PORTAL_MENU_SECTIONS, SELFISH_URL } from "@/lib/portal/menu";
 
 describe("admin メニュー（業務ファースト構成）", () => {
   const sections = PORTAL_MENU_SECTIONS.admin;
@@ -42,6 +42,37 @@ describe("admin メニュー（業務ファースト構成）", () => {
       "/admin/master",
     ]) {
       expect(hrefs).toContain(h);
+    }
+  });
+
+  it("台帳・ツールに Selfish（精算）への外部リンクがある", () => {
+    const daicho = sections.find((s) => s.title === "台帳・ツール");
+    const selfish = daicho!.items.find((m) => m.href === SELFISH_URL);
+    expect(selfish, "Selfish への導線が消えている").toBeDefined();
+    expect(selfish!.label).toBe("Selfish（精算）");
+    // external を落とすと同一タブ遷移になり、QOLC の作業画面を奪う
+    expect(selfish!.external).toBe(true);
+    // 精算まわりが並ぶよう「精算CSV変換」の直後に置く
+    const hrefs = daicho!.items.map((m) => m.href);
+    expect(hrefs.indexOf(SELFISH_URL)).toBe(hrefs.indexOf("/admin/csv-tools") + 1);
+  });
+
+  it("Selfish の URL は https の絶対URL（相対パスだとQOLC内の404になる）", () => {
+    expect(SELFISH_URL).toMatch(/^https:\/\//);
+    expect(() => new URL(SELFISH_URL)).not.toThrow();
+    // 末尾スラッシュは付けない（このURLを基点に組み立てる箇所が出たときの二重スラッシュ防止）
+    expect(SELFISH_URL.endsWith("/")).toBe(false);
+  });
+
+  it("external が付くのは QOLC 外のリンクだけ（内部パスに付いていない）", () => {
+    for (const menu of Object.values(PORTAL_MENUS)) {
+      for (const item of menu) {
+        if (item.external === true) {
+          expect(item.href, `${item.label} は絶対URLであること`).toMatch(/^https?:\/\//);
+        } else {
+          expect(item.href, `${item.label} は QOLC 内の絶対パスであること`).toMatch(/^\//);
+        }
+      }
     }
   });
 

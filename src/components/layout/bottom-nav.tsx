@@ -37,12 +37,17 @@ export function BottomNav({ portal }: BottomNavProps) {
       aria-label="メインメニュー"
     >
       {items.map((item) => {
-        const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+        // 外部システムは「現在地」になりえないので、点灯判定から外す
+        const active =
+          !item.external && (pathname === item.href || pathname.startsWith(`${item.href}/`));
         const Icon = item.icon ? MENU_ICONS[item.icon] : undefined;
         return (
           <Link
             key={item.href}
             href={item.href}
+            // 別システムは別タブ（Sidebar と同じ扱い）
+            target={item.external ? "_blank" : undefined}
+            rel={item.external ? "noopener noreferrer" : undefined}
             className={cn(
               "flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded-xl transition-colors",
               active ? "font-semibold text-white shadow-sm" : "text-gray-600"

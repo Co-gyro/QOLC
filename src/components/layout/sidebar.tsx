@@ -9,6 +9,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PORTAL_MENU_SECTIONS, PORTAL_LABELS } from "@/lib/portal/menu";
 import { MENU_ICONS as ICONS } from "./menu-icons";
@@ -55,12 +56,19 @@ export function Sidebar({ portal }: SidebarProps) {
               </p>
             )}
             {section.items.map((item) => {
-              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              // 外部システムは「現在地」になりえないので、点灯判定から外す
+              const active =
+                !item.external &&
+                (pathname === item.href || pathname.startsWith(`${item.href}/`));
               const Icon = item.icon ? ICONS[item.icon] : undefined;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
+                  // 別システムは別タブ。QOLC の作業途中で画面を奪わない。
+                  // rel は noopener（開いた先から window.opener を触らせない）
+                  target={item.external ? "_blank" : undefined}
+                  rel={item.external ? "noopener noreferrer" : undefined}
                   className={cn(
                     "qolc-btn px-3 py-2.5 rounded-lg text-sm flex items-center gap-3 transition-all",
                     active
@@ -73,6 +81,15 @@ export function Sidebar({ portal }: SidebarProps) {
                     <Icon size={18} strokeWidth={active ? 2 : 1.75} className="shrink-0" />
                   )}
                   <span>{item.label}</span>
+                  {item.external && (
+                    // 別タブで開くことを、押す前に分かるようにする
+                    <ExternalLink
+                      size={14}
+                      strokeWidth={1.75}
+                      className="shrink-0 ml-auto opacity-60"
+                      aria-label="別タブで開きます"
+                    />
+                  )}
                 </Link>
               );
             })}

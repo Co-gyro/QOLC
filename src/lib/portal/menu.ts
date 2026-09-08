@@ -13,7 +13,23 @@ export interface MenuItem {
   label: string;
   /** lucide-react のアイコン名（クライアント側で動的解決） */
   icon?: string;
+  /**
+   * QOLC の外にある別システムへのリンク。
+   * true のとき Sidebar / BottomNav は別タブで開き、「現在地」として点灯させない。
+   */
+  external?: boolean;
 }
+
+/**
+ * 精算システム Selfish の本番URL。
+ *
+ * UD社内の別システム（別リポジトリ Co-gyro/selfish-web・別Supabaseプロジェクト）で、
+ * QOLC とはデータを共有していない。運営が日常的に開くのは QOLC の管理画面なので、
+ * **そこから辿れないと事実上たどり着けない**。そのための導線。
+ *
+ * 秘密情報ではないので環境変数にはしない。独自ドメインへ移すときはここだけ変える。
+ */
+export const SELFISH_URL = "https://selfish-web-web.vercel.app";
 
 /** サイドバーの1セクション（title なしは見出しを描画しない） */
 export interface MenuSection {
@@ -43,6 +59,8 @@ export const PORTAL_MENU_SECTIONS: Record<PortalType, MenuSection[]> = {
         { href: "/admin/facilities", label: "介護施設", icon: "Building2" },
         { href: "/admin/merchants", label: "加盟店", icon: "Database" },
         { href: "/admin/csv-tools", label: "精算CSV変換", icon: "FileSpreadsheet" },
+        // 精算まわりが並ぶ位置に置く（CSV変換の隣）。別システムなので別タブで開く
+        { href: SELFISH_URL, label: "Selfish（精算）", icon: "Calculator", external: true },
         { href: "/admin/logs", label: "操作ログ", icon: "History" },
         { href: "/admin/master", label: "マスタ管理", icon: "Users" },
       ],

@@ -33,8 +33,8 @@ test.describe("申請書作成の動線（JCB・セゾン統一）", () => {
     await page.getByRole("tab", { name: "セゾン" }).click();
     const saisonBtn = page.getByRole("button", { name: "セゾン申込書（Excel）をダウンロード" });
     await expect(saisonBtn).toBeVisible({ timeout: 30_000 });
-    // 接続情報票ブロック（申請時に審査FMTと同送。加盟店登録だけでは決済不可のため）
-    await expect(page.getByText("接続情報票（申請時に同送）")).toBeVisible();
+    // 接続情報ブロック（端末識別番号はDQ欄へ自動記載。2026-09-10 セゾン合意）
+    await expect(page.getByText("接続情報（申請書DQ欄に自動記載）")).toBeVisible();
     // 案件詳細へ戻る導線もある
     await expect(
       page.getByRole("link", { name: /案件詳細へ戻る/ })

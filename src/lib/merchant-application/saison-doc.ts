@@ -34,17 +34,19 @@ export const SAISON_FIXED: Record<string, string> = {
 
 /**
  * セゾン接続情報の固定値（UD⇔USEN接続の値で全店子共通）。
- * 加盟店登録だけでは非対面決済のオーソリ・売上受け込みはできない
- * （2026-09-07 セゾン伊藤氏連絡で判明。同日、申請時同送への一本化を申し入れ済み）。
- * 端末識別番号のみ店子ごと（採番プール 3124620001000〜。接頭辞 312462 は
- * センターコード 3M31246 に対応する USEN 採番体系）。
+ * 2026-09-10 セゾン伊藤氏と合意した運用: UDからの案件は全てセンターコード
+ * 3M31246/サブコード2000で接続し、店子ごとの端末識別番号は審査FMTの
+ * DQ欄（端末識別番号 POS①）にのみ記載して申請する（buildSaisonRow が自動転記）。
+ * これにより申請とは別の接続情報メール往復は不要になった。
+ * 端末識別番号の採番プールは 3124620001000〜（接頭辞 312462 はセンターコード
+ * 3M31246 に対応する USEN 採番体系）。
  * 経緯と証拠は docs/saison-connection-flow-issue-20260907.md を参照。
  */
 export const SAISON_CENTER_CODE = "3M31246";
 /** セゾン接続情報のサブコード（センターコードとセットの固定値） */
 export const SAISON_SUB_CODE = "2000";
 
-/** セゾンへ提出する接続情報（申請時に審査FMTと同送する） */
+/** セゾン接続情報（申請書DQ欄に自動記載。問い合わせ時の参照用にまとめて返す） */
 export interface SaisonConnectionInfo {
   /** センターコード（仕向け会社コード） */
   centerCode: string;
@@ -54,12 +56,13 @@ export interface SaisonConnectionInfo {
   terminalId: string;
   /** モールコード（相手先管理番号1として審査FMTにも記載） */
   mallCode: string;
-  /** 申請時同送用の「接続情報票」本文（メール・クリプト便添付にそのまま使える） */
+  /** 接続情報の一覧本文（セゾンとの問い合わせ・確認メールにそのまま使える） */
   sheetText: string;
 }
 
 /**
- * 申請時同送用の「接続情報票」を組み立てる。
+ * 接続情報の参照用一覧を組み立てる（端末識別番号はDQ欄へ自動転記されるため、
+ * 通常の申請でこの一覧を別途送る必要はない）。
  * 端末識別番号が未採番（ud_input.codes なし）の場合は null を返す。
  * storeName は店子の表示名（法人名・屋号）。
  */
@@ -70,7 +73,7 @@ export function buildSaisonConnectionInfo(
   const { codes } = parseUdInput(udInput ?? null);
   if (!codes?.terminal_id) return null;
   const sheetText = [
-    "【接続情報票】非対面決済（審査FMTと併せてご確認ください）",
+    "【接続情報】非対面決済",
     ...(storeName ? [`対象店子: ${storeName}`] : []),
     `モールコード（相手先管理番号1）: ${codes.mall_code}`,
     `センターコード（仕向け会社コード）: ${SAISON_CENTER_CODE}`,
@@ -142,7 +145,9 @@ export function buildSaisonRow(
     errors.push("取扱商材が未入力です（UD追記情報の申請書用補足）");
   }
   if (!codes) {
-    errors.push("採番が未実施です（相手先管理番号にモールコードを使用します）");
+    errors.push(
+      "採番が未実施です（相手先管理番号にモールコード、DQ欄に端末識別番号を使用します）",
+    );
   }
 
   const values: SaisonRowValues = {
@@ -164,6 +169,10 @@ export function buildSaisonRow(
     AF: s(p.facilityPhone),
     AQ: codes?.mall_code ?? "",
     AS: fields.handling_products ?? "",
+    // 端末識別番号は DQ欄（POS①）のみに記載する（2026-09-10 セゾン伊藤氏指定。
+    // センターコード3M31246/サブコード2000は全店子共通のため申請書への記載不要、
+    // 端末種類（DM欄）等の他の端末欄も記載しない）
+    DQ: codes?.terminal_id ?? "",
   };
   if (!isIndividual) {
     values.G = s(p.corporateNumber);

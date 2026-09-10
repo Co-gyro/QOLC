@@ -67,6 +67,10 @@ describe("buildSaisonRow（法人）", () => {
 
   it("相手先管理番号=モールコード・英字名・固定申告値（非対面トークン）", () => {
     expect(values.AQ).toBe("A3F2");
+    // 端末識別番号はDQ欄のみに記載（2026-09-10 セゾン指定。DM=端末種類等は記載しない）
+    expect(values.DQ).toBe("3124620001042");
+    expect(values.DM).toBeUndefined();
+    expect(values.DN).toBeUndefined();
     expect(values.CS).toBe("SAMPLE CARE HOME");
     expect(values.BB).toBe("00");
     expect(values.BG).toBe("2");
@@ -118,6 +122,9 @@ describe("fillSaisonWorkbook（実テンプレートへの転記）", () => {
     expect(row.getCell("K").value).toBe("株式会社サンプルケア");
     expect(row.getCell("J").value).toBe("ｶﾌﾞｼｷｶﾞｲｼｬｻﾝﾌﾟﾙｹｱ");
     expect(row.getCell("AQ").value).toBe("A3F2");
+    // 端末識別番号はDQ欄（POS①）へ転記され、端末種類（DM）は空のまま
+    expect(row.getCell("DQ").value).toBe("3124620001042");
+    expect(row.getCell("DM").value ?? null).toBeNull();
     // ヘッダ行は無傷
     expect(String(ws.getRow(2).getCell("C").value)).toContain("法人コード");
     // セゾン補記列（C=法人コード等）には書き込まない
@@ -155,7 +162,7 @@ describe("buildSaisonConnectionInfo", () => {
 
   it("接続情報票に店子名と4つの接続情報がすべて含まれる", () => {
     const conn = buildSaisonConnectionInfo(CODES, "株式会社ランサイド")!;
-    expect(conn.sheetText).toContain("【接続情報票】");
+    expect(conn.sheetText).toContain("【接続情報】");
     expect(conn.sheetText).toContain("対象店子: 株式会社ランサイド");
     expect(conn.sheetText).toContain("モールコード（相手先管理番号1）: A3F2");
     expect(conn.sheetText).toContain("センターコード（仕向け会社コード）: 3M31246");

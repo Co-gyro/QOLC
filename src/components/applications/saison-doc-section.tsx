@@ -127,11 +127,12 @@ export function SaisonDocSection({ detail }: SaisonDocSectionProps) {
         className="text-sm border rounded-md px-4 py-3 flex flex-col gap-2"
         style={{ borderColor: "var(--qolc-border)" }}
       >
-        <p className="font-medium">接続情報票（申請時に同送）</p>
+        <p className="font-medium">接続情報（申請書DQ欄に自動記載）</p>
         <p style={{ color: "var(--qolc-muted)" }}>
-          加盟店登録だけでは非対面決済のオーソリ・売上受け込みはできません。
-          審査FMTと併せて以下の接続情報票をクリプト便で同送してください
-          （2026-09 セゾンへ申請時同送への一本化を申し入れ済み。経緯は
+          端末識別番号は審査FMTの<span className="font-medium">DQ欄（端末識別番号 POS①）</span>
+          へ自動転記されます（2026-09-10 セゾン合意）。センターコード3M31246・サブコード2000は
+          全店子共通としてセゾン登録済みのため、接続情報を別途送付・連絡する必要はありません。
+          以下はセゾンとの確認・問い合わせ時の参照用です（経緯は
           docs/saison-connection-flow-issue-20260907.md）。
         </p>
         {connection ? (
@@ -153,7 +154,7 @@ export function SaisonDocSection({ detail }: SaisonDocSectionProps) {
                 style={{ minHeight: 44 }}
                 onClick={() => void handleCopyConnection()}
               >
-                {copied ? "コピーしました" : "接続情報票をコピー"}
+                {copied ? "コピーしました" : "接続情報をコピー"}
               </Button>
             </div>
           </>

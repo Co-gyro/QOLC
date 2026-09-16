@@ -119,18 +119,19 @@ migration `032` は「審査結果で発番される 2 種（登録型 / 都度�
     "account_number": "1234567",         // 7 桁以内（左 0 埋めは Selfish 側で行わない）
     "account_name_kana": "ｲﾘﾖｳﾎｳｼﾞﾝ ﾏﾙﾏﾙｶｲ"  // 全銀文字のみ。QOLC 側で事前検証
   },
-  // JCB は審査結果で2種が発番される。**両方送る**（片方だけだと
-  // その番号が付いた売上が突合できず unmatched_sales に落ちる）
+  // QOLC が持つ加盟店番号を**重複を除いて全部**載せる（§2.3）。
+  // JCB は区分11の1本化で recurring と ec が同値になるので通常1件。
+  // 過去分・例外で2列が異なる値のときだけ2件になる。
+  // 載せ漏らした番号の売上は突合できず unmatched_sales に落ちる。
   "card_numbers": [
-    { "brand": "JCB",    "kind": "recurring", "merchant_number": "24111748400001" }, // 登録型 14 桁
-    { "brand": "JCB",    "kind": "ec",        "merchant_number": "24111748400002" }, // 都度型EC 14 桁
-    { "brand": "SAISON", "kind": "default",   "merchant_number": "20772470000001" }  // 加盟店No.7 + 店舗No.7
+    { "brand": "JCB",    "merchant_number": "24111748400001" }, // 14 桁
+    { "brand": "SAISON", "merchant_number": "20772470000001" }  // 加盟店No.7 + 店舗No.7
   ],
   "fee": {
     "valid_from": "2026-10-01",
     "merchant_fee_rate": "0.019000"      // 文字列。浮動小数を経由しない（Selfish 不変条件）
     // card_company_fee_rate は Selfish のブランド別既定値で補完。QOLC は送らない
-    // この料率は **card_numbers の全件に同じ内容で** 作られる
+    // fee は1つだけ送り、**Selfish 側で card_numbers の件数分に展開**する
     //（fee_schedules は加盟店番号ごとにぶら下がるため）
   },
   "source": { "application_id": "<applications.id>", "opened_at": "2026-09-30" }
@@ -143,7 +144,7 @@ migration `032` は「審査結果で発番される 2 種（登録型 / 都度�
 - 口座は 1 店舗 1 口座（DB 制約）。既存と異なれば **UPDATE**、同じなら書かない（監査を汚さない）。
 - 加盟店番号は `UNIQUE(card_brand_id, merchant_number)`。他店舗に既登録なら **409 で店舗 ID を返し**、QOLC 側に表示する。
 - 料率は既存期間と重なる場合 **新規追加しない**（Selfish の GiST 制約で失敗する）。初回登録のみ作成し、改定は Selfish 画面で行う（正は Selfish）。
-  料率は **`card_numbers` の件数だけ**作る（JCB 2 件＋セゾン 1 件なら 3 行）。
+  料率は **`card_numbers` の件数だけ**作る（JCB 1 件＋セゾン 1 件なら 2 行）。
   一部の番号にだけ既存期間があるケースがあるため、**番号ごとに独立して判定する**
   （「1 件でも重なれば全部やめる」にすると、JCB だけ登録済みのときセゾンが永久に入らない）。
 - 口座名義カナが「変換すれば通る」場合は **`needs_approval` で返し、登録を保留**。QOLC 側で名義を直して再送する（Selfish 側で黙って変換しない）。

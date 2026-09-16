@@ -286,13 +286,34 @@ migration `035_update_workflow_selfish_step.sql`（要 SQL Editor 適用）。
 6. ✅ `.env.example` に `QOLC_PARTNER_KEY`。`QOLC_BASE_URL` は引き続き**設定しない**
    （`/providers/<id>` が QOLC 側に無く 404 になる。§7）。
 
-### 運用開始前に必ず要る設定（Selfish 側）
+### 運用開始前に必ず要る設定 — **2026-09-16 完了**
 
-- `QOLC_PARTNER_KEY` を Vercel に投入（QOLC の `SELFISH_PARTNER_KEY` と同じ値）。
-  **未設定のあいだ受信APIは全リクエストを 401 で拒否する**（「鍵が無ければ検証しない」にはしていない）。
-- `card_brands.default_card_company_fee_rate` を JCB / SAISON に設定。
-  **これが NULL のままだと 1 件も登録できない**（`missing_default_rate` で保留し続ける）。
-- migration 0012 / 0013 を本番へ適用。
+| 設定 | 状態 |
+|---|---|
+| Selfish: migration 0012 / 0013 / 0014 を本番適用 | ✅ `verify-supabase.mjs` 全項目クリア（業務テーブル27＋schema_migrations=28） |
+| Selfish: `QOLC_PARTNER_KEY`（Vercel Production） | ✅ 投入・再デプロイ済み |
+| QOLC: `SELFISH_PARTNER_KEY`（同じ値）/ `SELFISH_API_BASE_URL` | ✅ 投入・再デプロイ済み |
+| QOLC: migration `035_update_workflow_selfish_step.sql` | ⬜ **SQL Editor で手動適用が必要**（CLI 未リンク） |
+
+※ QOLC 本番は **`develop` ブランチから配信**されている（`main` は 155 コミット遅れ）。
+`main` へのマージは不要。
+
+### 本番で確認したこと（2026-09-16）
+
+`POST /api/partners/merchants` に実際に署名して送り、次を確認した。
+
+| 送ったもの | 結果 |
+|---|---|
+| 署名なし | 401 `unauthorized`（理由は返さない） |
+| 鍵違い | 401 |
+| 時刻ずれ（+600秒） | 401 |
+| 正しい署名 + 空JSON | 400 `validation`（版違いを指摘）＝鍵が通っている |
+| 同じ request-id で2回 | 1回目 400 / 2回目 409 `duplicate_request` |
+| 実データと同じ形のペイロード | **200 `created`**（法人・店舗・口座・加盟店番号・料率を登録） |
+| 同じ内容を別 request-id で再送 | 200 `unchanged`（二重登録しない。料率は期間重複で skip） |
+
+疎通確認に使った `【疎通確認】` のデータは `scripts/cleanup-smoke.mjs` で削除済み
+（監査ログは追記専用のため残る）。
 
 ## 7. 決めておくこと（推奨値つき）
 

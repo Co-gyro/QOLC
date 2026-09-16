@@ -228,20 +228,33 @@ migration `035_update_workflow_selfish_step.sql`（要 SQL Editor 適用）。
 8. **案 C の送信ボタン**: seq 10 のカードに「Selfish へ登録」ボタン。前提条件（加盟店番号 2 社・口座コード・名義カナ・料率）が揃うまでは無効化し、不足項目を表示する（ボタンを隠さない）。
    結果を `application_events`（kind=`selfish_registered`）と `activity_logs` に記録。
 
-## 6. Selfish 側の作業一覧
+## 6. Selfish 側の作業一覧（2026-09-16 API まで実装済み）
 
-1. `merchant_stores.external_id`（UNIQUE, NULL 可）を追加する migration。
-   あわせて `merchants.external_id` の列コメントを直す。現在は
-   「QOLC の **provider_id** との連携キー」と書いてあるが、
-   §1 の決定は **QOLC `merchants.id`**。放置すると次に読む人が別のIDを入れる。
-2. `card_brands` にカード会社手数料率の既定値列（`company_settings` は
-   UD 自社の振込元口座を持つ 1 行テーブルなので不適）。
-   `fee_schedules.card_company_fee_rate` は **NOT NULL** なので、
-   既定値が無いと API 経由の登録が一切できない。
-3. `apps/web/src/lib/masters/merchant-import.ts`: ペイロード検証（`rules.ts` を呼ぶ。再実装しない）→ 既存との差分計算 → 適用。銀行取込 `bank-import.ts` の 6 原則を踏襲。
-4. 取込画面 `masters/merchants/import`（案 B）: JSON 貼り付け → 差分プレビュー → トークン照合 → 適用。
-5. `POST /api/partners/merchants`（案 C）: HMAC 検証 → 3 を呼ぶ → 結果 JSON（`created|updated|unchanged|needs_approval|conflict`）。
-6. `.env.example` に `QOLC_PARTNER_KEY`。`QOLC_BASE_URL` は「QOLC で開く」リンク用に、QOLC 側に `/admin/merchants?id=<uuid>` のディープリンクができてから設定。
+実装: migration `0012_qolc_sync.sql` / `0013_partner_requests.sql`、
+`apps/web/src/lib/masters/merchant-import.ts`（検証＋差分計算・純関数）、
+`apps/web/src/lib/partners/{qolc-signature,qolc-import}.ts`、
+`apps/web/src/app/api/partners/merchants/route.ts`、`src/proxy.ts`（受信APIの除外）。
+テスト: 単体46件 / E2E 10件 / packages/db 152件。
+
+1. ✅ `merchant_stores.external_id`（UNIQUE, NULL 可）と `merchants.external_id` の列コメント訂正（0012）。
+2. ✅ `card_brands.default_card_company_fee_rate`（0012）。**NULL=未設定**で 0 を既定にしない。
+   未設定のあいだ連携は料率を作らず `missing_default_rate` で保留する。
+3. ✅ `merchant-import.ts`（検証 → 差分計算）。DBは触らない純関数で、案B・案Cが同じ判定を通る。
+4. ⬜ 取込画面 `masters/merchants/import`（案 B）: JSON 貼り付け → 差分プレビュー → 適用。
+   **連携が止まったときのフォールバック**なので、API が動いていても要る。
+5. ✅ `POST /api/partners/merchants`（案 C）。再送防止は `partner_requests`（0013）。
+   HMAC は「本文と時刻」に対する署名で**何回送られたかは分からない**ため、
+   ±300 秒の判定だけでは再送を素通しする。request-id を処理の前に記録して一意制約で弾く。
+6. ✅ `.env.example` に `QOLC_PARTNER_KEY`。`QOLC_BASE_URL` は引き続き**設定しない**
+   （`/providers/<id>` が QOLC 側に無く 404 になる。§7）。
+
+### 運用開始前に必ず要る設定（Selfish 側）
+
+- `QOLC_PARTNER_KEY` を Vercel に投入（QOLC の `SELFISH_PARTNER_KEY` と同じ値）。
+  **未設定のあいだ受信APIは全リクエストを 401 で拒否する**（「鍵が無ければ検証しない」にはしていない）。
+- `card_brands.default_card_company_fee_rate` を JCB / SAISON に設定。
+  **これが NULL のままだと 1 件も登録できない**（`missing_default_rate` で保留し続ける）。
+- migration 0012 / 0013 を本番へ適用。
 
 ## 7. 決めておくこと（推奨値つき）
 

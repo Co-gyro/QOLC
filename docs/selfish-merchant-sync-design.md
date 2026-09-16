@@ -148,7 +148,23 @@ migration `032` は「審査結果で発番される 2 種（登録型 / 都度�
   一部の番号にだけ既存期間があるケースがあるため、**番号ごとに独立して判定する**
   （「1 件でも重なれば全部やめる」にすると、JCB だけ登録済みのときセゾンが永久に入らない）。
 - 口座名義カナが「変換すれば通る」場合は **`needs_approval` で返し、登録を保留**。QOLC 側で名義を直して再送する（Selfish 側で黙って変換しない）。
-- 監査は `actor_type='api:qolc'`、`actor_id` = QOLC 側の操作者メール（ペイロードの `operator` として送る）。
+- 監査は `actor_type='api:qolc'`。
+  **操作者メールは `actor_id` に入らない。** `audit_logs.actor_id` は **uuid 型**で、
+  QOLC の操作者は Selfish の `auth.users` に存在しない。当初「`actor_id` = 操作者メール」と
+  書いていたが実装不可能。しかも監査トリガは `request.jwt.claims->>'sub'` を uuid へ
+  キャストし、失敗したら**例外を握りつぶして NULL に落とす**ので、
+  間違って渡しても誰も気づけない。内訳は次のとおり:
+
+  | 列 | 入れるもの |
+  |---|---|
+  | `actor_type` | `'api:qolc'` |
+  | `actor_id` | **NULL**（QOLC の操作者に対応する Selfish のユーザーが無い） |
+  | `correlation_id` | `X-Qolc-Request-Id`。QOLC 側の `application_events` と突合する |
+  | `digest` | `{ operator_email, qolc_merchant_id, request_id, ... }` |
+
+  ※ `correlation_id` が付くのは**サービス層が明示 INSERT した行だけ**。
+  マスタ行変更の自動記録（`audit_row_change()`）には付かない（Selfish `lib/auth/actor.ts` の既知の制限）。
+  突合は「同一 request-id の明示行の `occurred_at` を手掛かりに前後の自動記録を辿る」運用になる。
 
 ### 4.3 Selfish 側で持つ既定値
 
@@ -237,5 +253,5 @@ migration `035_update_workflow_selfish_step.sql`（要 SQL Editor 適用）。
 | カード会社手数料率の持ち主 | Selfish（ブランド別既定値） |
 | 料率の開始日 | USEN 開通確認日。手入力で上書き可 |
 | セゾン 7 桁の意味 | 審査結果の加盟店No.（店舗 No. は既定 0000001。要・初回答え合わせ） |
-| JCB 番号を何件送るか | **2 件**（登録型・都度型EC）。片方だけだと売上が突合できない |
+| JCB 番号を何件送るか | 2 列（登録型・都度型EC）を**重複除去して全部**。区分11の1本化後は通常1件 |
 | 連携失敗時 | 案 B の貼り付け取込にフォールバック（8/24「連携が止まっても精算は自走」） |

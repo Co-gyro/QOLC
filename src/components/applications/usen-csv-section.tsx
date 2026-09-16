@@ -92,6 +92,11 @@ export function UsenCsvSection({ detail }: UsenCsvSectionProps) {
         <p className="font-medium" style={{ color: "var(--qolc-text)" }}>
           USENへの連携手順（運用ルール）
         </p>
+        <p className="mt-1" style={{ color: "#DC2626" }}>
+          【必須の前提】カード会社側のPOS登録がすべて完了してから連携すること
+          （JCB・セゾン両方の登録完了＋稼働前の変更手続き（区分変更等）の完了まで確認。
+          未完了のまま連携すると事故につながる — 2026-09 USEN指摘）。
+        </p>
         <ol className="list-decimal pl-5 mt-1">
           <li>
             ダウンロードしたCSVを{" "}

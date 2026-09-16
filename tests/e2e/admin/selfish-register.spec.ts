@@ -15,6 +15,8 @@ test.describe("加盟店管理: Selfish 登録ダイアログ", () => {
     await login(page, "admin");
     await page.goto("/admin/merchants");
     await expect(page.getByRole("heading", { name: "加盟店管理" })).toBeVisible();
+    // 料率列（精算 / カード会社手数料率）が一覧に出ている
+    await expect(page.getByRole("columnheader", { name: /料率（精算 \/ カード会社）/ }).or(page.getByText("料率（精算 / カード会社）"))).toBeVisible({ timeout: 60_000 });
 
     // 一覧は非同期に読み込まれるため、行が出るか空表示になるまで待つ
     const openButtons = page.getByRole("button", { name: "Selfish登録" });
@@ -37,7 +39,7 @@ test.describe("加盟店管理: Selfish 登録ダイアログ", () => {
 
     // JSON にスキーマ識別子と冪等キーが入っている
     const json = await dialog.locator("textarea").inputValue();
-    expect(json).toContain('"schema": "qolc.merchant.v1"');
+    expect(json).toContain('"schema": "qolc.merchant.v2"');
     expect(json).toContain('"external_id"');
 
     // 送信ボタンは常に表示。無効なら理由が添えられている

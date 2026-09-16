@@ -21,6 +21,8 @@ import { CardCodesCell } from "./_components/card-codes-cell";
 import { CardCodesDialog } from "./_components/card-codes-dialog";
 import { SelfishDialog } from "./_components/selfish-dialog";
 import { RelationsCell } from "./_components/relations-cell";
+import { FeeRatesCell } from "./_components/fee-rates-cell";
+import { fetchMerchantFeeRates, type MerchantFeeRates } from "@/lib/portal/merchant-fee-rates";
 import {
   fetchMerchantRelations,
   type MerchantRelations,
@@ -34,6 +36,7 @@ function AdminMerchantsPageInner() {
   const [formats, setFormats] = useState<UploadFormatOption[]>([]);
   const [codes, setCodes] = useState<Map<string, MerchantCardCodes>>(new Map());
   const [relations, setRelations] = useState<Map<string, MerchantRelations>>(new Map());
+  const [feeRates, setFeeRates] = useState<Map<string, MerchantFeeRates>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<MerchantRow | null>(null);
@@ -44,16 +47,18 @@ function AdminMerchantsPageInner() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [mers, fmts, codeMap, rel] = await Promise.all([
+      const [mers, fmts, codeMap, rel, rates] = await Promise.all([
         fetchMerchants(),
         fetchUploadFormats(),
         fetchMerchantCardCodes(),
         fetchMerchantRelations(), // 内部で空 Map フォールバック
+        fetchMerchantFeeRates(), // 同上（元申請の UD追記情報から）
       ]);
       setRows(mers);
       setFormats(fmts);
       setCodes(codeMap);
       setRelations(rel);
+      setFeeRates(rates);
     } catch (e) {
       setError(e instanceof Error ? e.message : "取得に失敗しました");
       setRows([]);
@@ -150,6 +155,11 @@ function AdminMerchantsPageInner() {
                   onEdit={() => setCodesTarget(r)}
                 />
               ),
+            },
+            {
+              key: "feeRates",
+              header: "料率（精算 / カード会社）",
+              render: (r) => <FeeRatesCell rates={feeRates.get(r.id) ?? null} />,
             },
             { key: "facilityCount", header: "提携施設数", sortable: true, className: "text-right" },
             {

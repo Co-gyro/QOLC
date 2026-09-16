@@ -14,7 +14,10 @@ import type { UdInputFields } from "@/lib/applications/ud-input";
 import { findZenginViolations, suggestZenginKana } from "./zengin";
 
 /** 連携ペイロードのスキーマ識別子 */
-export const SELFISH_PAYLOAD_SCHEMA = "qolc.merchant.v1";
+export const SELFISH_PAYLOAD_SCHEMA = "qolc.merchant.v2";
+
+/** カード会社ブランド */
+export type SelfishBrand = "JCB" | "SAISON";
 
 /**
  * セゾンの「加盟店店舗No.」の既定値（7桁）。
@@ -50,14 +53,15 @@ export interface SelfishMerchantPayload {
   }>;
   fee: {
     valid_from: string;
+    /** 加盟店手数料率（QOLC の精算料率）。小数6桁の文字列。全ブランド共通 */
     merchant_fee_rate: string;
     /**
-     * カード会社手数料率。業種ごとに違い既定値が無いため **QOLC が送る**
-     * （docs/selfish-merchant-sync-design.md §4.3）。
-     * Selfish 側は必須項目で、無ければ登録を拒否する。
+     * カード会社手数料率（UD→カード会社）。ブランドごとに異なるため card_numbers に
+     * 載せたブランドの分を必ず含める（v2 で単一欄から変更。既定値なし）
      */
-    card_company_fee_rate: string;
+    card_company_fee_rates: Partial<Record<SelfishBrand, string>>;
   };
+
   source: {
     qolc_merchant_id: string;
     application_id: string | null;
@@ -233,14 +237,27 @@ export function buildSelfishPayload(src: SelfishSource): SelfishBuildResult {
   };
   const rate = toRate(src.ud.settlement_rate, "fee.merchant_fee_rate", "精算料率");
   /*
-   * カード会社手数料率に既定値は無い（業種ごとに違う）。
-   * Selfish 側もブランド別の既定値を持たないので、ここが空だと登録できない。
+   * カード会社手数料率は JCB/セゾンで違い、加盟店ごとにも違う（既定値なし）。
+   * card_numbers に載せるブランドの分だけ必須。旧・共通欄の値が残っていれば暫定で使う（warning）。
    */
-  const cardRate = toRate(
-    src.ud.card_company_fee_rate,
-    "fee.card_company_fee_rate",
-    "カード会社手数料率",
-  );
+  const cardCompanyFeeRates: Partial<Record<SelfishBrand, string>> = {};
+  const legacy = s(src.ud.card_company_fee_rate);
+  const brandRate: Record<SelfishBrand, string | undefined> = {
+    JCB: src.ud.card_company_fee_rate_jcb,
+    SAISON: src.ud.card_company_fee_rate_saison,
+  };
+  const brandLabel: Record<SelfishBrand, string> = { JCB: "JCB", SAISON: "セゾン" };
+  for (const brand of ["JCB", "SAISON"] as const) {
+    if (!cardNumbers.some((c) => c.brand === brand)) continue;
+    const field = `fee.card_company_fee_rates.${brand}`;
+    const label = `カード会社手数料率（${brandLabel[brand]}）`;
+    if (!s(brandRate[brand]) && legacy) {
+      warn(field, label, `未入力のため旧の共通欄の値 ${legacy}% を暫定で使用します。ブランド別に入れ直してください`, "ud_input");
+      cardCompanyFeeRates[brand] = toRate(legacy, field, label);
+    } else {
+      cardCompanyFeeRates[brand] = toRate(brandRate[brand], field, label);
+    }
+  }
   const validFrom = s(src.ud.fee_valid_from);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(validFrom)) {
     err("fee.valid_from", "料率適用開始日", "YYYY-MM-DD で入力してください（USEN開通確認日が目安）", "ud_input");
@@ -259,7 +276,7 @@ export function buildSelfishPayload(src: SelfishSource): SelfishBuildResult {
       account_name_kana: holder,
     },
     card_numbers: cardNumbers,
-    fee: { valid_from: validFrom, merchant_fee_rate: rate, card_company_fee_rate: cardRate },
+    fee: { valid_from: validFrom, merchant_fee_rate: rate, card_company_fee_rates: cardCompanyFeeRates },
     source: {
       qolc_merchant_id: src.merchant.id,
       application_id: src.applicationId,

@@ -23,7 +23,8 @@ function fullSource(): SelfishSource {
     applyPayload: { corpName: "医療法人まるまる会", contactEmail: "contact@example.jp" },
     ud: {
       settlement_rate: "1.9",
-      card_company_fee_rate: "3.0",
+      card_company_fee_rate_jcb: "3.0",
+      card_company_fee_rate_saison: "3.2",
       bank_code: "0310",
       branch_code: "102",
       account_type: "ordinary",
@@ -80,7 +81,7 @@ describe("buildSelfishPayload（全項目あり）", () => {
       fee: {
         valid_from: "2026-10-01",
         merchant_fee_rate: "0.019000",
-        card_company_fee_rate: "0.030000",
+        card_company_fee_rates: { JCB: "0.030000", SAISON: "0.032000" },
       },
       source: {
         qolc_merchant_id: "11111111-2222-4333-8444-555555555555",
@@ -193,36 +194,62 @@ describe("buildSelfishPayload（不足・不正の検出）", () => {
   });
 });
 
-describe("カード会社手数料率", () => {
+describe("カード会社手数料率（ブランド別）", () => {
   /*
-   * 業種ごとに違うため既定値が無い（2026-09-16 UD確認）。
-   * Selfish 側もブランド別の既定値を持たないので、ここが空だと登録できない。
+   * UD→カード会社の率は JCB/セゾンで違い、業種で加盟店ごとにも違う（既定値なし）。
+   * card_numbers に載せるブランドの分だけ必須。
    */
-  it("未入力なら ready=false で、どこで直せるかを示す", () => {
+  it("送るブランドの分が未入力なら ready=false で、ブランド名入りの不足を示す", () => {
     const src = fullSource();
-    delete src.ud.card_company_fee_rate;
+    delete src.ud.card_company_fee_rate_saison;
     const r = buildSelfishPayload(src);
     expect(r.ready).toBe(false);
     expect(r.issues).toContainEqual(
       expect.objectContaining({
-        field: "fee.card_company_fee_rate",
+        field: "fee.card_company_fee_rates.SAISON",
+        label: "カード会社手数料率（セゾン）",
         level: "error",
         fix: "ud_input",
       }),
     );
+    expect(r.payload.fee.card_company_fee_rates).toEqual({ JCB: "0.030000", SAISON: "" });
+  });
+
+  it("加盟店番号が無いブランドの率は要求しない（JCB のみの加盟店）", () => {
+    const src = fullSource();
+    src.merchant.saisonMerchantCode = null;
+    delete src.ud.card_company_fee_rate_saison;
+    const r = buildSelfishPayload(src);
+    expect(r.ready).toBe(true);
+    expect(r.payload.fee.card_company_fee_rates).toEqual({ JCB: "0.030000" });
   });
 
   it("%表記を料率へ変換して載せる（浮動小数を経由しない）", () => {
     const r = buildSelfishPayload(fullSource());
-    expect(r.payload.fee.card_company_fee_rate).toBe("0.030000");
+    expect(r.payload.fee.card_company_fee_rates).toEqual({ JCB: "0.030000", SAISON: "0.032000" });
+  });
+
+  it("旧・共通欄の値だけがある場合は暫定で使い warning を出す", () => {
+    const src = fullSource();
+    delete src.ud.card_company_fee_rate_jcb;
+    delete src.ud.card_company_fee_rate_saison;
+    src.ud.card_company_fee_rate = "2.5";
+    const r = buildSelfishPayload(src);
+    expect(r.ready).toBe(true);
+    expect(r.payload.fee.card_company_fee_rates).toEqual({ JCB: "0.025000", SAISON: "0.025000" });
+    expect(r.issues.filter((i) => i.field.startsWith("fee.card_company_fee_rates")).map((i) => i.level)).toEqual([
+      "warning",
+      "warning",
+    ]);
   });
 
   it("数値として読めなければ ready=false", () => {
     const src = fullSource();
-    src.ud.card_company_fee_rate = "3%";
+    src.ud.card_company_fee_rate_jcb = "3%";
     const r = buildSelfishPayload(src);
     expect(r.ready).toBe(false);
-    expect(r.issues.map((i) => i.field)).toContain("fee.card_company_fee_rate");
+    expect(r.issues.map((i) => i.field)).toContain("fee.card_company_fee_rates.JCB");
   });
 });
+
 

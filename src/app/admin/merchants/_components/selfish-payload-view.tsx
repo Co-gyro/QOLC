@@ -67,9 +67,12 @@ export function SelfishPayloadTable({ payload }: { payload: SelfishMerchantPaylo
     ["③ 口座種別 / 口座番号", `${typeLabel} / ${payload.account.account_number || "—"}`],
     ["③ 口座名義（全銀カナ）", payload.account.account_name_kana || "—"],
     ...payload.card_numbers.map(
-      (c): [string, string] => [`④ 加盟店番号（${c.brand}）`, c.merchant_number]
+      (c): [string, string] => [
+        `④ 加盟店番号（${c.brand}） / カード会社手数料率`,
+        `${c.merchant_number} / ${payload.fee.card_company_fee_rates[c.brand] || "—"}`,
+      ]
     ),
-    ["⑤ 加盟店手数料率 / 適用開始日", `${payload.fee.merchant_fee_rate || "—"} / ${payload.fee.valid_from || "—"}`],
+    ["⑤ 加盟店手数料率（精算料率） / 適用開始日", `${payload.fee.merchant_fee_rate || "—"} / ${payload.fee.valid_from || "—"}`],
   ];
   return (
     <table className="w-full text-sm border-collapse">

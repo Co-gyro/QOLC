@@ -42,6 +42,10 @@ export interface UdInputFields {
    * 誤っても着金の不一致として表に出てこないので、入力時に確かめること。
    */
   card_company_fee_rate?: string;
+  /** カード会社手数料率 JCB（%表記。UD→JCB の率。加盟店×ブランドで異なる） */
+  card_company_fee_rate_jcb?: string;
+  /** カード会社手数料率 セゾン（%表記。UD→セゾンの率） */
+  card_company_fee_rate_saison?: string;
   /** 業態コード（JCB 申請書の業態コード。例: 60207） */
   biz_cat_code?: string;
   /** セキュリティ対応状況（カード情報非保持・PCIDSS 等の申告内容） */
@@ -79,6 +83,8 @@ export const UD_INPUT_FIELD_KEYS: readonly (keyof UdInputFields)[] = [
   "bulk_provider_code",
   "settlement_rate",
   "card_company_fee_rate",
+  "card_company_fee_rate_jcb",
+  "card_company_fee_rate_saison",
   "biz_cat_code",
   "security_status",
   "bank_name",
@@ -100,7 +106,9 @@ export const UD_INPUT_FIELD_KEYS: readonly (keyof UdInputFields)[] = [
 export const UD_INPUT_LABELS: Record<keyof UdInputFields, string> = {
   bulk_provider_code: "包括事業者コード",
   settlement_rate: "精算料率",
-  card_company_fee_rate: "カード会社手数料率",
+  card_company_fee_rate: "カード会社手数料率（旧・共通）",
+  card_company_fee_rate_jcb: "カード会社手数料率（JCB）",
+  card_company_fee_rate_saison: "カード会社手数料率（セゾン）",
   biz_cat_code: "業態コード",
   security_status: "セキュリティ対応状況",
   bank_name: "振込先銀行名",
@@ -188,6 +196,15 @@ export interface ApplicationReview {
  * 桁数・数値形式の誤りは申請書生成で申請不能につながるため、入力時点で弾く。
  * すべて任意項目（入力された場合のみ形式を検証する）。
  */
+/** カード会社手数料率（%）の形式。旧・共通欄とブランド別欄で共通 */
+const cardCompanyFeeRateSchema = z
+  .string()
+  .regex(/^\d{1,2}(\.\d{1,2})?$/, "カード会社手数料率は数値で入力してください（例: 3.0）")
+  .refine((v) => Number.parseFloat(v) > 0 && Number.parseFloat(v) <= 10, {
+    message: "カード会社手数料率は 0 より大きく 10 以下で入力してください",
+  })
+  .optional();
+
 export const udInputFieldsSchema = z.object({
   bulk_provider_code: z
     .string()
@@ -200,13 +217,9 @@ export const udInputFieldsSchema = z.object({
       message: "精算料率は 0〜10% の範囲で入力してください",
     })
     .optional(),
-  card_company_fee_rate: z
-    .string()
-    .regex(/^\d{1,2}(\.\d{1,2})?$/, "カード会社手数料率は数値で入力してください（例: 3.0）")
-    .refine((v) => Number.parseFloat(v) > 0 && Number.parseFloat(v) <= 10, {
-      message: "カード会社手数料率は 0 より大きく 10 以下で入力してください",
-    })
-    .optional(),
+  card_company_fee_rate: cardCompanyFeeRateSchema,
+  card_company_fee_rate_jcb: cardCompanyFeeRateSchema,
+  card_company_fee_rate_saison: cardCompanyFeeRateSchema,
   biz_cat_code: z
     .string()
     .regex(/^\d{5}$/, "業態コードは数字5桁です（例: 60207）")

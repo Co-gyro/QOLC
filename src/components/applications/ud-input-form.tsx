@@ -78,18 +78,30 @@ export function UdInputForm({ udInput, saving, onSave }: UdInputFormProps) {
           onChange={set("settlement_rate")}
         />
         {/*
-          カード会社手数料率は業種ごとに違い既定値が無いため、加盟店ごとに入力する。
-          Selfish 側もブランド別の既定値を持たず、未入力だと連携を拒否する。
-          誤っても店子への振込額には出ない（UDの取り分とNMとの折半だけがずれる）ので、
-          hint で「何に効くか」を明示しておく。
+          カード会社手数料率（UD→カード会社）は JCB とセゾンで違い、さらに業種で
+          加盟店ごとにも違う。既定値は無く、加盟店番号を送るブランドの分が Selfish 登録に必須。
+          誤っても店子への振込額には出ない（UDの取り分とNMとの折半だけがずれる）。
         */}
         <TextField
-          label="カード会社手数料率（%）"
-          value={fields.card_company_fee_rate ?? ""}
+          label="カード会社手数料率 JCB（%）"
+          value={fields.card_company_fee_rate_jcb ?? ""}
           placeholder="例：3.0"
-          hint="UDがカード会社へ支払う率（業種で異なる）。UDの取り分の計算に使う"
-          onChange={set("card_company_fee_rate")}
+          hint="UD→JCB の率。JCB を申請していなければ空でよい"
+          onChange={set("card_company_fee_rate_jcb")}
         />
+        <TextField
+          label="カード会社手数料率 セゾン（%）"
+          value={fields.card_company_fee_rate_saison ?? ""}
+          placeholder="例：3.2"
+          hint="UD→セゾンの率。セゾンを申請していなければ空でよい"
+          onChange={set("card_company_fee_rate_saison")}
+        />
+        {fields.card_company_fee_rate && (
+          <p className="text-xs sm:col-span-2" style={{ color: "#92400E" }}>
+            旧の共通欄に {fields.card_company_fee_rate}% が保存されています。ブランド別に入れ直すと
+            Selfish 登録ではブランド別の値が優先されます。
+          </p>
+        )}
       </div>
       <p className="text-sm font-medium" style={{ color: "var(--qolc-text)" }}>
         申請書用補足（JCB申請書の必須項目・お客様入力にはない項目）

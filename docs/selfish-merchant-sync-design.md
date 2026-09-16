@@ -105,7 +105,7 @@ migration `032` は「審査結果で発番される 2 種（登録型 / 都度�
 
 ```jsonc
 {
-  "schema": "qolc.merchant.v1",
+  "schema": "qolc.merchant.v2",
   "external_id": "<QOLC merchants.id (uuid)>",
   "merchant": { "name": "医療法人〇〇会" },
   "store": {
@@ -131,7 +131,7 @@ migration `032` は「審査結果で発番される 2 種（登録型 / 都度�
     "valid_from": "2026-10-01",
     "merchant_fee_rate": "0.019000",     // 文字列。浮動小数を経由しない（Selfish 不変条件）
     // カード会社手数料率も **QOLC が送る**（2026-09-16 決定。下記）
-    "card_company_fee_rate": "0.030000"
+    "card_company_fee_rates": { "JCB": "0.030000", "SAISON": "0.032000" }  // v2: ブランド別（card_numbers に載せたブランドの分が必須）
     // fee は1つだけ送り、**Selfish 側で card_numbers の件数分に展開**する
     //（fee_schedules は加盟店番号ごとにぶら下がるため）
   },
@@ -173,7 +173,7 @@ migration `032` は「審査結果で発番される 2 種（登録型 / 都度�
 **この料率は業種によって加盟店ごとに違い、既定値というものが無い**。
 ブランド別に1つ持たせると、全社一律の誤った値が黙って入る。
 
-そこで **`ud_input.card_company_fee_rate` として QOLC で入力し、ペイロードに載せる**。
+そこで **`ud_input.card_company_fee_rate_jcb` / `card_company_fee_rate_saison` として QOLC でブランド別に入力し、ペイロード `fee.card_company_fee_rates` に載せる**（2026-09-16 v2。UD→カード会社の率は JCB とセゾンで異なるため 1 欄では表現できない。旧の共通欄 `card_company_fee_rate` は暫定値として読むだけ）。
 加盟店手数料率（`settlement_rate`）と同じ性質・同じタイミング・同じ人が決める値なので、
 入力欄を隣に並べる。Selfish 側は**必須項目**として扱い、無ければ登録を拒否する
 （既定値で埋めない。埋めると誤りに誰も気づけない）。
@@ -327,3 +327,12 @@ migration `035_update_workflow_selfish_step.sql`（要 SQL Editor 適用）。
 | セゾン 7 桁の意味 | 審査結果の加盟店No.（店舗 No. は既定 0000001。要・初回答え合わせ） |
 | JCB 番号を何件送るか | 2 列（登録型・都度型EC）を**重複除去して全部**。区分11の1本化後は通常1件 |
 | 連携失敗時 | 案 B の貼り付け取込にフォールバック（8/24「連携が止まっても精算は自走」） |
+
+
+### 4.5 v2 変更点（2026-09-16・カード会社手数料率のブランド別化）
+
+- `schema` は `qolc.merchant.v2`。Selfish は v1 を「版が違う」として拒否してよい（本番に v1 の実登録は無い）。
+- `fee.card_company_fee_rate`（単一）→ `fee.card_company_fee_rates: { JCB?: string, SAISON?: string }`。
+  `card_numbers` に載せた各ブランドのキーが必須。載せていないブランドのキーは無くてよい（あっても無視）。
+- Selfish 側の展開: 各 `card_numbers[i]` に対し `fee_schedules` を 1 行作り、`card_company_fee_rate` は `fee.card_company_fee_rates[card_numbers[i].brand]` を使う。`merchant_fee_rate` と `valid_from` は共通。
+- QOLC 側: UD追記情報の欄を JCB/セゾンの 2 欄に分割。加盟店管理の一覧に「料率（精算 / カード会社）」列を追加し、入力済みかを一覧で確認できる。旧の共通欄に値が残る申請は暫定値として送り warning を表示。

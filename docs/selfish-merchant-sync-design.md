@@ -1,0 +1,212 @@
+# QOLC → Selfish 加盟店登録連携 設計メモ
+
+作成: 2026-09-16
+対象: 審査通過・USEN開通後に「Selfish（精算システム）へ支払先を登録する」作業の自動化
+関連: Obsidian `Selfish/Selfish_QOLC連携仕様.md`（2026-08-24 決定事項）、
+Selfish リポジトリ `/Users/project/selfish-web`（`docs/ACCESS-MIGRATION.md`, `docs/INVARIANTS.md`）
+
+---
+
+## 1. 結論（先に読む）
+
+- **方式**: QOLC が「Selfish 登録データ」を組み立てて **Selfish へ push**（`POST /api/partners/merchants`、冪等キー = QOLC `merchants.id`）。
+  8/24 合意どおり。以降の口座・料率の変更は Selfish が正、QOLC は初回登録のみ渡す。
+- **対応キー（未決だったもの）**: **QOLC `merchants.id`（UUID）= Selfish `merchants.external_id`**。
+  QOLC 加盟店 1 件 = Selfish 法人 1 件 + 店舗 1 件を自動生成（店舗名 = 加盟店名）。
+  法人の下に複数店舗を束ねたいケースは Selfish 側で手動統合（QOLC は法人階層を持たない）。
+- **QOLC 側で先に直すもの（DDL 不要・`ud_input` 追記で足りる）**: 銀行コード/支店コード、口座番号 7 桁、口座名義の全銀半角カナ、セゾン加盟店店舗 No.、料率適用開始日。
+  現状の QOLC は「銀行名・支店名（文字列）」しか持たず、Selfish の口座テーブル（4 桁+3 桁コード必須）に**そのままでは入らない**。
+- **段階導入**: ①QOLC に「Selfish 登録票」画面（手作業でも転記ミスをなくす）→ ②Selfish に JSON 取込画面（貼り付け・差分プレビュー）→ ③API 接続。②と③は同じ取込モジュールを使うので追加コストが小さく、連携停止時のフォールバックにもなる。
+
+---
+
+## 2. 現状
+
+### 2.1 いまの手順（業務 OS ワークフロー「加盟店申請」）
+
+| seq | 工程 | データの置き場 |
+|---|---|---|
+| 8 | 審査結果の登録 | `applications.ud_input.review.{jcb,saison}` |
+| 9 | QOLC へ加盟店番号を登録 | `merchants.jcb_merchant_code_recurring / _ec / saison_merchant_code` |
+| **10** | **セルフィッシュへ支払先を登録** | **完全手作業**（Selfish 画面で 法人→店舗→口座→加盟店番号→料率 の 5 画面を入力） |
+| 11 | USEN 側の登録確認（テスト決済） | — |
+
+seq 10 のガイド文「支払先番号は JCB が 9 桁、セゾンは加盟店 No.」は **Selfish の実装と食い違っている**。
+Selfish は支払先番号（UD 自身の包括番号）をマスタ照合に使っておらず、明細を店舗に突合するキーは
+**店子ごとの加盟店番号（JCB 14 桁 / セゾン 加盟店 No.7 桁 + 加盟店店舗 No.7 桁）**。
+→ ガイド文の修正が必要（§5）。
+
+### 2.2 Selfish が登録時に要求する項目（`selfish-web/supabase/migrations/0002_masters.sql`）
+
+```
+merchants            name(必須), external_id(UNIQUE, QOLC 連携用に予約済み)
+merchant_stores      merchant_id, name(必須), email, delivery_channel(email|qolc_portal|selfish_portal), status
+merchant_accounts    store_id(UNIQUE=1 店舗 1 口座), bank_code(4 桁), branch_code(3 桁),
+                     account_type(1|2|4|9), account_number(1〜7 桁), account_name_kana(全銀半角カナ)
+merchant_card_numbers store_id, card_brand_id(JCB|SAISON), merchant_number  ※UNIQUE(card_brand_id, merchant_number)
+fee_schedules        merchant_card_number_id, valid_from(必須), merchant_fee_rate(必須),
+                     card_company_fee_rate(必須), agent_*, nm_*, monthly_fixed_fee1..3  ※期間重複は DB が拒否
+```
+
+検証ルールは `apps/web/src/lib/masters/rules.ts` に一元化されている（zod 不使用）。
+口座名義カナは「変換すれば通る」場合に**黙って変換せず運用者承認を待つ**（`account-name.ts`）。
+マスタ全テーブルに監査行トリガ。`audit_logs.actor_type='api:qolc'` と `import_files.source_method='qolc_api'` が**予約席として既に存在**するが、外部からの受信 API は 1 本もない。
+
+### 2.3 QOLC が開通時点で持っているもの
+
+| Selfish 項目 | QOLC の在処 | 状態 |
+|---|---|---|
+| 法人名 | `merchants.name`（申請 payload の `corpName`） | ○ |
+| 法人 external_id | `merchants.id` | ○ |
+| 店舗名 | `merchants.name` または payload `facilityName` | ○ |
+| 店舗メール | payload `contactEmail` | ○（連絡担当者のメール。明細配信先として妥当か要確認） |
+| 配信チャネル | なし | △ 当面 `email`。QOLC ポータル配信（トラック C2）稼働後に `qolc_portal` へ |
+| 銀行コード / 支店コード | **なし**（`ud_input.bank_name / bank_branch` は名称のみ） | **×** |
+| 口座種別 | `ud_input.account_type`（ordinary/checking） | ○ 1/2 へ写像 |
+| 口座番号 | `ud_input.account_number`（4〜8 桁許容） | △ Selfish は 7 桁まで。zod を 7 桁に合わせる |
+| 口座名義カナ | `ud_input.account_holder`（自由文字列 60 字） | **×** 全銀半角カナ検証なし |
+| JCB 加盟店番号（14 桁） | `merchants.jcb_merchant_code_recurring` / `jcb_merchant_code_ec`（通常同値） | ○ 重複を除いて全部送る（下記） |
+| セゾン 14 桁（加盟店 No.7 + 店舗 No.7） | `merchants.saison_merchant_code`（7 桁） | **×** どちらの 7 桁かが未定義。店舗 No. を持つ列がない |
+| 加盟店手数料率 | `ud_input.settlement_rate`（% 文字列 例 "1.9"） | ○ `percentTextToRateText` 相当で 0.019000 へ |
+| カード会社手数料率 | **なし** | × UD 側の値。Selfish のブランド別既定値で埋める（§4.3） |
+
+#### JCB の加盟店番号は DB 上 2 列ある（2026-09-16 整理）
+
+migration `032` は「審査結果で発番される 2 種（登録型 / 都度型EC）」と明記しているが、
+**2026-09-16 の JCB 回答で「販売形態区分 11 の加盟店番号 1 本で登録型・都度型を包含」に変わった**
+（commit `507d977a`）。QOLC の編集画面は 1 つの入力を両列へ保存する。
+ただし過去分・例外で 2 列が異なる値を持つ可能性は残るので、連携は次の規則にする。
+
+- `jcb_merchant_code_recurring` と `jcb_merchant_code_ec` を集めて**重複を除いた集合**を `card_numbers` に載せる（同値なら 1 件、異なれば 2 件）。
+- Selfish は明細を `merchant_card_numbers` で店舗に結びつけるため、**QOLC が持つ JCB 番号は全部送る**。外れた売上は `unmatched_sales` に隔離され、その店子への入金が手作業解決まで止まる。
+- Selfish 側は 1 店舗に同一ブランドの番号を複数ぶら下げられる（`UNIQUE (card_brand_id, merchant_number)` のみ）。
+- `fee_schedules` は加盟店番号ごとに作る。ペイロードの `fee` は 1 つで、**Selfish 側で `card_numbers` の件数分に展開**する。
+
+| 料率適用開始日 | なし | △ 開通確認日（seq 11 完了日）を既定にする |
+
+---
+
+## 3. 方式の比較
+
+| 案 | 内容 | 評価 |
+|---|---|---|
+| A. 登録票（手作業補助） | QOLC が Selfish の入力順に整形した「登録票」を表示。運用者が転記 | すぐ作れる。転記ミス減。自動化ではない |
+| B. JSON 取込（半自動） | A の JSON を Selfish の取込画面に貼る。差分プレビュー→適用 | 認証設計不要。銀行マスタ取込と同じ型 |
+| **C. API push（自動）** | QOLC のボタン → Selfish `POST /api/partners/merchants`（HMAC + IP 制限） | 8/24 合意。C の受信処理 = B の取込モジュール |
+| D. Selfish が QOLC DB を直接読む | 別 Supabase を service-role で参照 | 結合が強く監査が二重化。不採用 |
+
+**A → B → C の順で積む。** B の「検証・差分・適用」を `apps/web/src/lib/masters/merchant-import.ts` として純関数化しておけば、C の Route Handler はそれを呼ぶだけ。
+
+---
+
+## 4. 連携データ仕様（案）
+
+### 4.1 ペイロード（QOLC → Selfish）
+
+```jsonc
+{
+  "schema": "qolc.merchant.v1",
+  "external_id": "<QOLC merchants.id (uuid)>",
+  "merchant": { "name": "医療法人〇〇会" },
+  "store": {
+    "name": "〇〇クリニック",
+    "email": "contact@example.jp",
+    "delivery_channel": "email"          // 当面固定。C2 稼働後 "qolc_portal"
+  },
+  "account": {
+    "bank_code": "0310", "branch_code": "102",
+    "account_type": "1",                 // ordinary→1 / checking→2
+    "account_number": "1234567",         // 7 桁以内（左 0 埋めは Selfish 側で行わない）
+    "account_name_kana": "ｲﾘﾖｳﾎｳｼﾞﾝ ﾏﾙﾏﾙｶｲ"  // 全銀文字のみ。QOLC 側で事前検証
+  },
+  // JCB は審査結果で2種が発番される。**両方送る**（片方だけだと
+  // その番号が付いた売上が突合できず unmatched_sales に落ちる）
+  "card_numbers": [
+    { "brand": "JCB",    "kind": "recurring", "merchant_number": "24111748400001" }, // 登録型 14 桁
+    { "brand": "JCB",    "kind": "ec",        "merchant_number": "24111748400002" }, // 都度型EC 14 桁
+    { "brand": "SAISON", "kind": "default",   "merchant_number": "20772470000001" }  // 加盟店No.7 + 店舗No.7
+  ],
+  "fee": {
+    "valid_from": "2026-10-01",
+    "merchant_fee_rate": "0.019000"      // 文字列。浮動小数を経由しない（Selfish 不変条件）
+    // card_company_fee_rate は Selfish のブランド別既定値で補完。QOLC は送らない
+    // この料率は **card_numbers の全件に同じ内容で** 作られる
+    //（fee_schedules は加盟店番号ごとにぶら下がるため）
+  },
+  "source": { "application_id": "<applications.id>", "opened_at": "2026-09-30" }
+}
+```
+
+### 4.2 冪等・更新ルール
+
+- `external_id` で `merchants` を upsert。店舗は「その法人の唯一の店舗」を対象にする（**`merchant_stores.external_id` 列の追加を推奨**。将来 1 法人多店舗になっても突合が壊れない）。
+- 口座は 1 店舗 1 口座（DB 制約）。既存と異なれば **UPDATE**、同じなら書かない（監査を汚さない）。
+- 加盟店番号は `UNIQUE(card_brand_id, merchant_number)`。他店舗に既登録なら **409 で店舗 ID を返し**、QOLC 側に表示する。
+- 料率は既存期間と重なる場合 **新規追加しない**（Selfish の GiST 制約で失敗する）。初回登録のみ作成し、改定は Selfish 画面で行う（正は Selfish）。
+  料率は **`card_numbers` の件数だけ**作る（JCB 2 件＋セゾン 1 件なら 3 行）。
+  一部の番号にだけ既存期間があるケースがあるため、**番号ごとに独立して判定する**
+  （「1 件でも重なれば全部やめる」にすると、JCB だけ登録済みのときセゾンが永久に入らない）。
+- 口座名義カナが「変換すれば通る」場合は **`needs_approval` で返し、登録を保留**。QOLC 側で名義を直して再送する（Selfish 側で黙って変換しない）。
+- 監査は `actor_type='api:qolc'`、`actor_id` = QOLC 側の操作者メール（ペイロードの `operator` として送る）。
+
+### 4.3 Selfish 側で持つ既定値
+
+- `card_company_fee_rate`：ブランド別既定値（JCB / SAISON）。`card_brands` に列を足すか `company_settings` に持つ。登録後に店舗ごと上書き可。
+- NM 手数料・UD 固定費・代理店：API では触らない（NULL / false / 0）。必要な店子は Selfish で設定。
+
+### 4.4 認証・経路
+
+- HMAC-SHA256（共有秘密は両方 env、`SELFISH_PARTNER_KEY` / `QOLC_PARTNER_KEY`）、`X-Timestamp` ±5 分、リプレイ防止に `X-Request-Id` を Selfish 側で記録。
+- Vercel Pro の hnd1 固定 IP は無いので IP 制限は当面見送り、HMAC + タイムスタンプで担保。
+- QOLC 側の送信は server-only（`src/lib/selfish/client.ts`）。本番 URL は `SELFISH_API_BASE_URL`。
+  ※`SELFISH_URL`（サイドバーの導線）は画面用なので分ける。
+
+---
+
+## 5. QOLC 側の作業一覧
+
+DDL が不要なものを優先。`ud_input` は JSONB なので列追加は zod と画面だけで済む。
+
+1. **`ud_input` に振込先コードを追加**: `bank_code`(4 桁) / `branch_code`(3 桁)。
+   画面（`src/components/applications/ud-input-form.tsx`）に入力欄を足し、`src/lib/applications/ud-input.ts` の zod に regex を追加。
+   銀行名・支店名は JCB/セゾン申請書用に残す。
+2. **口座番号を 7 桁上限に**: `account_number` の regex を `^\d{1,7}$` へ（Selfish の CHECK と一致）。
+3. **口座名義を全銀半角カナで検証**: `account_holder` に Selfish `rules.ts` と同じ集合 `^[0-9A-Z()\/\-. ｦｰ-ﾟ]+$` を適用。全角→半角の変換候補を画面で提示し、運用者が確定した値だけ保存する（Selfish の承認方式に揃える）。
+4. **セゾン加盟店番号の定義を確定**: `merchants.saison_merchant_code`（7 桁）は「**店子の加盟店店舗 No.**」と定義し、親の加盟店 No.（UD = 2077247）は定数化。送信時に 7+7 で連結する。
+   ※初回の店子審査結果が届いた時点で「セゾンが返す番号は店舗 No. か」を答え合わせする（既存メモの宿題）。
+5. **料率適用開始日**: `ud_input.fee_valid_from`（YYYY-MM-DD）。未入力時は seq 11（USEN 開通確認）の完了日を既定に使う。
+6. **Selfish 登録票の画面**（案 A）: `/admin/merchants` の行アクションに「Selfish 登録データ」ダイアログ。§4.1 の JSON と、不足項目のチェックリスト（銀行コード未入力など）を表示。コピーできるようにする。
+   データの組み立ては純関数 `src/lib/selfish/build-payload.ts` に置き、テストを付ける。
+7. **ワークフロー seq 10 のガイド文を修正**（`supabase/migrations/030_create_workflow_engine.sql` のシードは適用済みなので、`workflow_templates` を UPDATE する新 migration）:
+   「支払先番号 9 桁 / 7 桁」→「店子の加盟店番号（JCB 14 桁・セゾン 加盟店 No.7 桁+店舗 No.7 桁）。QOLC の『Selfish 登録データ』から転記する」。
+   seq 10 を seq 11（開通確認）の後ろへ移すかは運用判断（開通前に登録しても害はない。料率開始日だけ後決めになる）。
+8. **案 C の送信ボタン**: seq 10 のカードに「Selfish へ登録」ボタン。前提条件（加盟店番号 2 社・口座コード・名義カナ・料率）が揃うまでは無効化し、不足項目を表示する（ボタンを隠さない）。
+   結果を `application_events`（kind=`selfish_registered`）と `activity_logs` に記録。
+
+## 6. Selfish 側の作業一覧
+
+1. `merchant_stores.external_id`（UNIQUE, NULL 可）を追加する migration。
+   あわせて `merchants.external_id` の列コメントを直す。現在は
+   「QOLC の **provider_id** との連携キー」と書いてあるが、
+   §1 の決定は **QOLC `merchants.id`**。放置すると次に読む人が別のIDを入れる。
+2. `card_brands` にカード会社手数料率の既定値列（`company_settings` は
+   UD 自社の振込元口座を持つ 1 行テーブルなので不適）。
+   `fee_schedules.card_company_fee_rate` は **NOT NULL** なので、
+   既定値が無いと API 経由の登録が一切できない。
+3. `apps/web/src/lib/masters/merchant-import.ts`: ペイロード検証（`rules.ts` を呼ぶ。再実装しない）→ 既存との差分計算 → 適用。銀行取込 `bank-import.ts` の 6 原則を踏襲。
+4. 取込画面 `masters/merchants/import`（案 B）: JSON 貼り付け → 差分プレビュー → トークン照合 → 適用。
+5. `POST /api/partners/merchants`（案 C）: HMAC 検証 → 3 を呼ぶ → 結果 JSON（`created|updated|unchanged|needs_approval|conflict`）。
+6. `.env.example` に `QOLC_PARTNER_KEY`。`QOLC_BASE_URL` は「QOLC で開く」リンク用に、QOLC 側に `/admin/merchants?id=<uuid>` のディープリンクができてから設定。
+
+## 7. 決めておくこと（推奨値つき）
+
+| 論点 | 推奨 |
+|---|---|
+| external_id は何の ID か | QOLC `merchants.id`。法人まとめは Selfish で手動 |
+| 店舗メール | 申請の `contactEmail`。明細の宛先が別なら `ud_input.statement_email` を追加 |
+| 配信チャネル初期値 | `email`（C2 稼働まで） |
+| カード会社手数料率の持ち主 | Selfish（ブランド別既定値） |
+| 料率の開始日 | USEN 開通確認日。手入力で上書き可 |
+| セゾン 7 桁の意味 | 店舗 No.（要・初回答え合わせ） |
+| JCB 番号を何件送るか | **2 件**（登録型・都度型EC）。片方だけだと売上が突合できない |
+| 連携失敗時 | 案 B の貼り付け取込にフォールバック（8/24「連携が止まっても精算は自走」） |

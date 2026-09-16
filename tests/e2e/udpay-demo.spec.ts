@@ -1,4 +1,9 @@
 import { expect, test } from "@playwright/test";
+import {
+  chargeDateFor,
+  currentMonth,
+  formatDateJa,
+} from "../../src/lib/udpay/logic";
 
 /**
  * UD Payment（仮）デモのゴールデンパスE2E。
@@ -64,9 +69,11 @@ test.describe.serial("UD Payment デモ", () => {
       .getByRole("button", { name: "確定してメール送付・課金予約" })
       .click();
 
-    // 確定後: メールプレビューと課金予約（宮里先生=毎月25日→8/25）が表示される
+    // 確定後: メールプレビューと課金予約（宮里先生=毎月25日→翌月25日）が表示される
     await expect(page.getByText("送付済みの請求明細メール")).toBeVisible();
-    await expect(page.getByText("2026年8月25日に自動決済")).toBeVisible();
+    await expect(
+      page.getByText(`${formatDateJa(chargeDateFor(currentMonth(), 25))}に自動決済`),
+    ).toBeVisible();
     await expect(page.getByText("課金予約中")).toBeVisible();
     await page.screenshot({ path: `${SCREEN_DIR}/03-invoice-confirmed.png`, fullPage: true });
   });
@@ -108,6 +115,30 @@ test.describe.serial("UD Payment デモ", () => {
     await expect(page.getByText("みなと歯科医院 御中")).toBeVisible();
     await expect(page.getByText(/クレジットカード（JCB/)).toBeVisible();
     await page.screenshot({ path: `${SCREEN_DIR}/05-receipt.png`, fullPage: true });
+  });
+
+  test("CSV一括取込で下書き請求書を作成できる", async ({ page }) => {
+    await page.goto("/udpay/invoices");
+    await page.getByRole("button", { name: "CSVで一括作成" }).click();
+    const csv = [
+      "顧客名,摘要,数量,単価（税抜）",
+      "わかば歯科,基本サポート料金,1,9900",
+      "わかば歯科,初期設定サポート,1,30000",
+    ].join("\r\n");
+    await page.setInputFiles('input[type="file"]', {
+      name: "import.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(`﻿${csv}`, "utf-8"),
+    });
+    await expect(page.getByText(/明細2行／顧客1件を読み込みました/)).toBeVisible();
+    await page.getByRole("button", { name: /取込を実行/ }).click();
+    await expect(page.getByText(/取込完了: 下書き作成 1件／更新 0件/)).toBeVisible();
+    await page.getByRole("button", { name: "閉じる" }).click();
+    // わかば歯科に下書きができている
+    const wakabaRow = page.locator("tr", { hasText: "わかば歯科" });
+    await expect(wakabaRow.getByText("下書き")).toBeVisible();
+    await expect(wakabaRow.getByText("¥43,890")).toBeVisible(); // (9900+30000)*1.1
+    await page.screenshot({ path: `${SCREEN_DIR}/07-csv-import.png`, fullPage: true });
   });
 
   test("顧客がカード登録リンクからカードを登録できる", async ({ page }) => {

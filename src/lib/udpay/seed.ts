@@ -1,18 +1,34 @@
 import type { UdpayStore } from "./types";
-import { chargeDateFor, computeTotals } from "./logic";
+import { chargeDateFor, computeTotals, currentMonth, previousMonth } from "./logic";
 
 /** シードデータのバージョン。構造を変えたら上げる（ストアが自動で作り直される） */
-export const SEED_VERSION = 1;
-
-/** デモの「前月」（サービス提供月）。この月の請求は確定・入金済みとして seed する */
-const PREV_MONTH = "2026-06";
+export const SEED_VERSION = 2;
 
 /**
  * UD Payment デモの初期データを生成する。
  * ランサイド様の実態（歯科医院向け月次サポート・交通費実費・アニバーサリー日課金）
  * に寄せた架空の顧客6件と、前月分の確定済み請求・入金済み決済を含む。
+ * 「前月」は実行時点の実カレンダーで決める（固定月だと時間経過でデモの
+ * 前月コピーが空振りするため。月替わり時の再シードは loadStore 側で行う）。
  */
 export function buildSeed(): UdpayStore {
+  const PREV_MONTH = previousMonth(currentMonth());
+  /** 前月分の確定済み請求書を生成するヘルパー */
+  function invoice(
+    id: string,
+    customerId: string,
+    lines: ReturnType<typeof line>[],
+  ) {
+    return {
+      id,
+      customerId,
+      month: PREV_MONTH,
+      lines,
+      status: "confirmed" as const,
+      confirmedAt: `${currentMonth()}-02T10:00:00+09:00`,
+      mailSentAt: `${currentMonth()}-02T10:00:00+09:00`,
+    };
+  }
   const store: UdpayStore = {
     customers: [
       {
@@ -158,22 +174,5 @@ function line(description: string, unitPrice: number, quantity = 1) {
     quantity,
     unitPrice,
     taxRate: 10,
-  };
-}
-
-/** 前月分の確定済み請求書を生成するヘルパー */
-function invoice(
-  id: string,
-  customerId: string,
-  lines: ReturnType<typeof line>[],
-) {
-  return {
-    id,
-    customerId,
-    month: PREV_MONTH,
-    lines,
-    status: "confirmed" as const,
-    confirmedAt: "2026-07-02T10:00:00+09:00",
-    mailSentAt: "2026-07-02T10:00:00+09:00",
   };
 }

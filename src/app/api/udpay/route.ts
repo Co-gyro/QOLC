@@ -5,12 +5,15 @@ import {
   copyPreviousMonthInvoices,
   createCustomer,
   createInvoice,
+  importInvoiceLines,
+  loadStore,
   registerCardByToken,
   resetStore,
   retryPayment,
   runChargeBatch,
   updateInvoiceLines,
 } from "@/lib/udpay/store";
+import { matchRowsToCustomers } from "@/lib/udpay/csv-import";
 
 /**
  * UD Payment（仮）デモの操作 API。
@@ -54,6 +57,23 @@ const actionSchema = z.discriminatedUnion("action", [
     lines: z.array(lineSchema).max(30),
   }),
   z.object({ action: z.literal("confirmInvoice"), invoiceId: z.string().min(1) }),
+  z.object({
+    action: z.literal("importInvoiceCsv"),
+    month: z.string().regex(/^\d{4}-\d{2}$/),
+    rows: z
+      .array(
+        z.object({
+          line: z.number().int().min(1),
+          name: z.string().max(100).optional(),
+          email: z.string().max(200).optional(),
+          description: z.string().min(1).max(100),
+          quantity: z.number().int().min(1).max(99),
+          unitPrice: z.number().int().min(0).max(10_000_000),
+        }),
+      )
+      .min(1)
+      .max(500),
+  }),
   z.object({ action: z.literal("runChargeBatch") }),
   z.object({ action: z.literal("retryPayment"), paymentId: z.string().min(1) }),
   z.object({ action: z.literal("resetDemo") }),
@@ -93,6 +113,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     case "confirmInvoice": {
       const result = await confirmInvoice(input.invoiceId);
       return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+    }
+    case "importInvoiceCsv": {
+      const store = await loadStore();
+      const { groups, unmatched } = matchRowsToCustomers(input.rows, store.customers);
+      const summary = await importInvoiceLines(input.month, groups);
+      return NextResponse.json({ ok: true, ...summary, unmatched });
     }
     case "runChargeBatch": {
       const result = await runChargeBatch();

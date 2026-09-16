@@ -2,10 +2,12 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { chargeDateFor, currentMonth } from "@/lib/udpay/logic";
 import {
   confirmInvoice,
   copyPreviousMonthInvoices,
   createCustomer,
+  importInvoiceLines,
   loadStore,
   registerCardByToken,
   resetStore,
@@ -16,6 +18,7 @@ import {
 } from "@/lib/udpay/store";
 
 // テスト用の一時ディレクトリへストアを隔離する（デモデータを壊さない・ファイルバックエンド固定）
+const MONTH = currentMonth();
 const TEST_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "udpay-store-test-"));
 process.env.UDPAY_STORE_DIR = TEST_DIR;
 delete process.env.UDPAY_STORE;
@@ -41,10 +44,10 @@ describe("seed / loadStore", () => {
 
 describe("copyPreviousMonthInvoices", () => {
   it("前月分がある顧客の下書きを作成し、再実行しても重複しない", async () => {
-    expect(await copyPreviousMonthInvoices("2026-07")).toBe(5);
-    expect(await copyPreviousMonthInvoices("2026-07")).toBe(0);
+    expect(await copyPreviousMonthInvoices(MONTH)).toBe(5);
+    expect(await copyPreviousMonthInvoices(MONTH)).toBe(0);
     const store = await loadStore();
-    const drafts = store.invoices.filter((i) => i.month === "2026-07");
+    const drafts = store.invoices.filter((i) => i.month === MONTH);
     expect(drafts).toHaveLength(5);
     expect(drafts.every((d) => d.status === "draft")).toBe(true);
   });
@@ -52,16 +55,16 @@ describe("copyPreviousMonthInvoices", () => {
 
 describe("confirmInvoice", () => {
   it("確定でメール送付記録と課金スケジュールが作られる", async () => {
-    await copyPreviousMonthInvoices("2026-07");
+    await copyPreviousMonthInvoices(MONTH);
     const draft = (await loadStore()).invoices.find(
-      (i) => i.month === "2026-07" && i.customerId === "cust-sakura",
+      (i) => i.month === MONTH && i.customerId === "cust-sakura",
     );
     expect(draft).toBeDefined();
     const result = await confirmInvoice(draft!.id);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    // さくら歯科のアニバーサリー日は14日 → 翌月8/14に課金
-    expect(result.payment.scheduledDate).toBe("2026-08-14");
+    // さくら歯科のアニバーサリー日は14日 → 翌月14日に課金
+    expect(result.payment.scheduledDate).toBe(chargeDateFor(MONTH, 14));
     expect(result.payment.status).toBe("scheduled");
     const saved = (await loadStore()).invoices.find((i) => i.id === draft!.id);
     expect(saved?.status).toBe("confirmed");
@@ -75,9 +78,9 @@ describe("confirmInvoice", () => {
   });
 
   it("明細ゼロ件は確定できない", async () => {
-    await copyPreviousMonthInvoices("2026-07");
+    await copyPreviousMonthInvoices(MONTH);
     const draft = (await loadStore()).invoices.find(
-      (i) => i.month === "2026-07" && i.customerId === "cust-sakura",
+      (i) => i.month === MONTH && i.customerId === "cust-sakura",
     );
     await updateInvoiceLines(draft!.id, []);
     expect((await confirmInvoice(draft!.id)).ok).toBe(false);
@@ -86,9 +89,9 @@ describe("confirmInvoice", () => {
 
 describe("runChargeBatch / retryPayment", () => {
   it("demoFailOnce の顧客は一度だけ与信落ちし、再決済で入金済みになる", async () => {
-    await copyPreviousMonthInvoices("2026-07");
+    await copyPreviousMonthInvoices(MONTH);
     for (const inv of (await loadStore()).invoices.filter(
-      (i) => i.month === "2026-07",
+      (i) => i.month === MONTH,
     )) {
       await confirmInvoice(inv.id);
     }
@@ -135,15 +138,51 @@ describe("createCustomer / registerCardByToken", () => {
   });
 });
 
+describe("importInvoiceLines（CSV一括取込）", () => {
+  it("下書きは差し替え・未作成は新規・確定済みはスキップする", async () => {
+    await copyPreviousMonthInvoices(MONTH);
+    const sakura = (await loadStore()).invoices.find(
+      (i) => i.month === MONTH && i.customerId === "cust-sakura",
+    )!;
+    await confirmInvoice(sakura.id);
+
+    const line = (description: string, unitPrice: number) => ({
+      description,
+      quantity: 1,
+      unitPrice,
+      taxRate: 10,
+    });
+    const summary = await importInvoiceLines(MONTH, [
+      { customerId: "cust-sakura", customerName: "さくら歯科クリニック", lines: [line("X", 100)] },
+      { customerId: "cust-hikari", customerName: "ひかり歯科", lines: [line("労務管理サポート", 55_000)] },
+      { customerId: "cust-wakaba", customerName: "わかば歯科", lines: [line("基本サポート料金", 9_900)] },
+    ]);
+    expect(summary.skippedConfirmed).toEqual(["さくら歯科クリニック"]);
+    expect(summary.updated).toBe(1); // ひかり: 前月コピーの下書きを差し替え
+    expect(summary.created).toBe(1); // わかば: 新規下書き
+
+    const store = await loadStore();
+    const hikari = store.invoices.find(
+      (i) => i.month === MONTH && i.customerId === "cust-hikari",
+    )!;
+    expect(hikari.status).toBe("draft");
+    expect(hikari.lines).toHaveLength(1);
+    expect(hikari.lines[0].unitPrice).toBe(55_000);
+    // 確定済みのさくらは変更されていない
+    const sakuraAfter = store.invoices.find((i) => i.id === sakura.id)!;
+    expect(sakuraAfter.lines.some((l) => l.description === "X")).toBe(false);
+  });
+});
+
 /** わかば歯科（カード未登録）の当月下書きを作って返すヘルパー */
 async function createWakabaDraft() {
   const store = await loadStore();
   const wakaba = store.customers.find((c) => c.id === "cust-wakaba")!;
   // わかば歯科は前月請求がないため新規作成が必要（copy では作られない）
   const inv = {
-    id: "inv-wakaba-07",
+    id: "inv-wakaba-cur",
     customerId: wakaba.id,
-    month: "2026-07",
+    month: MONTH,
     lines: [
       { id: "l1", description: "基本サポート料金", quantity: 1, unitPrice: 9_900, taxRate: 10 },
     ],

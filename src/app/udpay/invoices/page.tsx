@@ -12,6 +12,7 @@ import {
 import { UdpayHeader } from "../header";
 import { ActionButton } from "../action-button";
 import { CreateInvoiceButton } from "./create-invoice-button";
+import { CsvImportDialog } from "./csv-import-dialog";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,10 @@ export default async function UdpayInvoicesPage({
               action="copyPreviousMonth"
               payload={{ month }}
               label="前月分をコピーして下書き作成"
+            />
+            <CsvImportDialog
+              month={month}
+              customerNames={store.customers.map((c) => c.name)}
             />
           </div>
         </div>

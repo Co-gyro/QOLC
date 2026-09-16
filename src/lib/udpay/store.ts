@@ -11,11 +11,13 @@ import type {
 import {
   chargeDateFor,
   computeTotals,
+  currentMonth,
   detectBrand,
   maskCardNumber,
   previousMonth,
   validateCardNumber,
 } from "./logic";
+import type { CsvMatchedGroup } from "./csv-import";
 import { buildSeed, SEED_VERSION } from "./seed";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -42,7 +44,17 @@ function storePath(): string {
   return path.join(storeDir(), "store.json");
 }
 
-/** ストアを読み込む。存在しない or シード構造が古い場合はシードし直す */
+/**
+ * 月替わりの鮮度チェック。
+ * デモは「前月分の請求がある」前提で動く（前月コピー動線）ため、
+ * 実カレンダーの前月に請求が1件もない古いストアは再シードする。
+ */
+function isStale(store: UdpayStore): boolean {
+  const prev = previousMonth(currentMonth());
+  return !store.invoices.some((i) => i.month === prev);
+}
+
+/** ストアを読み込む。存在しない・シード構造が古い・月替わりで陳腐化した場合はシードし直す */
 export async function loadStore(): Promise<UdpayStore> {
   if (isSupabaseBackend()) {
     const supabase = getSupabaseAdminClient();
@@ -52,14 +64,15 @@ export async function loadStore(): Promise<UdpayStore> {
       .eq("id", ROW_ID)
       .maybeSingle();
     if (!error && data && data.seed_version === SEED_VERSION) {
-      return data.data as UdpayStore;
+      const store = data.data as UdpayStore;
+      if (!isStale(store)) return store;
     }
     return resetStore();
   }
   try {
     const raw = fs.readFileSync(storePath(), "utf-8");
     const store = JSON.parse(raw) as UdpayStore;
-    if (store.seedVersion === SEED_VERSION) return store;
+    if (store.seedVersion === SEED_VERSION && !isStale(store)) return store;
   } catch {
     // 初回 or 壊れている場合はシードへフォールバック
   }
@@ -254,6 +267,48 @@ export async function runChargeBatch(): Promise<{ paid: number; failed: number }
   }
   await saveStore(store);
   return { paid, failed };
+}
+
+/**
+ * CSV一括取込: 顧客ごとの明細グループを当月の請求書（下書き）へ反映する。
+ * 既存の下書きは明細を差し替え、無ければ新規作成。確定済みはスキップして件数を返す。
+ */
+export async function importInvoiceLines(
+  month: string,
+  groups: CsvMatchedGroup[],
+): Promise<{ created: number; updated: number; skippedConfirmed: string[] }> {
+  const store = await loadStore();
+  let created = 0;
+  let updated = 0;
+  const skippedConfirmed: string[] = [];
+  for (const group of groups) {
+    const lines = group.lines.map((l) => ({
+      ...l,
+      id: `line-${randomUUID().slice(0, 8)}`,
+    }));
+    const existing = store.invoices.find(
+      (i) => i.month === month && i.customerId === group.customerId,
+    );
+    if (existing?.status === "confirmed") {
+      skippedConfirmed.push(group.customerName);
+      continue;
+    }
+    if (existing) {
+      existing.lines = lines;
+      updated++;
+    } else {
+      store.invoices.push({
+        id: `inv-${randomUUID().slice(0, 8)}`,
+        customerId: group.customerId,
+        month,
+        lines,
+        status: "draft",
+      });
+      created++;
+    }
+  }
+  await saveStore(store);
+  return { created, updated, skippedConfirmed };
 }
 
 /** 失敗した課金を再試行する（デモ: 再試行は成功する） */

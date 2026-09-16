@@ -5,6 +5,9 @@ export type CorpIndiv = "1" | "2" | "3";
 
 export type SalesStyle = "01" | "04" | "06" | "11";
 // 01=一般, 04=OLS, 06=登録型(都度オーソリなし), 11=登録型(都度オーソリあり)
+// UDスキーム（初回トークン決済＋毎月の会員ID決済）の店子申請は 11 を使う。
+// 2026-09-16 JCB回答: 1本の加盟店番号（区分11）で登録型+都度型を包含し、別番号は不要。
+// 既存の04発番は区分変更で対応可（登録型/非登録型が混在する加盟店は事前にJCBへ連絡）。
 
 export interface JcbEcApplication {
   // セクション1: 加盟店基本情報
@@ -487,7 +490,7 @@ export const SALES_STYLES: Array<{ value: SalesStyle; label: string }> = [
   { value: "01", label: "01: 一般 (カタログ通販等)" },
   { value: "04", label: "04: OLS (オンラインショッピング)" },
   { value: "06", label: "06: 登録型 (継続課金/都度オーソリなし)" },
-  { value: "11", label: "11: 登録型 (都度オーソリあり)" },
+  { value: "11", label: "11: 登録型 (都度オーソリあり)【UDスキーム標準】" },
 ];
 
 /**

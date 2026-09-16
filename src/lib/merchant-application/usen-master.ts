@@ -55,7 +55,7 @@ export interface UsenMasterInput {
   receiptName: string;
   /** SAISON加盟店番号（審査結果の登録値） */
   saisonMerchantCode: string;
-  /** JCB加盟店番号（審査結果の登録型＝会員ID決済用。実例は店子14桁） */
+  /** JCB加盟店番号（審査結果の1本＝区分11で登録型・都度型を包含。実例は店子14桁） */
   jcbMerchantCode: string;
 }
 
@@ -82,7 +82,7 @@ export function validateUsenMaster(input: Partial<UsenMasterInput>): string[] {
     errors.push("SAISON加盟店番号が未登録です（審査結果の登録を先に行ってください）");
   }
   if (!input.jcbMerchantCode) {
-    errors.push("JCB加盟店番号（登録型）が未登録です（審査結果の登録を先に行ってください）");
+    errors.push("JCB加盟店番号が未登録です（審査結果の登録を先に行ってください）");
   }
   return errors;
 }

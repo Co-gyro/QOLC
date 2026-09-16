@@ -1,7 +1,8 @@
 /**
  * 審査結果フォーム（カード会社1社分）
  *
- * 提出日・結果・結果受領日・NG理由・加盟店番号（JCBは登録型+都度型ECの2種）を
+ * 提出日・結果・結果受領日・NG理由・加盟店番号（JCBは1本＝販売形態区分11で
+ * 登録型+都度型を包含。2026-09-16 JCB回答。DBの両カラムには同値を保存）を
  * 入力し、POST /api/admin/applications/[id]/review で保存する。
  */
 "use client";
@@ -35,8 +36,11 @@ export function ReviewCompanyForm({
   const [result, setResult] = useState<string>(current?.result ?? "");
   const [receivedAt, setReceivedAt] = useState(current?.result_received_at ?? "");
   const [ngReason, setNgReason] = useState(current?.ng_reason ?? "");
-  const [codeRecurring, setCodeRecurring] = useState(current?.merchant_code_recurring ?? "");
-  const [codeEc, setCodeEc] = useState(current?.merchant_code_ec ?? "");
+  // JCBは加盟店番号1本（販売形態区分11で登録型+都度型を包含・2026-09-16 JCB回答）。
+  // 後方互換のためDBは両カラムを維持し、保存時に同値を書き込む
+  const [codeRecurring, setCodeRecurring] = useState(
+    current?.merchant_code_recurring ?? current?.merchant_code_ec ?? "",
+  );
   const [code, setCode] = useState(current?.merchant_code ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +58,7 @@ export function ReviewCompanyForm({
         result_received_at: receivedAt || null,
         ng_reason: ngReason || null,
         merchant_code_recurring: company === "jcb" ? codeRecurring || null : null,
-        merchant_code_ec: company === "jcb" ? codeEc || null : null,
+        merchant_code_ec: company === "jcb" ? codeRecurring || null : null,
         merchant_code: company === "saison" ? code || null : null,
       });
       onSaved();
@@ -107,22 +111,16 @@ export function ReviewCompanyForm({
       {company === "jcb" ? (
         <div className="flex flex-col gap-2">
           <p className="text-xs" style={{ color: "var(--qolc-muted)" }}>
-            施設ごとに2種類のJCB加盟店番号が必要です（登録型=会員ID決済・継続課金用／都度型EC=カード登録時のトークン決済用）。
+            JCBは加盟店番号1本で登録型（会員ID決済・継続課金）と都度型EC（カード登録時の
+            トークン決済）の両方をカバーします（販売形態区分11・2026-09-16 JCB回答）。
+            結果報告書の「加盟店番号」をハイフンなしで入力してください。
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-sm">
-              <span style={{ color: "var(--qolc-muted)" }}>加盟店番号（登録型）</span>
-              <input type="text" className={INPUT_CLASS} style={INPUT_STYLE} value={codeRecurring}
-                maxLength={17} placeholder="半角数字（最大17桁）"
-                onChange={(e) => setCodeRecurring(e.target.value)} />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span style={{ color: "var(--qolc-muted)" }}>加盟店番号（都度型EC）</span>
-              <input type="text" className={INPUT_CLASS} style={INPUT_STYLE} value={codeEc}
-                maxLength={17} placeholder="半角数字（最大17桁）"
-                onChange={(e) => setCodeEc(e.target.value)} />
-            </label>
-          </div>
+          <label className="flex flex-col gap-1 text-sm sm:w-1/2">
+            <span style={{ color: "var(--qolc-muted)" }}>JCB加盟店番号</span>
+            <input type="text" className={INPUT_CLASS} style={INPUT_STYLE} value={codeRecurring}
+              maxLength={17} placeholder="半角数字（店子14桁・最大17桁）"
+              onChange={(e) => setCodeRecurring(e.target.value)} />
+          </label>
         </div>
       ) : (
         <label className="flex flex-col gap-1 text-sm sm:w-1/2">

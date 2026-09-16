@@ -17,19 +17,19 @@ describe("validateCardCodes（加盟店番号のクライアント検証）", ()
     ).toBeNull();
   });
 
-  it("JCB 登録型: 18桁以上・数字以外はエラー", () => {
+  it("JCB: 18桁以上・数字以外はエラー", () => {
     expect(
       validateCardCodes({ jcbRecurring: "123456789012345678", jcbEc: null, saison: null })
-    ).toMatch(/登録型/);
+    ).toMatch(/JCB加盟店番号は/);
     expect(
       validateCardCodes({ jcbRecurring: "12a", jcbEc: null, saison: null })
     ).toMatch(/半角数字/);
   });
 
-  it("JCB 都度型EC: 18桁以上はエラー", () => {
+  it("JCB(ecカラム経由でも同メッセージ): 18桁以上はエラー", () => {
     expect(
       validateCardCodes({ jcbRecurring: null, jcbEc: "123456789012345678", saison: null })
-    ).toMatch(/都度型EC/);
+    ).toMatch(/JCB加盟店番号は/);
   });
 
   it("セゾン: 8桁以上はエラー", () => {

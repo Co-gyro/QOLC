@@ -1,5 +1,7 @@
 /**
- * 加盟店一覧のカード会社番号セル（JCB登録型 / JCB都度型EC / セゾン）
+ * 加盟店一覧のカード会社番号セル（JCB / セゾン）
+ * JCBは加盟店番号1本で登録型・都度型を包含（販売形態区分11・2026-09-16 JCB回答）。
+ * DBは後方互換で両カラム保持のため、表示は recurring ?? ec を採用する。
  */
 "use client";
 
@@ -30,8 +32,7 @@ export function CardCodesCell({
 }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <Line label="JCB登録型" value={codes?.jcbRecurring ?? null} />
-      <Line label="JCB都度型EC" value={codes?.jcbEc ?? null} />
+      <Line label="JCB" value={codes?.jcbRecurring ?? codes?.jcbEc ?? null} />
       <Line label="セゾン" value={codes?.saison ?? null} />
       <button
         className="text-sm underline text-left"

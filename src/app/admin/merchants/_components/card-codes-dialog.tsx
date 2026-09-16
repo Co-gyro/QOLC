@@ -85,24 +85,20 @@ export function CardCodesDialog({
         </h2>
         <p className="text-sm" style={{ color: "var(--qolc-muted)" }}>
           「{merchantName}」のカード会社番号を登録します。
-          施設ごとに2種類のJCB加盟店番号（登録型・都度型EC）が必要です。
+          JCBは加盟店番号1本で登録型・都度型ECの両方をカバーします
+          （販売形態区分11・2026-09-16 JCB回答）。
         </p>
         <label className="flex flex-col gap-1 text-sm">
-          <span style={{ color: "var(--qolc-muted)" }}>JCB加盟店番号（登録型）</span>
+          <span style={{ color: "var(--qolc-muted)" }}>JCB加盟店番号</span>
           <input type="text" className={INPUT_CLASS} style={INPUT_STYLE}
-            value={codes.jcbRecurring ?? ""} maxLength={17} placeholder="半角数字（最大17桁）"
-            onChange={(e) => set("jcbRecurring")(e.target.value)} />
+            value={codes.jcbRecurring ?? codes.jcbEc ?? ""} maxLength={17}
+            placeholder="半角数字（店子14桁・最大17桁）"
+            onChange={(e) => {
+              set("jcbRecurring")(e.target.value);
+              set("jcbEc")(e.target.value);
+            }} />
           <span className="text-xs" style={{ color: "var(--qolc-muted)" }}>
-            会員ID決済・継続課金用
-          </span>
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span style={{ color: "var(--qolc-muted)" }}>JCB加盟店番号（都度型EC）</span>
-          <input type="text" className={INPUT_CLASS} style={INPUT_STYLE}
-            value={codes.jcbEc ?? ""} maxLength={17} placeholder="半角数字（最大17桁）"
-            onChange={(e) => set("jcbEc")(e.target.value)} />
-          <span className="text-xs" style={{ color: "var(--qolc-muted)" }}>
-            カード登録時のトークン決済用
+            会員ID決済（継続課金）・トークン決済 共用
           </span>
         </label>
         <label className="flex flex-col gap-1 text-sm">

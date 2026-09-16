@@ -1,8 +1,10 @@
 /**
  * 加盟店のカード会社番号（JCB 2種 + セゾン）の取得・更新クライアント
  *
- * JCB は施設ごとに「登録型（会員ID決済・継続課金用）」と「都度型EC（トークン決済用）」の
- * 2種類の加盟店番号が発番される。表示・編集は加盟店管理画面のみで行い、
+ * JCB は加盟店番号1本（販売形態区分11）で登録型（会員ID決済・継続課金）と
+ * 都度型EC（トークン決済）の両方をカバーする（2026-09-16 JCB回答）。
+ * DBは後方互換のため2カラム（recurring/ec）を維持し、UIは同値を両方へ保存する。
+ * 表示・編集は加盟店管理画面のみで行い、
  * 更新は API（PATCH /api/admin/merchants/[id]/card-codes）経由で監査ログを残す。
  */
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -65,10 +67,10 @@ export async function updateMerchantCardCodes(
 export function validateCardCodes(codes: MerchantCardCodes): string | null {
   const digits = /^[0-9]*$/;
   if (codes.jcbRecurring && (!digits.test(codes.jcbRecurring) || codes.jcbRecurring.length > 17)) {
-    return "JCB加盟店番号（登録型）は半角数字17桁以内で入力してください";
+    return "JCB加盟店番号は半角数字17桁以内で入力してください";
   }
   if (codes.jcbEc && (!digits.test(codes.jcbEc) || codes.jcbEc.length > 17)) {
-    return "JCB加盟店番号（都度型EC）は半角数字17桁以内で入力してください";
+    return "JCB加盟店番号は半角数字17桁以内で入力してください";
   }
   if (codes.saison && (!digits.test(codes.saison) || codes.saison.length > 7)) {
     return "セゾン加盟店番号は半角数字7桁以内で入力してください";

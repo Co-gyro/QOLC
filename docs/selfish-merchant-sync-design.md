@@ -264,14 +264,22 @@ migration `035_update_workflow_selfish_step.sql`（要 SQL Editor 適用）。
 `apps/web/src/lib/masters/merchant-import.ts`（検証＋差分計算・純関数）、
 `apps/web/src/lib/partners/{qolc-signature,qolc-import}.ts`、
 `apps/web/src/app/api/partners/merchants/route.ts`、`src/proxy.ts`（受信APIの除外）。
-テスト: 単体46件 / E2E 10件 / packages/db 152件。
+テスト: 単体 863件 / E2E 147件 / packages/db 151件。
+**Selfish 側の実装は完了**。残るのは運用開始前の設定（下記）のみ。
 
 1. ✅ `merchant_stores.external_id`（UNIQUE, NULL 可）と `merchants.external_id` の列コメント訂正（0012）。
 2. ✅ `card_brands.default_card_company_fee_rate`（0012）。**NULL=未設定**で 0 を既定にしない。
    未設定のあいだ連携は料率を作らず `missing_default_rate` で保留する。
 3. ✅ `merchant-import.ts`（検証 → 差分計算）。DBは触らない純関数で、案B・案Cが同じ判定を通る。
-4. ⬜ 取込画面 `masters/merchants/import`（案 B）: JSON 貼り付け → 差分プレビュー → 適用。
+4. ✅ 取込画面 `masters/merchants/import`（案 B）: JSON 貼り付け → 差分プレビュー → 適用。
    **連携が止まったときのフォールバック**なので、API が動いていても要る。
+   加盟店一覧の「QOLC連携データから取込」から開く（管理者のみ）。
+   判定は API と同じ関数を通す（画面だけ緩いと抜け道になる）。
+   確認トークンは貼り付けた JSON と差分要約の両方から作り、
+   確認から実行までの間に別の利用者が取り込んでいれば拒否する。
+   **監査の名義は `api:qolc` ではなく操作した運用者**（画面から押したのは
+   Selfish の利用者であって QOLC ではない。同じ名義にすると
+   「誰が手で取り込んだか」が監査ログから消える）。
 5. ✅ `POST /api/partners/merchants`（案 C）。再送防止は `partner_requests`（0013）。
    HMAC は「本文と時刻」に対する署名で**何回送られたかは分からない**ため、
    ±300 秒の判定だけでは再送を素通しする。request-id を処理の前に記録して一意制約で弾く。

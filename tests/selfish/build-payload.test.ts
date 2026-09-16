@@ -23,6 +23,7 @@ function fullSource(): SelfishSource {
     applyPayload: { corpName: "医療法人まるまる会", contactEmail: "contact@example.jp" },
     ud: {
       settlement_rate: "1.9",
+      card_company_fee_rate: "3.0",
       bank_code: "0310",
       branch_code: "102",
       account_type: "ordinary",
@@ -76,7 +77,11 @@ describe("buildSelfishPayload（全項目あり）", () => {
           parts: { merchant_no: "2077994", store_no: SAISON_DEFAULT_STORE_NO },
         },
       ],
-      fee: { valid_from: "2026-10-01", merchant_fee_rate: "0.019000" },
+      fee: {
+        valid_from: "2026-10-01",
+        merchant_fee_rate: "0.019000",
+        card_company_fee_rate: "0.030000",
+      },
       source: {
         qolc_merchant_id: "11111111-2222-4333-8444-555555555555",
         application_id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
@@ -187,3 +192,37 @@ describe("buildSelfishPayload（不足・不正の検出）", () => {
     expect(r.issues.find((i) => i.field === "account.account_number")?.level).toBe("error");
   });
 });
+
+describe("カード会社手数料率", () => {
+  /*
+   * 業種ごとに違うため既定値が無い（2026-09-16 UD確認）。
+   * Selfish 側もブランド別の既定値を持たないので、ここが空だと登録できない。
+   */
+  it("未入力なら ready=false で、どこで直せるかを示す", () => {
+    const src = fullSource();
+    delete src.ud.card_company_fee_rate;
+    const r = buildSelfishPayload(src);
+    expect(r.ready).toBe(false);
+    expect(r.issues).toContainEqual(
+      expect.objectContaining({
+        field: "fee.card_company_fee_rate",
+        level: "error",
+        fix: "ud_input",
+      }),
+    );
+  });
+
+  it("%表記を料率へ変換して載せる（浮動小数を経由しない）", () => {
+    const r = buildSelfishPayload(fullSource());
+    expect(r.payload.fee.card_company_fee_rate).toBe("0.030000");
+  });
+
+  it("数値として読めなければ ready=false", () => {
+    const src = fullSource();
+    src.ud.card_company_fee_rate = "3%";
+    const r = buildSelfishPayload(src);
+    expect(r.ready).toBe(false);
+    expect(r.issues.map((i) => i.field)).toContain("fee.card_company_fee_rate");
+  });
+});
+

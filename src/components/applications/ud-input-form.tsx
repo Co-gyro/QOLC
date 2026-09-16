@@ -77,6 +77,19 @@ export function UdInputForm({ udInput, saving, onSave }: UdInputFormProps) {
           hint="加盟店との契約手数料率"
           onChange={set("settlement_rate")}
         />
+        {/*
+          カード会社手数料率は業種ごとに違い既定値が無いため、加盟店ごとに入力する。
+          Selfish 側もブランド別の既定値を持たず、未入力だと連携を拒否する。
+          誤っても店子への振込額には出ない（UDの取り分とNMとの折半だけがずれる）ので、
+          hint で「何に効くか」を明示しておく。
+        */}
+        <TextField
+          label="カード会社手数料率（%）"
+          value={fields.card_company_fee_rate ?? ""}
+          placeholder="例：3.0"
+          hint="UDがカード会社へ支払う率（業種で異なる）。UDの取り分の計算に使う"
+          onChange={set("card_company_fee_rate")}
+        />
       </div>
       <p className="text-sm font-medium" style={{ color: "var(--qolc-text)" }}>
         申請書用補足（JCB申請書の必須項目・お客様入力にはない項目）

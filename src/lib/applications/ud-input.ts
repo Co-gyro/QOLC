@@ -31,6 +31,17 @@ export interface UdInputFields {
   bulk_provider_code?: string;
   /** 精算料率（%表記の文字列。例: "1.9"） */
   settlement_rate?: string;
+  /**
+   * カード会社手数料率（%表記の文字列。例: "3.0"）。
+   *
+   * UD がカード会社へ支払う率で、**業種によって加盟店ごとに違う**ため
+   * 既定値が無い（2026-09-16 UD確認）。Selfish 側もブランド別の既定値を持たず、
+   * この値が無いと連携を拒否する（docs/selfish-merchant-sync-design.md §4.3）。
+   *
+   * 店子への振込額には影響しない。効くのは UD 自身の取り分と NM との折半で、
+   * 誤っても着金の不一致として表に出てこないので、入力時に確かめること。
+   */
+  card_company_fee_rate?: string;
   /** 業態コード（JCB 申請書の業態コード。例: 60207） */
   biz_cat_code?: string;
   /** セキュリティ対応状況（カード情報非保持・PCIDSS 等の申告内容） */
@@ -67,6 +78,7 @@ export interface UdInputFields {
 export const UD_INPUT_FIELD_KEYS: readonly (keyof UdInputFields)[] = [
   "bulk_provider_code",
   "settlement_rate",
+  "card_company_fee_rate",
   "biz_cat_code",
   "security_status",
   "bank_name",
@@ -88,6 +100,7 @@ export const UD_INPUT_FIELD_KEYS: readonly (keyof UdInputFields)[] = [
 export const UD_INPUT_LABELS: Record<keyof UdInputFields, string> = {
   bulk_provider_code: "包括事業者コード",
   settlement_rate: "精算料率",
+  card_company_fee_rate: "カード会社手数料率",
   biz_cat_code: "業態コード",
   security_status: "セキュリティ対応状況",
   bank_name: "振込先銀行名",
@@ -185,6 +198,13 @@ export const udInputFieldsSchema = z.object({
     .regex(/^\d{1,2}(\.\d{1,2})?$/, "精算料率は数値で入力してください（例: 1.9）")
     .refine((v) => Number.parseFloat(v) > 0 && Number.parseFloat(v) <= 10, {
       message: "精算料率は 0〜10% の範囲で入力してください",
+    })
+    .optional(),
+  card_company_fee_rate: z
+    .string()
+    .regex(/^\d{1,2}(\.\d{1,2})?$/, "カード会社手数料率は数値で入力してください（例: 3.0）")
+    .refine((v) => Number.parseFloat(v) > 0 && Number.parseFloat(v) <= 10, {
+      message: "カード会社手数料率は 0 より大きく 10 以下で入力してください",
     })
     .optional(),
   biz_cat_code: z

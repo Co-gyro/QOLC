@@ -48,7 +48,16 @@ export interface SelfishMerchantPayload {
     /** セゾンのみ: 連結前の内訳（答え合わせ用。Selfish は無視してよい） */
     parts?: { merchant_no: string; store_no: string };
   }>;
-  fee: { valid_from: string; merchant_fee_rate: string };
+  fee: {
+    valid_from: string;
+    merchant_fee_rate: string;
+    /**
+     * カード会社手数料率。業種ごとに違い既定値が無いため **QOLC が送る**
+     * （docs/selfish-merchant-sync-design.md §4.3）。
+     * Selfish 側は必須項目で、無ければ登録を拒否する。
+     */
+    card_company_fee_rate: string;
+  };
   source: {
     qolc_merchant_id: string;
     application_id: string | null;
@@ -208,18 +217,30 @@ export function buildSelfishPayload(src: SelfishSource): SelfishBuildResult {
     err("card_numbers", "加盟店番号", "JCB・セゾンのどちらも登録されていません", "card_codes");
   }
 
-  // 料率
-  let rate = "";
-  const percent = s(src.ud.settlement_rate);
-  if (!percent) {
-    err("fee.merchant_fee_rate", "精算料率", "未入力です", "ud_input");
-  } else {
-    try {
-      rate = percentTextToRateText(percent);
-    } catch {
-      err("fee.merchant_fee_rate", "精算料率", `数値として読めません: ${percent}`, "ud_input");
+  // 料率。加盟店手数料率とカード会社手数料率はどちらも必須（Selfish 側も必須）
+  const toRate = (raw: string | undefined, field: string, label: string): string => {
+    const percent = s(raw);
+    if (!percent) {
+      err(field, label, "未入力です", "ud_input");
+      return "";
     }
-  }
+    try {
+      return percentTextToRateText(percent);
+    } catch {
+      err(field, label, `数値として読めません: ${percent}`, "ud_input");
+      return "";
+    }
+  };
+  const rate = toRate(src.ud.settlement_rate, "fee.merchant_fee_rate", "精算料率");
+  /*
+   * カード会社手数料率に既定値は無い（業種ごとに違う）。
+   * Selfish 側もブランド別の既定値を持たないので、ここが空だと登録できない。
+   */
+  const cardRate = toRate(
+    src.ud.card_company_fee_rate,
+    "fee.card_company_fee_rate",
+    "カード会社手数料率",
+  );
   const validFrom = s(src.ud.fee_valid_from);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(validFrom)) {
     err("fee.valid_from", "料率適用開始日", "YYYY-MM-DD で入力してください（USEN開通確認日が目安）", "ud_input");
@@ -238,7 +259,7 @@ export function buildSelfishPayload(src: SelfishSource): SelfishBuildResult {
       account_name_kana: holder,
     },
     card_numbers: cardNumbers,
-    fee: { valid_from: validFrom, merchant_fee_rate: rate },
+    fee: { valid_from: validFrom, merchant_fee_rate: rate, card_company_fee_rate: cardRate },
     source: {
       qolc_merchant_id: src.merchant.id,
       application_id: src.applicationId,

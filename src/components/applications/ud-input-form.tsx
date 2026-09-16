@@ -3,7 +3,8 @@
  *
  * 顧客入力（payload）とは別領域の applications.ud_input に、申請書生成へ必要な
  * UD側の補足項目（包括事業者コード・精算料率・業態コード・セキュリティ対応状況・
- * 振込先口座）を保存する。保存時は ud_input_updated イベント（before/after）が記録される。
+ * 振込先口座・料率適用開始日）を保存する。口座は Selfish（精算）登録にそのまま使うため
+ * 銀行/支店コードと全銀カナ名義を持つ。保存時は ud_input_updated イベント（before/after）が記録される。
  */
 "use client";
 
@@ -24,12 +25,9 @@ export interface UdInputFormProps {
   onSave: (udInput: Record<string, unknown>) => void;
 }
 
-import {
-  UdTextField as TextField,
-  UD_INPUT_CLASS as INPUT_CLASS,
-  UD_INPUT_STYLE as INPUT_STYLE,
-} from "./ud-text-field";
+import { UdTextField as TextField } from "./ud-text-field";
 import { UdAppdocFields } from "./ud-appdoc-fields";
+import { UdBankFields } from "./ud-bank-fields";
 
 export function UdInputForm({ udInput, saving, onSave }: UdInputFormProps) {
   const parsed = parseUdInput(udInput ?? null);
@@ -85,44 +83,9 @@ export function UdInputForm({ udInput, saving, onSave }: UdInputFormProps) {
       </p>
       <UdAppdocFields fields={fields} set={set} />
       <p className="text-sm font-medium" style={{ color: "var(--qolc-text)" }}>
-        振込先口座情報（精算金の支払先）
+        振込先口座情報（精算金の支払先。Selfish 登録にそのまま使う）
       </p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <TextField label="銀行名" value={fields.bank_name ?? ""} onChange={set("bank_name")} />
-        <TextField label="支店名" value={fields.bank_branch ?? ""} onChange={set("bank_branch")} />
-        <label className="flex flex-col gap-1 text-sm">
-          <span style={{ color: "var(--qolc-muted)" }}>口座種別</span>
-          <select
-            className={INPUT_CLASS}
-            style={INPUT_STYLE}
-            value={fields.account_type ?? ""}
-            onChange={(e) =>
-              setFields((prev) => ({
-                ...prev,
-                account_type:
-                  e.target.value === "ordinary" || e.target.value === "checking"
-                    ? e.target.value
-                    : undefined,
-              }))
-            }
-          >
-            <option value="">未選択</option>
-            <option value="ordinary">普通</option>
-            <option value="checking">当座</option>
-          </select>
-        </label>
-        <TextField
-          label="口座番号"
-          value={fields.account_number ?? ""}
-          onChange={set("account_number")}
-        />
-        <TextField
-          label="口座名義（カナ）"
-          value={fields.account_holder ?? ""}
-          placeholder="例：ﾕﾆﾊﾞｰｻﾙﾃﾞﾍﾞﾛｯﾌﾟﾒﾝﾄ(ｶ"
-          onChange={set("account_holder")}
-        />
-      </div>
+      <UdBankFields fields={fields} set={set} setFields={setFields} />
       {formError && (
         <p className="text-sm" style={{ color: "#DC2626" }}>
           {formError}

@@ -19,6 +19,7 @@ import {
 import { fetchMerchantCardCodes, type MerchantCardCodes } from "./_lib/card-codes";
 import { CardCodesCell } from "./_components/card-codes-cell";
 import { CardCodesDialog } from "./_components/card-codes-dialog";
+import { SelfishDialog } from "./_components/selfish-dialog";
 import { RelationsCell } from "./_components/relations-cell";
 import {
   fetchMerchantRelations,
@@ -38,6 +39,7 @@ function AdminMerchantsPageInner() {
   const [editTarget, setEditTarget] = useState<MerchantRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MerchantRow | null>(null);
   const [codesTarget, setCodesTarget] = useState<MerchantRow | null>(null);
+  const [selfishTarget, setSelfishTarget] = useState<MerchantRow | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -159,7 +161,7 @@ function AdminMerchantsPageInner() {
               key: "actions",
               header: "操作",
               render: (r) => (
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <button
                     className="text-sm underline"
                     style={{ color: "var(--qolc-primary)" }}
@@ -170,6 +172,17 @@ function AdminMerchantsPageInner() {
                     }}
                   >
                     編集
+                  </button>
+                  <button
+                    className="text-sm underline"
+                    style={{ color: "var(--qolc-primary)" }}
+                    title="開通後、精算システム Selfish へ支払先（法人・店舗・口座・加盟店番号・料率）を登録します"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelfishTarget(r);
+                    }}
+                  >
+                    Selfish登録
                   </button>
                   <button
                     className="text-sm underline"
@@ -206,6 +219,11 @@ function AdminMerchantsPageInner() {
           setCodesTarget(null);
           void load();
         }}
+      />
+      <SelfishDialog
+        open={!!selfishTarget}
+        merchantId={selfishTarget?.id ?? null}
+        onClose={() => setSelfishTarget(null)}
       />
       <ConfirmDialog
         open={!!deleteTarget}

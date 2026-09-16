@@ -190,6 +190,8 @@ USEN_HMAC_KEY_PATH=（HMACキーファイルのパス）
 USEN_API_BASE_URL=https://inet-uketsuke1.netmove.jp
 USEN_TOKEN_API_BASE_URL=https://inet-uketsuke1.netmove.jp
 NEXT_PUBLIC_APP_URL=https://app.qolc.jp
+SELFISH_API_BASE_URL=（Selfish連携API。未設定なら送信ボタン無効＝登録票JSONの手動取込）
+SELFISH_PARTNER_KEY=（HMAC-SHA256共有鍵。Selfish側 QOLC_PARTNER_KEY と同一）
 ```
 
 ## ドメイン構成（確定・2026-07-01）
@@ -242,3 +244,9 @@ middleware.ts でJWTのcustom claimsをチェックし、ロールに応じた�
 - QOLC基本設計方針書_v1.0.docx（全体設計方針）
 - QOLC_design_system.html（デザインシステム）
 - 開発指示書/ フォルダ（各チームの詳細タスク指示）
+
+## Selfish（精算システム）との関係
+- Selfish = UD社内の精算基幹（別リポジトリ `Co-gyro/selfish-web`、ローカル `/Users/project/selfish-web`、別Supabase）。QOLCからはサイドバー導線（`src/lib/portal/menu.ts` の `SELFISH_URL`）のみで、データ連携は未実装
+- 役割分担（2026-08-24合意）: 申請〜審査〜加盟店番号確定はQOLC、確定後の精算マスタ（口座・料率）はSelfishが正。連携は「QOLC→Selfish push（`POST /api/partners/merchants`、冪等キー=QOLC `merchants.id`）」の単方向
+- Selfishの明細突合キーは**店子の加盟店番号**（JCB 14桁 / セゾン 加盟店No.7桁+店舗No.7桁）。CSVファイル名の支払先番号（JCB 9桁）はマスタ照合に使われない
+- 加盟店登録連携の設計・QOLC側の不足データ（銀行コード/名義カナ/セゾン店舗No.等）は [docs/selfish-merchant-sync-design.md](docs/selfish-merchant-sync-design.md)

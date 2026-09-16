@@ -13,6 +13,7 @@
  */
 import { z } from "zod";
 import { ADDRESS_KATAKANA_RE } from "@/lib/utils/kana";
+import { ZENGIN_TEXT_RE } from "@/lib/selfish/zengin";
 
 /** 包括事業者コードの既定値（JCB の2層構造の親コード。UD=0160） */
 export const DEFAULT_BULK_PROVIDER_CODE = "0160";
@@ -36,14 +37,20 @@ export interface UdInputFields {
   security_status?: string;
   /** 振込先: 銀行名 */
   bank_name?: string;
+  /** 振込先: 銀行コード（4桁。Selfish 口座登録に必須） */
+  bank_code?: string;
   /** 振込先: 支店名 */
   bank_branch?: string;
+  /** 振込先: 支店コード（3桁。Selfish 口座登録に必須） */
+  branch_code?: string;
   /** 振込先: 口座種別（ordinary=普通 / checking=当座） */
   account_type?: "ordinary" | "checking";
   /** 振込先: 口座番号 */
   account_number?: string;
-  /** 振込先: 口座名義（カナ） */
+  /** 振込先: 口座名義（全銀半角カナ。Selfish と同じ文字集合で検証） */
   account_holder?: string;
+  /** 精算料率の適用開始日（YYYY-MM-DD。USEN 開通確認日が目安。Selfish fee_schedules.valid_from） */
+  fee_valid_from?: string;
   /** JCB申請書: 店舗名アルファベット（半角英大文字・数字・スペース、25文字以内） */
   tenant_name_latin?: string;
   /** JCB申請書: 業種・業務内容（お客様入力にはない申請書必須項目） */
@@ -63,10 +70,13 @@ export const UD_INPUT_FIELD_KEYS: readonly (keyof UdInputFields)[] = [
   "biz_cat_code",
   "security_status",
   "bank_name",
+  "bank_code",
   "bank_branch",
+  "branch_code",
   "account_type",
   "account_number",
   "account_holder",
+  "fee_valid_from",
   "tenant_name_latin",
   "biz_overview",
   "handling_products",
@@ -81,10 +91,13 @@ export const UD_INPUT_LABELS: Record<keyof UdInputFields, string> = {
   biz_cat_code: "業態コード",
   security_status: "セキュリティ対応状況",
   bank_name: "振込先銀行名",
+  bank_code: "銀行コード",
   bank_branch: "振込先支店名",
+  branch_code: "支店コード",
   account_type: "口座種別",
   account_number: "口座番号",
   account_holder: "口座名義",
+  fee_valid_from: "料率適用開始日",
   tenant_name_latin: "店舗名アルファベット",
   biz_overview: "業種・業務内容",
   handling_products: "取扱商材",
@@ -180,13 +193,26 @@ export const udInputFieldsSchema = z.object({
     .optional(),
   security_status: z.string().max(200, "セキュリティ対応状況が長すぎます").optional(),
   bank_name: z.string().max(50, "銀行名が長すぎます").optional(),
+  bank_code: z.string().regex(/^\d{4}$/, "銀行コードは数字4桁です").optional(),
   bank_branch: z.string().max(50, "支店名が長すぎます").optional(),
+  branch_code: z.string().regex(/^\d{3}$/, "支店コードは数字3桁です").optional(),
   account_type: z.enum(["ordinary", "checking"]).optional(),
   account_number: z
     .string()
-    .regex(/^\d{4,8}$/, "口座番号は数字4〜8桁で入力してください")
+    .regex(/^\d{1,7}$/, "口座番号は数字7桁以内で入力してください（全銀仕様）")
     .optional(),
-  account_holder: z.string().max(60, "口座名義が長すぎます").optional(),
+  account_holder: z
+    .string()
+    .max(30, "口座名義は30文字以内です（全銀仕様）")
+    .regex(
+      ZENGIN_TEXT_RE,
+      "口座名義は全銀で使える半角カナ・英大文字・数字・()/-.スペースのみです（「半角カナに変換」で候補を確認）"
+    )
+    .optional(),
+  fee_valid_from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "料率適用開始日は YYYY-MM-DD で入力してください")
+    .optional(),
   tenant_name_latin: z
     .string()
     .regex(

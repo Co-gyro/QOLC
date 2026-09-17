@@ -57,7 +57,7 @@ export function UsenCsvSection({ detail }: UsenCsvSectionProps) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = buildUsenFilename(input.receiptName ?? "加盟店", getJstDateParts());
+    a.download = buildUsenFilename(getJstDateParts());
     a.click();
     URL.revokeObjectURL(url);
   }

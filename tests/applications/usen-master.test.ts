@@ -23,10 +23,12 @@ const INPUT: UsenMasterInput = {
 };
 
 describe("buildUsenMasterCsv", () => {
-  it("ヘッダは実送付ファイルと同じ21列", () => {
-    expect(USEN_MASTER_HEADER).toHaveLength(21);
+  it("ヘッダはフォーマット2026-04-28版の19項目（DINERS列なし）", () => {
+    expect(USEN_MASTER_HEADER).toHaveLength(19);
     expect(USEN_MASTER_HEADER[0]).toBe("登録識別子");
-    expect(USEN_MASTER_HEADER[20]).toBe("利用可能サービス");
+    expect(USEN_MASTER_HEADER[18]).toBe("利用可能サービス");
+    expect(USEN_MASTER_HEADER).not.toContain("DINERS支払区分");
+    expect(USEN_MASTER_HEADER).not.toContain("DINERS加盟店番号");
   });
 
   it("全項目ダブルクォート・CRLF・固定値（UD/支払区分10/credit）で生成する", () => {
@@ -35,7 +37,7 @@ describe("buildUsenMasterCsv", () => {
     expect(lines).toHaveLength(3); // ヘッダ + 1行 + 末尾CRLFの空要素
     expect(lines[2]).toBe("");
     const row = lines[1].split(",");
-    expect(row).toHaveLength(21);
+    expect(row).toHaveLength(19);
     expect(row[0]).toBe('"UD"');
     expect(row[1]).toBe('"A3F2"');
     expect(row[2]).toBe('"SAMPLE CARE HOME"');
@@ -45,9 +47,9 @@ describe("buildUsenMasterCsv", () => {
     expect(row[8]).toBe('"2077248"');
     expect(row[10]).toBe('"10"'); // JCB支払区分
     expect(row[11]).toBe('"24111748400002"');
-    expect(row[20]).toBe('"credit"');
-    // 未使用列（銀聯・QR・DINERS等）は空のクォート
-    for (const i of [4, 5, 9, 12, 13, 14, 15, 16, 17, 18, 19]) {
+    expect(row[18]).toBe('"credit"');
+    // 未使用列（銀聯・QR・電子マネー等）は空のクォート
+    for (const i of [4, 5, 9, 12, 13, 14, 15, 16, 17]) {
       expect(row[i]).toBe('""');
     }
   });
@@ -88,15 +90,8 @@ describe("validateUsenMaster", () => {
 });
 
 describe("buildUsenFilename", () => {
-  it("実例準拠の UD_YYYYMMDD_名称.csv 形式", () => {
-    expect(buildUsenFilename("サンプルケアホーム", { year: 2026, month: 7, day: 22 })).toBe(
-      "UD_20260722_サンプルケアホーム.csv"
-    );
-  });
-
-  it("ファイル名に使えない文字を除去する", () => {
-    expect(buildUsenFilename('テスト/施設:"A"', { year: 2026, month: 1, day: 5 })).toBe(
-      "UD_20260105_テスト施設A.csv"
-    );
+  it("フォーマット規定の UD_YYYYMMDD.csv 形式（名称サフィックスなし）", () => {
+    expect(buildUsenFilename({ year: 2026, month: 7, day: 22 })).toBe("UD_20260722.csv");
+    expect(buildUsenFilename({ year: 2026, month: 1, day: 5 })).toBe("UD_20260105.csv");
   });
 });

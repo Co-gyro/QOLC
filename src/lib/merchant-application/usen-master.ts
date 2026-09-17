@@ -1,17 +1,20 @@
 /**
  * USEN 加盟店マスタ登録CSVの生成（純ロジック）
  *
- * 仕様: 「ユニバーサルデベロップメント様向け_加盟店マスタ登録フォーマット.xlsx」
- * 実例: 04_USEN/UD_20260528_QOLCテスト.csv（A300登録時にUSENへ実際に送付したもの）
- * - Shift-JIS / CRLF / カンマ区切り / 全項目ダブルクォート囲み
- * - QOLCの登録パターンは「VM+JCB登録」（銀聯・QR・DINERS・電子マネーは未使用＝空欄）
+ * 仕様: 「ユニバーサルデベロップメント様向け_加盟店マスタ登録フォーマット 2.xlsx」
+ * （統合ファイルフォーマット・2026-04-28版・全19項目）
+ * - Shift-JIS / CRLF / カンマ区切り / 全項目ダブルクォート囲み / ヘッダ行必須
+ * - ファイル名はフォーマット60行目の規定どおり「UD_YYYYMMDD.csv」（名称サフィックスなし）
+ * - DINERS系の列は存在しない（旧実例CSV由来の21列は誤り — 2026-09-17 USEN古賀氏指摘で是正）
+ * - QOLCの登録パターンは「VM+JCB登録」（銀聯・QR・電子マネーは未使用＝空欄）
  * - 運用（USEN古賀さん 2026-07-22 連絡）: Google Drive へ格納＋メール連絡。
  *   当日15時までの依頼は当日処理、以降は翌営業日処理。
+ *   ⚠️ カード会社側のPOS登録がすべて完了してから連携すること（2026-09 USEN指摘）。
  */
 import Encoding from "encoding-japanese";
 import type { DateParts } from "@/lib/workflow/utils";
 
-/** ヘッダ（実送付CSVと完全一致・21列） */
+/** ヘッダ（フォーマット2026-04-28版の項番1〜19と完全一致） */
 export const USEN_MASTER_HEADER: readonly string[] = [
   "登録識別子",
   "モールコード",
@@ -26,8 +29,6 @@ export const USEN_MASTER_HEADER: readonly string[] = [
   "JCB支払区分",
   "JCB加盟店番号",
   "銀聯加盟店番号",
-  "DINERS支払区分",
-  "DINERS加盟店番号",
   "加盟店ID",
   "MerchantID",
   "店舗コード",
@@ -108,8 +109,6 @@ export function buildUsenMasterCsv(input: UsenMasterInput): string {
     USEN_FIXED.paymentDivision, // JCB支払区分
     input.jcbMerchantCode,
     "", // 銀聯加盟店番号
-    "", // DINERS支払区分
-    "", // DINERS加盟店番号
     "", // 加盟店ID
     "", // MerchantID
     "", // 店舗コード
@@ -121,12 +120,10 @@ export function buildUsenMasterCsv(input: UsenMasterInput): string {
   return lines.join("\r\n") + "\r\n";
 }
 
-/** ファイル名（実例準拠: UD_YYYYMMDD_名称.csv） */
-export function buildUsenFilename(name: string, parts: DateParts): string {
+/** ファイル名（フォーマット60行目の規定: UD_YYYYMMDD.csv。名称サフィックスは付けない） */
+export function buildUsenFilename(parts: DateParts): string {
   const p = (n: number) => String(n).padStart(2, "0");
-  // ファイル名に使えない文字を除去
-  const safe = name.replace(/[\\/:*?"<>|]/g, "").trim() || "加盟店";
-  return `UD_${parts.year}${p(parts.month)}${p(parts.day)}_${safe}.csv`;
+  return `UD_${parts.year}${p(parts.month)}${p(parts.day)}.csv`;
 }
 
 /** CSV文字列を Shift-JIS のバイト列へ（ダウンロード用） */

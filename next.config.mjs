@@ -7,6 +7,23 @@ const nextConfig = {
     // セゾン加盟店申請（審査FMT）テンプレートをサーバーレス関数に同梱する
     "/api/admin/applications/**": ["./templates/saison-shinsa-fmt.xlsx"],
   },
+  /**
+   * 加盟店向け決済画面（/checkout/{session_id}）はフレーム内への埋め込みを禁止する
+   * （接続仕様書 第6章）。URL に session_id を含むため、外部へは origin だけを送る。
+   */
+  async headers() {
+    return [
+      {
+        source: "/checkout/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          { key: "Referrer-Policy", value: "strict-origin" },
+          { key: "Cache-Control", value: "no-store" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

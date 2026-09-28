@@ -15,6 +15,8 @@
 | 監査ログ | `payment_audit_logs`（action が `merchant_*`。`request_body.merchant_payment_id` で辿る） |
 
 - UD はリンク式（`ec-payment-front/checkout`）ではなく**トークン式**で USEN と契約している（2026-05 古賀さん指摘）。決済画面は UD が作り、カード番号・CVV は USEN の iframe に入力される＝UD・加盟店のサーバを通らない。
+- `/i/token/init` には**決済ごとに一意の member_id（`U`＋決済の内部UUID）**を渡す。仕様書上は任意だが、未指定だと 3Dセキュア認証（`/3ds/brw/auth`）が `ng/05` になる（2026-09-28 テストモールで実測）。決済ごとに USEN 側へ会員が作られる点は USEN に確認中。
+- 2026-09-28 に本番URL（app.qolc.jp）＋テストモールで、テストカードによる作成→決済→succeeded・中断→cancelled・署名不正→401 を確認済み。
 - **テスト環境**＝資格情報の `environment = test`。USEN のテストモール（TSJL/TSJM、実課金なし）で動く。
 - **本番環境**＝`environment = production`。加盟店の `merchants.mall_code`（DD様は **A304**）で決済する。
 

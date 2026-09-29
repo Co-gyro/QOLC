@@ -275,7 +275,7 @@ export async function checkoutPay(
   // 売上の成否は /i/pay の応答ではなく取引照会で確定させる
   let current = locked;
   try {
-    current = await reconcile(deps, locked, { brand });
+    current = await reconcile(deps, locked, { brand, payCode });
   } catch (e) {
     await deps.store.audit({
       action: "merchant_reconcile_error",

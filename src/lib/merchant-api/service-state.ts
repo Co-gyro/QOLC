@@ -8,7 +8,7 @@
  */
 import type { MerchantApiDeps } from "./deps";
 import { classifyTrade } from "./usen-gateway";
-import { failureMessage, type FailureCode } from "./serialize";
+import { failureCodeFromUsen, failureMessage, type FailureCode } from "./serialize";
 import { parseUsenDateTime } from "./time";
 import type {
   MerchantPaymentRow,
@@ -102,6 +102,8 @@ export async function markFailed(
 export interface ReconcileHint {
   /** /i/pay が返したカードブランド */
   brand?: string | null;
+  /** /i/pay が返した処理結果詳細コード（ng のときの失敗理由に使う） */
+  payCode?: string | null;
 }
 
 /**
@@ -161,12 +163,14 @@ export async function reconcile(
       return done ?? (await refetch(deps, row));
     }
     case "declined": {
-      // 取引照会の auth_code は会員ID決済API側の体系で /i/pay のコードと一致しないため、
-      // 理由の細分はせず「カード会社による非承認」として返す
+      // 理由は /i/pay の処理結果詳細コード（09=3DS認証NG 等）を優先する。
+      // それが無い場合（期限切れ処理からの照会等）は「カード会社による非承認」とする
+      const fromPay = hint.payCode ? failureCodeFromUsen(hint.payCode) : "processing_error";
+      const code: FailureCode = fromPay === "processing_error" ? "card_declined" : fromPay;
       const done = await transition(deps, row, "failed", {
         ...synced,
-        failure_code: "card_declined",
-        failure_message: failureMessage("card_declined"),
+        failure_code: code,
+        failure_message: failureMessage(code),
       });
       return done ?? (await refetch(deps, row));
     }

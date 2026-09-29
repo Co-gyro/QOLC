@@ -103,6 +103,14 @@ describe("失敗系", () => {
     expect(store.webhooks.map((w) => w.event_type)).toEqual(["payment.failed"]);
   });
 
+  it("3Dセキュアの認証拒否（/i/pay code=09）は three_ds_failed（T-02）", async () => {
+    const { deps, store, usen, row } = await started();
+    usen.payResult = { result: "ng", code: "09", brand: "VISA" };
+    usen.trade = { result: "ok", status: "unprocessed", auth_result: "ng", auth_code: "09" };
+    await checkoutPay(deps, row.session_id, { jutyu_cd: "TSJM-0000001", token: "T", check_cd: "HMabc" }, null);
+    expect(store.payments[0]).toMatchObject({ status: "failed", failure_code: "three_ds_failed" });
+  });
+
   it("/i/pay が ng でも取引照会が売上済みなら succeeded（照会が正）", async () => {
     const { deps, store, usen, row } = await started();
     usen.payResult = { result: "ng", code: "04" };

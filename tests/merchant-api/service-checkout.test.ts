@@ -154,15 +154,6 @@ describe("失敗系", () => {
   });
 });
 
-describe("会員ID", () => {
-  it("決済ごとに一意（英数48桁以内）", async () => {
-    const { usenMemberIdFor } = await import("@/lib/merchant-api/service-checkout");
-    const row = makeRow();
-    expect(usenMemberIdFor(row)).toMatch(/^U[0-9a-f]{32}$/);
-    expect(usenMemberIdFor(makeRow())).not.toBe(usenMemberIdFor(row));
-  });
-});
-
 describe("排他・二重処理", () => {
   it("/token/init は1つの受注コードで1回だけ", async () => {
     const { deps, row } = await started();

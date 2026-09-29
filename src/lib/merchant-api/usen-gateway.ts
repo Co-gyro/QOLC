@@ -45,15 +45,11 @@ export interface TokenInitInput {
   cardholderName: string;
   /** 3Dセキュアのカード会員情報（2025年10月から必須） */
   email: string;
-  /**
-   * 会員ID。仕様上は任意だが、未指定だと 3Dセキュア認証（/3ds/brw/auth）が
-   * ng/05 になる（2026-09-28 テストモールで実測）。決済ごとに一意の値を渡す。
-   */
-  memberId: string;
 }
 
 /**
  * 決済初期化（/i/token/init）。即時売上（option=capture）・一括払いに固定する。
+ * チケットは1回限りの購入のため member_id は渡さない（USEN にカード会員を作らない）。
  */
 export async function usenTokenInit(
   profile: UsenProfile,
@@ -76,7 +72,6 @@ export async function usenTokenInit(
       expiration_date: input.expirationDate,
       option: "capture",
       three_ds_cardholder_info: { email: input.email },
-      member_id: input.memberId,
     },
     fetchImpl,
   });

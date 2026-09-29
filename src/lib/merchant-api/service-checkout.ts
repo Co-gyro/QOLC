@@ -118,13 +118,6 @@ export async function openCheckout(deps: MerchantApiDeps, sessionId: string): Pr
   };
 }
 
-/**
- * USEN へ渡す会員ID（英数48桁以内）。決済ごとに一意で、購入者をまたいで使い回さない。
- */
-export function usenMemberIdFor(row: MerchantPaymentRow): string {
-  return "U" + row.id.replace(/-/g, "");
-}
-
 /** SDK から /token/init に届く値（トークン式EC決済API仕様書 10.1.7） */
 export interface CheckoutTokenInitBody {
   jutyu_cd: string;
@@ -199,7 +192,6 @@ export async function checkoutTokenInit(
       cardLimitMm: body.card_limit_mm,
       cardholderName: body.cardholder_name,
       email: row.customer_email,
-      memberId: usenMemberIdFor(row),
     });
   } catch (e) {
     await deps.store.audit({

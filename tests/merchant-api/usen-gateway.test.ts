@@ -40,7 +40,6 @@ describe("usenTokenInit（トークン式EC決済API 8.1）", () => {
         cardLimitMm: "08",
         cardholderName: "TARO",
         email: "buyer@example.com",
-        memberId: "U0123456789abcdef0123456789abcdef",
       },
       fetchImpl
     );
@@ -56,7 +55,7 @@ describe("usenTokenInit（トークン式EC決済API 8.1）", () => {
       expiration_date: "2026/09/28 12:30",
       three_ds_cardholder_info: { email: "buyer@example.com" },
     });
-    expect(body.member_id).toBe("U0123456789abcdef0123456789abcdef");
+    expect(body.member_id).toBeUndefined();
     expect(body.pay_method).toBeUndefined();
   });
 });

@@ -7,10 +7,22 @@
  * - 呼び出し側は送信結果を application_events（kind='email_sent'）等に必ず記録すること。
  */
 
+/** 添付ファイル（Resend へは base64 で渡す） */
+export interface EmailAttachment {
+  /** ファイル名（例: 領収書_2026-10.pdf） */
+  filename: string;
+  /** ファイル本体 */
+  content: Uint8Array;
+}
+
 /** 送信内容（テキストメールのみ。テンプレは templates.ts で生成） */
 export interface SendEmailInput {
-  /** 宛先メールアドレス */
-  to: string;
+  /** 宛先メールアドレス（複数可） */
+  to: string | string[];
+  /** CC（複数可・省略可） */
+  cc?: string[];
+  /** 添付ファイル（省略可） */
+  attachments?: EmailAttachment[];
   /** 件名 */
   subject: string;
   /** 本文（プレーンテキスト） */
@@ -80,10 +92,15 @@ export async function sendEmail(
   input: SendEmailInput,
   fetchFn: typeof fetch = fetch
 ): Promise<SendEmailResult> {
+  const to = Array.isArray(input.to) ? input.to : [input.to];
+  const cc = input.cc ?? [];
+  if (to.length === 0) {
+    return { sent: false, skipped: false, error: "宛先がありません" };
+  }
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.warn(
-      `[email] RESEND_API_KEY 未設定のため送信をスキップ: to=${input.to} subject=${input.subject}`
+      `[email] RESEND_API_KEY 未設定のため送信をスキップ: to=${to.join(",")} subject=${input.subject}`
     );
     return { sent: false, skipped: true };
   }
@@ -102,10 +119,19 @@ export async function sendEmail(
       },
       body: JSON.stringify({
         from,
-        to: [input.to],
+        to,
+        ...(cc.length > 0 ? { cc } : {}),
         reply_to: replyTo,
         subject: input.subject,
         text: input.text,
+        ...(input.attachments && input.attachments.length > 0
+          ? {
+              attachments: input.attachments.map((a) => ({
+                filename: a.filename,
+                content: Buffer.from(a.content).toString("base64"),
+              })),
+            }
+          : {}),
       }),
     });
     const body = (await res.json().catch(() => null)) as

@@ -125,4 +125,47 @@ describe("sendEmail", () => {
     const result = await sendEmail(INPUT, f);
     expect(result).toEqual({ sent: false, skipped: false, error: "network down" });
   });
+
+  it("To複数・CC・添付ファイルを Resend 形式で送る（UD Payment の請求/領収書メール用）", async () => {
+    process.env.RESEND_API_KEY = "re_test_key";
+    let capturedInit: RequestInit = {};
+    const f = mockFetch(200, { id: "email_456" }, (_url, init) => {
+      capturedInit = init;
+    });
+    const result = await sendEmail(
+      {
+        to: ["a@example.com", "b@example.com"],
+        cc: ["c@example.com"],
+        subject: "件名",
+        text: "本文",
+        attachments: [{ filename: "領収書.pdf", content: new Uint8Array([0x25, 0x50, 0x44, 0x46]) }],
+      },
+      f
+    );
+    expect(result.sent).toBe(true);
+    const body = JSON.parse(String(capturedInit.body)) as Record<string, unknown>;
+    expect(body.to).toEqual(["a@example.com", "b@example.com"]);
+    expect(body.cc).toEqual(["c@example.com"]);
+    expect(body.attachments).toEqual([{ filename: "領収書.pdf", content: "JVBERg==" }]);
+  });
+
+  it("CC・添付なしなら cc / attachments キーを送らない（既存呼び出しと同じペイロード）", async () => {
+    process.env.RESEND_API_KEY = "re_test_key";
+    let capturedInit: RequestInit = {};
+    const f = mockFetch(200, { id: "email_789" }, (_url, init) => {
+      capturedInit = init;
+    });
+    await sendEmail(INPUT, f);
+    const body = JSON.parse(String(capturedInit.body)) as Record<string, unknown>;
+    expect("cc" in body).toBe(false);
+    expect("attachments" in body).toBe(false);
+  });
+
+  it("宛先が空配列なら送信せずエラーを返す", async () => {
+    process.env.RESEND_API_KEY = "re_test_key";
+    const f = vi.fn();
+    const result = await sendEmail({ ...INPUT, to: [] }, f as unknown as typeof fetch);
+    expect(result).toEqual({ sent: false, skipped: false, error: "宛先がありません" });
+    expect(f).not.toHaveBeenCalled();
+  });
 });

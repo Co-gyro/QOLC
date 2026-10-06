@@ -103,3 +103,73 @@ describe("formatYen", () => {
     expect(formatYen(431_930)).toBe("¥431,930");
   });
 });
+
+describe("課金日・入金日・取消可否", () => {
+  it("予定日が今日以前なら翌日、先ならそのまま", async () => {
+    const { effectiveChargeDate } = await import("@/lib/udpay/logic");
+    expect(effectiveChargeDate("2026-10-05", "2026-10-10")).toBe("2026-10-11");
+    expect(effectiveChargeDate("2026-10-10", "2026-10-10")).toBe("2026-10-11");
+    expect(effectiveChargeDate("2026-10-31", "2026-10-31")).toBe("2026-11-01");
+    expect(effectiveChargeDate("2026-10-25", "2026-10-10")).toBe("2026-10-25");
+  });
+  it("1〜15日の決済は翌月15日、16日〜末日は翌月末日に入金", async () => {
+    const { payoutDateFor } = await import("@/lib/udpay/logic");
+    expect(payoutDateFor("2026-10-15")).toBe("2026-11-15");
+    expect(payoutDateFor("2026-10-16")).toBe("2026-11-30");
+    expect(payoutDateFor("2026-12-25")).toBe("2027-01-31");
+  });
+  it("決済確定の取消は課金日の前日まで", async () => {
+    const { canCancelConfirmation } = await import("@/lib/udpay/logic");
+    expect(canCancelConfirmation("2026-10-14", "2026-10-13")).toBe(true);
+    expect(canCancelConfirmation("2026-10-14", "2026-10-14")).toBe(false);
+  });
+  it("直近の月を新しい順に返す・日本時間の今日", async () => {
+    const { recentMonths, todayJst } = await import("@/lib/udpay/logic");
+    expect(recentMonths(3, "2026-01")).toEqual(["2026-01", "2025-12", "2025-11"]);
+    expect(todayJst(new Date("2026-10-06T15:30:00Z"))).toBe("2026-10-07");
+  });
+});
+
+describe("buildInvoiceMail（追記コメント・件名）", () => {
+  it("追記コメントを差し込み、金額・決済日の行は請求データから作る", () => {
+    const mail = buildInvoiceMail({
+      customerName: "さくら歯科",
+      contactName: "田中",
+      month: "2026-10",
+      total: 11_000,
+      chargeDate: "2026-11-14",
+      lines: [line(10_000)],
+      subject: "  ",
+      comment: "今月から料金改定しました。",
+    });
+    expect(mail.subject).toBe("【株式会社ランサイド】2026年10月サービス分 ご請求明細のご案内");
+    expect(mail.body).toContain("今月から料金改定しました。");
+    expect(mail.fixedBlock).toContain("ご請求金額合計: ¥11,000（税込）");
+    expect(mail.fixedBlock).toContain("2026年11月14日に自動決済");
+    expect(mail.body).toContain(mail.fixedBlock);
+  });
+});
+
+describe("表示状態", () => {
+  it("請求と決済から状態を決める", async () => {
+    const { displayStatusOf } = await import("@/lib/udpay/status");
+    const inv = { id: "i", customerId: "c", month: "2026-10", lines: [] };
+    const pay = { id: "p", invoiceId: "i", customerId: "c", amount: 1, scheduledDate: "2026-11-01", attempts: [] };
+    expect(displayStatusOf(undefined, undefined)).toBe("none");
+    expect(displayStatusOf({ ...inv, status: "draft" }, undefined)).toBe("draft");
+    expect(displayStatusOf({ ...inv, status: "reserved" }, undefined)).toBe("reserved");
+    expect(displayStatusOf({ ...inv, status: "confirmed" }, { ...pay, status: "scheduled" })).toBe("confirmed");
+    expect(displayStatusOf({ ...inv, status: "confirmed" }, { ...pay, status: "paid" })).toBe("paid");
+    expect(displayStatusOf({ ...inv, status: "confirmed" }, { ...pay, status: "failed" })).toBe("failed");
+  });
+});
+
+describe("matchesKeyword", () => {
+  it("名前・担当者・メールのどれかに含まれれば一致（空なら全件）", async () => {
+    const { matchesKeyword } = await import("@/lib/udpay/logic");
+    expect(matchesKeyword("", ["a"])).toBe(true);
+    expect(matchesKeyword("サクラ", ["さくら歯科"])).toBe(false);
+    expect(matchesKeyword("さくら", ["さくら歯科", undefined])).toBe(true);
+    expect(matchesKeyword("DEMO", ["demo-x@example.com"])).toBe(true);
+  });
+});

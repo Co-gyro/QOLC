@@ -1,173 +1,148 @@
-import type { UdpayStore } from "./types";
-import { chargeDateFor, computeTotals, currentMonth, previousMonth } from "./logic";
+import type { UdpayCustomer, UdpayInvoiceLine, UdpayStore } from "./types";
+import {
+  chargeDateFor,
+  computeTotals,
+  currentMonth,
+  nextMonth,
+  previousMonth,
+  todayJst,
+} from "./logic";
 
 /** シードデータのバージョン。構造を変えたら上げる（ストアが自動で作り直される） */
-export const SEED_VERSION = 2;
+export const SEED_VERSION = 3;
+
+/** "YYYY-MM" を有効期限 "YYYYMM" にする */
+function ym(month: string): string {
+  return month.replace("-", "");
+}
 
 /**
  * UD Payment デモの初期データを生成する。
- * ランサイド様の実態（歯科医院向け月次サポート・交通費実費・アニバーサリー日課金）
- * に寄せた架空の顧客6件と、前月分の確定済み請求・入金済み決済を含む。
- * 「前月」は実行時点の実カレンダーで決める（固定月だと時間経過でデモの
- * 前月コピーが空振りするため。月替わり時の再シードは loadStore 側で行う）。
+ * ランサイド様の実態（歯科医院向け月次サポート・交通費実費・顧客ごとの決済日）
+ * に寄せた架空の顧客7件と、前々月・前月分の請求（決済確定済み）を含む。
+ * 前月分は決済日が今日以前なら入金済み、先なら決済確定（課金待ち）になる。
+ * 有効期限が近い顧客（ひかり歯科）と期限切れの顧客（こだま歯科）を1件ずつ入れる。
+ * 「前月」は実行時点の実カレンダーで決める（月替わり時の再シードは loadStore 側）。
  */
 export function buildSeed(): UdpayStore {
-  const PREV_MONTH = previousMonth(currentMonth());
-  /** 前月分の確定済み請求書を生成するヘルパー */
-  function invoice(
-    id: string,
-    customerId: string,
-    lines: ReturnType<typeof line>[],
-  ) {
+  const TODAY = todayJst();
+  const CUR = currentMonth();
+  const PREV = previousMonth(CUR);
+  const PREV2 = previousMonth(PREV);
+  /** 決済確定済みの請求書を生成するヘルパー */
+  function invoice(month: string, customerId: string, lines: UdpayInvoiceLine[]) {
+    const at = `${nextMonth(month)}-01T10:00:00+09:00`;
     return {
-      id,
+      id: `inv-${customerId.replace("cust-", "")}-${month}`,
       customerId,
-      month: PREV_MONTH,
+      month,
       lines,
       status: "confirmed" as const,
-      confirmedAt: `${currentMonth()}-02T10:00:00+09:00`,
-      mailSentAt: `${currentMonth()}-02T10:00:00+09:00`,
+      reservedAt: at,
+      confirmedAt: at,
+      mailSentAt: at,
     };
   }
+  /** 顧客を生成するヘルパー */
+  function customer(
+    key: string,
+    name: string,
+    contactName: string,
+    day: number,
+    card: UdpayCustomer["card"],
+    extra: Partial<UdpayCustomer> = {},
+  ): UdpayCustomer {
+    return {
+      id: `cust-${key}`,
+      name,
+      contactName,
+      email: `demo-${key}@example.com`,
+      cc: [],
+      anniversaryDay: day,
+      registrationToken: `demo-${key}`,
+      card,
+      createdAt: "2025-11-01T09:00:00+09:00",
+      ...extra,
+    };
+  }
+  const visa = (last4: string, expireYm: string) => ({
+    registered: true,
+    maskedNumber: `**** **** **** ${last4}`,
+    brand: "Visa",
+    expireYm,
+    registeredAt: "2025-11-14T10:00:00+09:00",
+  });
   const store: UdpayStore = {
     customers: [
-      {
-        id: "cust-sakura",
-        name: "さくら歯科クリニック",
-        contactName: "田中",
-        email: "demo-sakura@example.com",
-        anniversaryDay: 14,
-        registrationToken: "demo-sakura",
-        card: {
-          registered: true,
-          maskedNumber: "**** **** **** 4242",
-          brand: "Visa",
-          registeredAt: "2025-11-14T10:00:00+09:00",
-        },
-        createdAt: "2025-11-01T09:00:00+09:00",
-      },
-      {
-        id: "cust-minato",
-        name: "みなと歯科医院",
-        contactName: "佐藤",
-        email: "demo-minato@example.com",
-        anniversaryDay: 5,
-        registrationToken: "demo-minato",
-        card: {
-          registered: true,
-          maskedNumber: "**** **** **** 0505",
-          brand: "JCB",
-          registeredAt: "2025-12-05T10:00:00+09:00",
-          demoFailOnce: true,
-        },
-        createdAt: "2025-12-01T09:00:00+09:00",
-      },
-      {
-        id: "cust-hikari",
-        name: "ひかり歯科",
-        contactName: "鈴木",
-        email: "demo-hikari@example.com",
-        anniversaryDay: 14,
-        registrationToken: "demo-hikari",
-        card: {
-          registered: true,
-          maskedNumber: "**** **** **** 1414",
-          brand: "Mastercard",
-          registeredAt: "2026-01-14T10:00:00+09:00",
-        },
-        createdAt: "2026-01-06T09:00:00+09:00",
-      },
-      {
-        id: "cust-aoba",
-        name: "あおば歯科クリニック",
-        contactName: "高橋",
-        email: "demo-aoba@example.com",
-        anniversaryDay: 20,
-        registrationToken: "demo-aoba",
-        card: {
-          registered: true,
-          maskedNumber: "**** **** **** 2020",
-          brand: "Visa",
-          registeredAt: "2026-02-20T10:00:00+09:00",
-        },
-        createdAt: "2026-02-12T09:00:00+09:00",
-      },
-      {
-        id: "cust-umikaze",
-        name: "うみかぜ歯科医院",
-        contactName: "宮里",
-        email: "demo-umikaze@example.com",
-        anniversaryDay: 25,
-        registrationToken: "demo-umikaze",
-        card: {
-          registered: true,
-          maskedNumber: "**** **** **** 2525",
-          brand: "JCB",
-          registeredAt: "2026-03-25T10:00:00+09:00",
-        },
-        createdAt: "2026-03-18T09:00:00+09:00",
-      },
-      {
-        id: "cust-wakaba",
-        name: "わかば歯科",
-        contactName: "伊藤",
-        email: "demo-wakaba@example.com",
-        anniversaryDay: 10,
-        registrationToken: "demo-wakaba",
-        card: { registered: false },
+      customer("sakura", "さくら歯科クリニック", "田中", 14, visa("4242", "202903"), {
+        cc: ["keiri-sakura@example.com"],
+        note: "請求書は院長と経理の両方へ",
+      }),
+      customer("minato", "みなと歯科医院", "佐藤", 5, {
+        ...visa("0505", "202811"),
+        brand: "JCB",
+        demoFailOnce: true,
+      }),
+      customer("hikari", "ひかり歯科", "鈴木", 14, {
+        ...visa("1414", ym(nextMonth(CUR))),
+        brand: "Mastercard",
+      }),
+      customer("aoba", "あおば歯科クリニック", "高橋", 20, visa("2020", "202807")),
+      customer("umikaze", "うみかぜ歯科医院", "宮里", 25, { ...visa("2525", "203001"), brand: "JCB" }, {
+        note: "交通費（航空券）が毎月変動",
+      }),
+      customer("kodama", "こだま歯科クリニック", "児玉", 10, visa("1010", ym(PREV)), {
+        note: "数か月に1回の請求",
+      }),
+      customer("wakaba", "わかば歯科", "伊藤", 10, { registered: false }, {
         createdAt: "2026-07-21T09:00:00+09:00",
-      },
+      }),
     ],
     invoices: [
-      invoice("inv-sakura-06", "cust-sakura", [
-        line("基本サポート料金", 9_900),
-        line("歯科医院支援サポート料金", 169_800),
+      ...[PREV2, PREV].flatMap((month) => [
+        invoice(month, "cust-sakura", [line("基本サポート料金", 9_900), line("歯科医院支援サポート料金", 169_800)]),
+        invoice(month, "cust-minato", [
+          line("基本サポート料金", 9_900),
+          line("歯科医院支援サポート料金（3医院分）", 169_800, 3),
+          line("労務管理サポート", 55_000),
+        ]),
+        invoice(month, "cust-hikari", [line("基本サポート料金", 9_900), line("労務管理サポート", 55_000)]),
+        invoice(month, "cust-aoba", [line("基本サポート料金", 9_900), line("歯科医院支援サポート料金", 169_800)]),
+        invoice(month, "cust-umikaze", [
+          line("基本サポート料金", 9_900),
+          line("歯科医院支援サポート料金", 169_800),
+          line("交通費（羽田〜那覇往復航空券）", month === PREV ? 157_964 : 98_400),
+        ]),
       ]),
-      invoice("inv-minato-06", "cust-minato", [
-        line("基本サポート料金", 9_900),
-        line("歯科医院支援サポート料金（3医院分）", 169_800, 3),
-        line("労務管理サポート", 55_000),
-      ]),
-      invoice("inv-hikari-06", "cust-hikari", [
-        line("基本サポート料金", 9_900),
-        line("労務管理サポート", 55_000),
-      ]),
-      invoice("inv-aoba-06", "cust-aoba", [
-        line("基本サポート料金", 9_900),
-        line("歯科医院支援サポート料金", 169_800),
-      ]),
-      invoice("inv-umikaze-06", "cust-umikaze", [
-        line("基本サポート料金", 9_900),
-        line("歯科医院支援サポート料金", 169_800),
-        line("交通費（羽田〜那覇往復航空券）", 157_964),
-      ]),
+      invoice(PREV2, "cust-kodama", [line("基本サポート料金", 9_900), line("初回訪問サポート（値引き）", -5_000)]),
     ],
     payments: [],
     seedVersion: SEED_VERSION,
   };
 
-  // 前月分の決済は全件「入金済み」として seed する
+  // 決済日が今日以前の請求は入金済み、先の請求は決済確定（課金待ち）として seed する
   for (const inv of store.invoices) {
-    const customer = store.customers.find((c) => c.id === inv.customerId);
-    if (!customer) continue;
+    const c = store.customers.find((x) => x.id === inv.customerId);
+    if (!c) continue;
     const { total } = computeTotals(inv.lines);
-    const scheduledDate = chargeDateFor(inv.month, customer.anniversaryDay);
+    const scheduledDate = chargeDateFor(inv.month, c.anniversaryDay);
+    const done = scheduledDate <= TODAY;
     store.payments.push({
       id: `pay-${inv.id}`,
       invoiceId: inv.id,
       customerId: inv.customerId,
       amount: total,
       scheduledDate,
-      status: "paid",
-      attempts: [{ at: `${scheduledDate}T05:00:00+09:00`, result: "paid" }],
-      paidAt: `${scheduledDate}T05:00:00+09:00`,
+      status: done ? "paid" : "scheduled",
+      attempts: done ? [{ at: `${scheduledDate}T05:00:00+09:00`, result: "paid" }] : [],
+      paidAt: done ? `${scheduledDate}T05:00:00+09:00` : undefined,
     });
   }
   return store;
 }
 
 /** 明細行を生成するヘルパー */
-function line(description: string, unitPrice: number, quantity = 1) {
+function line(description: string, unitPrice: number, quantity = 1): UdpayInvoiceLine {
   return {
     id: `line-${description}-${unitPrice}`,
     description,

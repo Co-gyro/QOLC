@@ -1,96 +1,102 @@
 import Link from "next/link";
 import { loadStore } from "@/lib/udpay/store";
-import {
-  computeTotals,
-  currentMonth,
-  formatMonthJa,
-  formatYen,
-} from "@/lib/udpay/logic";
+import { addDays, computeTotals, currentMonth, formatDateJa, formatYen, todayJst } from "@/lib/udpay/logic";
+import { cardExpiryStatus } from "@/lib/payment/card-expiry";
 import { UdpayHeader } from "./header";
+import { StatusLegend } from "./_components/status";
 
 export const dynamic = "force-dynamic";
 
+/** 「今日やること」の1項目 */
+interface TodoItem {
+  label: string;
+  count: number;
+  detail?: string;
+  href: string;
+  action: string;
+  tone: "red" | "amber" | "blue";
+}
+
 /**
  * UD Payment（仮）デモのダッシュボード。
- * 当月の請求・入金状況のサマリとデモの進め方を表示する。
+ * 「今日やること」（未実行の課金予約・今日明日の課金・与信落ち・カード未登録・期限間近）を一覧し、
+ * 毎月の運用の流れを示す。
  */
 export default async function UdpayDashboardPage() {
   const store = await loadStore();
+  const today = todayJst();
+  const tomorrow = addDays(today, 1);
   const month = currentMonth();
-  const invoices = store.invoices.filter((i) => i.month === month);
-  const confirmed = invoices.filter((i) => i.status === "confirmed");
-  const billedTotal = confirmed.reduce(
-    (sum, i) => sum + computeTotals(i.lines).total,
-    0,
+  const reserved = store.invoices.filter((i) => i.status === "reserved");
+  const drafts = store.invoices.filter((i) => i.status === "draft" && i.month === month);
+  const soon = store.payments.filter(
+    (p) => p.status === "scheduled" && (p.scheduledDate === today || p.scheduledDate === tomorrow),
   );
-  const payments = store.payments.filter((p) =>
-    confirmed.some((i) => i.id === p.invoiceId),
+  const failed = store.payments.filter((p) => p.status === "failed");
+  const failedMonth = store.invoices.find((i) => i.id === failed[0]?.invoiceId)?.month ?? month;
+  const unregistered = store.customers.filter((c) => !c.card.registered);
+  const expiring = store.customers.filter(
+    (c) => c.card.registered && ["expiring", "expired"].includes(cardExpiryStatus(c.card.expireYm, today)),
   );
-  const paid = payments.filter((p) => p.status === "paid");
-  const failed = payments.filter((p) => p.status === "failed");
-  const cardRegistered = store.customers.filter((c) => c.card.registered).length;
+  const sum = (ids: string[]) =>
+    store.invoices.filter((i) => ids.includes(i.id)).reduce((s, i) => s + computeTotals(i.lines).total, 0);
+
+  const todos: TodoItem[] = [
+    { label: "与信落ち（要対応）", count: failed.length, detail: formatYen(failed.reduce((s, p) => s + p.amount, 0)), href: `/udpay/payments?month=${failedMonth}&status=failed`, action: "顧客へ連絡して再決済", tone: "red" },
+    { label: "課金予約のまま一括実行していない請求", count: reserved.length, detail: formatYen(sum(reserved.map((i) => i.id))), href: "/udpay/payments/confirm", action: "承認者が一括実行", tone: "amber" },
+    { label: `今日・明日（${formatDateJa(tomorrow)}まで）の課金予定`, count: soon.length, detail: formatYen(soon.reduce((s, p) => s + p.amount, 0)), href: "/udpay/payments", action: "内容を確認", tone: "blue" },
+    { label: "当月の下書き", count: drafts.length, href: `/udpay/invoices?month=${month}&status=draft`, action: "確認して課金予約", tone: "blue" },
+    { label: "カード未登録の顧客", count: unregistered.length, href: "/udpay/customers?card=unregistered", action: "登録リンクを送る", tone: "amber" },
+    { label: "カードの有効期限が近い・切れた顧客", count: expiring.length, href: "/udpay/customers?card=expiring", action: "更新のご案内（本番は自動メール）", tone: "amber" },
+  ];
+  const active = todos.filter((t) => t.count > 0);
 
   return (
     <div>
       <UdpayHeader />
       <main className="up-container">
         <h1>ダッシュボード</h1>
-        <p className="up-lead">
-          {formatMonthJa(month)}サービス分の請求・入金状況（デモデータ）
-        </p>
+        <p className="up-lead">{formatDateJa(today)}時点（デモデータ）</p>
 
-        <div className="up-grid">
-          <div className="up-card">
-            <div className="up-stat-label">請求先顧客</div>
-            <div className="up-stat-value">{store.customers.length}件</div>
-            <div className="up-stat-label">カード登録済み {cardRegistered}件</div>
-          </div>
-          <div className="up-card">
-            <div className="up-stat-label">当月の確定済み請求</div>
-            <div className="up-stat-value">{confirmed.length}件</div>
-            <div className="up-stat-label">請求総額 {formatYen(billedTotal)}</div>
-          </div>
-          <div className="up-card">
-            <div className="up-stat-label">入金済み</div>
-            <div className="up-stat-value green">{paid.length}件</div>
-            <div className="up-stat-label">
-              {formatYen(paid.reduce((s, p) => s + p.amount, 0))}
-            </div>
-          </div>
-          <div className="up-card">
-            <div className="up-stat-label">与信落ち（要対応）</div>
-            <div className={`up-stat-value ${failed.length > 0 ? "red" : ""}`}>
-              {failed.length}件
-            </div>
-            <div className="up-stat-label">
-              {failed.length > 0 ? (
-                <Link href="/udpay/payments">入金管理で再決済 →</Link>
-              ) : (
-                "対応が必要な決済はありません"
-              )}
-            </div>
-          </div>
-        </div>
+        <section className="up-card">
+          <h2>今日やること</h2>
+          {active.length === 0 ? (
+            <p className="up-muted" style={{ margin: 0 }}>対応が必要なことはありません。</p>
+          ) : (
+            <ul className="up-todo">
+              {active.map((t) => (
+                <li key={t.label}>
+                  <span>
+                    <span className="count" style={{ color: `var(--${t.tone === "blue" ? "blue-dark" : t.tone})` }}>
+                      {t.count}件
+                    </span>
+                    {t.label}
+                    {t.detail && <span className="up-muted">（{t.detail}）</span>}
+                  </span>
+                  <Link className="up-btn secondary small" href={t.href}>
+                    {t.action} →
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
         <section className="up-section up-card">
-          <h2>毎月の運用はこれだけ</h2>
+          <h2>毎月の流れ</h2>
           <ol style={{ margin: 0, paddingLeft: 20, lineHeight: 2.1 }}>
             <li>
-              <Link href="/udpay/invoices">請求管理</Link>
-              で「前月分をコピー」— 交通費やオプションなど変わった分だけ修正して確定
+              <Link href="/udpay/invoices">請求管理</Link>で「直近の請求からコピー」（またはCSV取込）→ 変わった分だけ直して「課金予約」（担当者・メールはまだ送られません）
             </li>
-            <li>確定と同時に、各顧客へ請求明細メールが自動送付されます</li>
             <li>
-              各顧客の課金日（初回決済日と同じ日）に登録カードへ自動課金。
-              <Link href="/udpay/payments">入金管理</Link>で消込状況を確認
+              <Link href="/udpay/payments">入金管理</Link>の「一括実行」で内容を確認し、承認者が実行 → 請求メールを一括送信・決済確定
             </li>
-            <li>与信落ちがあれば通知が届き、ワンクリックで再決済。入金後は領収書も自動発行</li>
+            <li>各顧客の決済日の朝に登録カードへ自動課金 → 入金済み。与信落ちはお知らせが届き、再決済できます</li>
+            <li>決済確定は決済日の前日まで取り消せます。課金予約はいつでも下書きに戻せます</li>
           </ol>
-          <p style={{ color: "var(--muted)", marginTop: 12, marginBottom: 0 }}>
-            新しい顧客のカード登録は
-            <Link href="/udpay/customers">顧客管理</Link>
-            から登録リンクをメールで送るだけ。カード番号は貴社でもUD側でも一切保持しません。
-          </p>
+          <div style={{ marginTop: 12 }}>
+            <StatusLegend />
+          </div>
         </section>
       </main>
     </div>

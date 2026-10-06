@@ -1,23 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import type {
-  UdpayCustomer,
-  UdpayInvoice,
-  UdpayInvoiceLine,
-  UdpayPayment,
-  UdpayStore,
-} from "./types";
+import type { UdpayCustomer, UdpayStore } from "./types";
 import {
-  chargeDateFor,
-  computeTotals,
   currentMonth,
   detectBrand,
   maskCardNumber,
   previousMonth,
   validateCardNumber,
 } from "./logic";
-import type { CsvMatchedGroup } from "./csv-import";
 import { buildSeed, SEED_VERSION } from "./seed";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -110,7 +101,9 @@ export async function createCustomer(input: {
   name: string;
   contactName: string;
   email: string;
+  cc?: string[];
   anniversaryDay: number;
+  note?: string;
 }): Promise<UdpayCustomer> {
   const store = await loadStore();
   const customer: UdpayCustomer = {
@@ -118,7 +111,9 @@ export async function createCustomer(input: {
     name: input.name,
     contactName: input.contactName,
     email: input.email,
+    cc: input.cc ?? [],
     anniversaryDay: input.anniversaryDay,
+    note: input.note,
     registrationToken: randomUUID().slice(0, 13),
     card: { registered: false },
     createdAt: new Date().toISOString(),
@@ -128,13 +123,33 @@ export async function createCustomer(input: {
   return customer;
 }
 
-/** カード登録リンクのトークンからカードを登録する（デモ: マスク済み番号のみ保存） */
+/**
+ * 有効期限の入力（"MM/YY" または "MM/YYYY"）を "YYYYMM" にする。不正なら null。
+ */
+export function parseCardExpiry(expiry: string): string | null {
+  const m = expiry.trim().match(/^(\d{1,2})\s*\/\s*(\d{2}|\d{4})$/);
+  if (!m) return null;
+  const mm = Number(m[1]);
+  if (mm < 1 || mm > 12) return null;
+  const yyyy = m[2].length === 2 ? `20${m[2]}` : m[2];
+  return `${yyyy}${String(mm).padStart(2, "0")}`;
+}
+
+/**
+ * カード登録リンクのトークンからカードを登録する（デモ: マスク済み番号と有効期限のみ保存）。
+ * 既に登録済みの場合は上書き（カード変更）になる。
+ */
 export async function registerCardByToken(
   token: string,
   cardNumber: string,
+  expiry?: string,
 ): Promise<{ ok: true; customer: UdpayCustomer } | { ok: false; error: string }> {
   if (!validateCardNumber(cardNumber)) {
     return { ok: false, error: "カード番号の形式が正しくありません" };
+  }
+  const expireYm = expiry ? parseCardExpiry(expiry) : null;
+  if (expiry && !expireYm) {
+    return { ok: false, error: "有効期限の形式が正しくありません（例: 12/28）" };
   }
   const store = await loadStore();
   const customer = store.customers.find((c) => c.registrationToken === token);
@@ -143,186 +158,21 @@ export async function registerCardByToken(
     registered: true,
     maskedNumber: maskCardNumber(cardNumber),
     brand: detectBrand(cardNumber),
+    expireYm: expireYm ?? undefined,
     registeredAt: new Date().toISOString(),
   };
   await saveStore(store);
   return { ok: true, customer };
 }
 
-/**
- * 前月の請求書を当月へコピーして下書きを作る。
- * 当月分が既にある顧客はスキップし、作成件数を返す。
- */
-export async function copyPreviousMonthInvoices(month: string): Promise<number> {
-  const store = await loadStore();
-  const prev = previousMonth(month);
-  let created = 0;
-  for (const prevInv of store.invoices.filter((i) => i.month === prev)) {
-    const exists = store.invoices.some(
-      (i) => i.month === month && i.customerId === prevInv.customerId,
-    );
-    if (exists) continue;
-    store.invoices.push({
-      id: `inv-${randomUUID().slice(0, 8)}`,
-      customerId: prevInv.customerId,
-      month,
-      lines: prevInv.lines.map((l) => ({ ...l, id: `line-${randomUUID().slice(0, 8)}` })),
-      status: "draft",
-    });
-    created++;
-  }
-  await saveStore(store);
-  return created;
-}
-
-/** 請求書（下書き）を新規作成する */
-export async function createInvoice(
+/** カード登録リンクをメールで送った記録を残す（デモ: 実際には送信しない） */
+export async function markRegistrationMailSent(
   customerId: string,
-  month: string,
-): Promise<UdpayInvoice> {
-  const store = await loadStore();
-  const inv: UdpayInvoice = {
-    id: `inv-${randomUUID().slice(0, 8)}`,
-    customerId,
-    month,
-    lines: [],
-    status: "draft",
-  };
-  store.invoices.push(inv);
-  await saveStore(store);
-  return inv;
-}
-
-/** 請求書の明細行を更新する（下書きのみ） */
-export async function updateInvoiceLines(
-  invoiceId: string,
-  lines: Omit<UdpayInvoiceLine, "id">[],
 ): Promise<{ ok: boolean; error?: string }> {
   const store = await loadStore();
-  const inv = store.invoices.find((i) => i.id === invoiceId);
-  if (!inv) return { ok: false, error: "請求書が見つかりません" };
-  if (inv.status !== "draft") return { ok: false, error: "確定済みの請求書は編集できません" };
-  inv.lines = lines.map((l) => ({ ...l, id: `line-${randomUUID().slice(0, 8)}` }));
-  await saveStore(store);
-  return { ok: true };
-}
-
-/**
- * 請求書を確定する。
- * 確定と同時に請求明細メールを送信済みとし、アニバーサリー日で課金をスケジュールする。
- */
-export async function confirmInvoice(
-  invoiceId: string,
-): Promise<{ ok: true; payment: UdpayPayment } | { ok: false; error: string }> {
-  const store = await loadStore();
-  const inv = store.invoices.find((i) => i.id === invoiceId);
-  if (!inv) return { ok: false, error: "請求書が見つかりません" };
-  if (inv.status !== "draft") return { ok: false, error: "既に確定済みです" };
-  if (inv.lines.length === 0) return { ok: false, error: "明細行がありません" };
-  const customer = store.customers.find((c) => c.id === inv.customerId);
+  const customer = store.customers.find((c) => c.id === customerId);
   if (!customer) return { ok: false, error: "顧客が見つかりません" };
-  if (!customer.card.registered) {
-    return { ok: false, error: "カード未登録のため確定できません（登録リンクを送付してください）" };
-  }
-  const now = new Date().toISOString();
-  inv.status = "confirmed";
-  inv.confirmedAt = now;
-  inv.mailSentAt = now;
-  const payment: UdpayPayment = {
-    id: `pay-${randomUUID().slice(0, 8)}`,
-    invoiceId: inv.id,
-    customerId: inv.customerId,
-    amount: computeTotals(inv.lines).total,
-    scheduledDate: chargeDateFor(inv.month, customer.anniversaryDay),
-    status: "scheduled",
-    attempts: [],
-  };
-  store.payments.push(payment);
-  await saveStore(store);
-  return { ok: true, payment };
-}
-
-/**
- * 課金バッチを実行する（デモ: 予定日を待たず、scheduled 全件を課金する）。
- * demoFailOnce フラグ付きの顧客は一度だけ与信落ち（do_not_honor）させる。
- */
-export async function runChargeBatch(): Promise<{ paid: number; failed: number }> {
-  const store = await loadStore();
-  const now = new Date().toISOString();
-  let paid = 0;
-  let failed = 0;
-  for (const payment of store.payments.filter((p) => p.status === "scheduled")) {
-    const customer = store.customers.find((c) => c.id === payment.customerId);
-    if (customer?.card.demoFailOnce) {
-      customer.card.demoFailOnce = false;
-      payment.status = "failed";
-      payment.attempts.push({ at: now, result: "failed", reason: "do_not_honor" });
-      failed++;
-    } else {
-      payment.status = "paid";
-      payment.paidAt = now;
-      payment.attempts.push({ at: now, result: "paid" });
-      paid++;
-    }
-  }
-  await saveStore(store);
-  return { paid, failed };
-}
-
-/**
- * CSV一括取込: 顧客ごとの明細グループを当月の請求書（下書き）へ反映する。
- * 既存の下書きは明細を差し替え、無ければ新規作成。確定済みはスキップして件数を返す。
- */
-export async function importInvoiceLines(
-  month: string,
-  groups: CsvMatchedGroup[],
-): Promise<{ created: number; updated: number; skippedConfirmed: string[] }> {
-  const store = await loadStore();
-  let created = 0;
-  let updated = 0;
-  const skippedConfirmed: string[] = [];
-  for (const group of groups) {
-    const lines = group.lines.map((l) => ({
-      ...l,
-      id: `line-${randomUUID().slice(0, 8)}`,
-    }));
-    const existing = store.invoices.find(
-      (i) => i.month === month && i.customerId === group.customerId,
-    );
-    if (existing?.status === "confirmed") {
-      skippedConfirmed.push(group.customerName);
-      continue;
-    }
-    if (existing) {
-      existing.lines = lines;
-      updated++;
-    } else {
-      store.invoices.push({
-        id: `inv-${randomUUID().slice(0, 8)}`,
-        customerId: group.customerId,
-        month,
-        lines,
-        status: "draft",
-      });
-      created++;
-    }
-  }
-  await saveStore(store);
-  return { created, updated, skippedConfirmed };
-}
-
-/** 失敗した課金を再試行する（デモ: 再試行は成功する） */
-export async function retryPayment(
-  paymentId: string,
-): Promise<{ ok: boolean; error?: string }> {
-  const store = await loadStore();
-  const payment = store.payments.find((p) => p.id === paymentId);
-  if (!payment) return { ok: false, error: "決済が見つかりません" };
-  if (payment.status !== "failed") return { ok: false, error: "失敗状態の決済のみ再試行できます" };
-  const now = new Date().toISOString();
-  payment.status = "paid";
-  payment.paidAt = now;
-  payment.attempts.push({ at: now, result: "paid" });
+  customer.registrationMailSentAt = new Date().toISOString();
   await saveStore(store);
   return { ok: true };
 }

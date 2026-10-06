@@ -3,18 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { computeTotals, formatYen } from "@/lib/udpay/logic";
-
-/** 編集中の明細行（id はクライアント管理用の連番） */
-interface EditableLine {
-  key: number;
-  description: string;
-  quantity: number;
-  unitPrice: number;
-}
+import { LineRow, type EditableLine } from "./line-row";
 
 /**
- * 請求書（下書き）の明細エディタ。
- * 前月コピーされた行をベースに、金額修正・行の追加削除を行い、保存または確定する。
+ * 請求書（下書き）の明細エディタ（要望4）。
+ * コピーされた行をベースに金額修正・行の追加削除（マイナス＝値引き可）を行い、
+ * 「下書き保存」または「課金予約」する。課金予約ではメールは送らない。
  */
 export function InvoiceEditor({
   invoiceId,
@@ -33,6 +27,13 @@ export function InvoiceEditor({
     lines.map((l) => ({ id: "", taxRate: 10, ...l })),
   );
 
+  const reserveBlocked =
+    lines.length === 0
+      ? "明細行がないため課金予約できません"
+      : totals.total <= 0
+        ? "請求合計が0円以下のため課金予約できません（値引きは翌月の請求での相殺もご検討ください）"
+        : null;
+
   function update(key: number, patch: Partial<EditableLine>) {
     setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   }
@@ -44,8 +45,8 @@ export function InvoiceEditor({
     ]);
   }
 
-  /** 保存（confirm=true なら保存後に確定→課金スケジュールまで行う） */
-  async function save(confirm: boolean) {
+  /** 保存（reserve=true なら保存後に課金予約する） */
+  async function save(reserve: boolean) {
     setBusy(true);
     setError(null);
     try {
@@ -69,15 +70,15 @@ export function InvoiceEditor({
         setError(saved.error ?? "保存に失敗しました");
         return;
       }
-      if (confirm) {
+      if (reserve) {
         const res2 = await fetch("/api/udpay", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "confirmInvoice", invoiceId }),
+          body: JSON.stringify({ action: "reserveInvoices", invoiceIds: [invoiceId] }),
         });
-        const confirmed: { ok: boolean; error?: string } = await res2.json();
-        if (!confirmed.ok) {
-          setError(confirmed.error ?? "確定に失敗しました");
+        const reserved: { ok: boolean; error?: string } = await res2.json();
+        if (!reserved.ok) {
+          setError(reserved.error ?? "課金予約に失敗しました");
           return;
         }
       }
@@ -103,44 +104,12 @@ export function InvoiceEditor({
           </thead>
           <tbody>
             {lines.map((l) => (
-              <tr key={l.key}>
-                <td>
-                  <input
-                    aria-label="摘要"
-                    value={l.description}
-                    onChange={(e) => update(l.key, { description: e.target.value })}
-                  />
-                </td>
-                <td>
-                  <input
-                    aria-label="数量"
-                    type="number"
-                    min={1}
-                    value={l.quantity}
-                    onChange={(e) => update(l.key, { quantity: Number(e.target.value) })}
-                  />
-                </td>
-                <td>
-                  <input
-                    aria-label="単価"
-                    type="number"
-                    min={0}
-                    value={l.unitPrice}
-                    onChange={(e) => update(l.key, { unitPrice: Number(e.target.value) })}
-                  />
-                </td>
-                <td className="num">{formatYen(l.unitPrice * l.quantity)}</td>
-                <td>
-                  <button
-                    type="button"
-                    className="up-btn secondary small"
-                    aria-label="行を削除"
-                    onClick={() => setLines((prev) => prev.filter((x) => x.key !== l.key))}
-                  >
-                    ✕
-                  </button>
-                </td>
-              </tr>
+              <LineRow
+                key={l.key}
+                line={l}
+                onChange={(patch) => update(l.key, patch)}
+                onRemove={() => setLines((prev) => prev.filter((x) => x.key !== l.key))}
+              />
             ))}
           </tbody>
         </table>
@@ -186,12 +155,17 @@ export function InvoiceEditor({
         <button
           type="button"
           className="up-btn"
-          disabled={busy}
+          disabled={busy || reserveBlocked !== null}
+          title={reserveBlocked ?? undefined}
           onClick={() => save(true)}
         >
-          {busy ? "処理中…" : "確定してメール送付・課金予約"}
+          {busy ? "処理中…" : "課金予約"}
         </button>
       </div>
+      <p className="up-muted" style={{ textAlign: "right", marginBottom: 0 }}>
+        {reserveBlocked ??
+          "「課金予約」を押してもメールは送られません。メール送付と決済確定は承認者が一括実行で行います。"}
+      </p>
     </div>
   );
 }

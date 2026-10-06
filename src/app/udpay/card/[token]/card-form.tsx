@@ -16,13 +16,14 @@ export function CardForm({ token }: { token: string }) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const cardNumber = String(form.get("cardNumber") ?? "");
+    const expiry = String(form.get("expiry") ?? "");
     setBusy(true);
     setError(null);
     try {
       const res = await fetch("/api/udpay", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "registerCard", token, cardNumber }),
+        body: JSON.stringify({ action: "registerCard", token, cardNumber, expiry }),
       });
       const data: {
         ok: boolean;
@@ -51,7 +52,7 @@ export function CardForm({ token }: { token: string }) {
           {done.brand} {done.masked}
         </p>
         <p style={{ color: "var(--muted)" }}>
-          今後の毎月のお支払いは、このカードへ自動で請求されます。
+          今後、株式会社ランサイドからの毎月のご請求は、このカードへ自動で請求されます。
           お振込の必要はありません。この画面は閉じていただいて構いません。
         </p>
       </div>

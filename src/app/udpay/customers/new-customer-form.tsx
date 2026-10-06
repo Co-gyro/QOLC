@@ -24,7 +24,12 @@ export function NewCustomerForm() {
           name: String(form.get("name") ?? ""),
           contactName: String(form.get("contactName") ?? ""),
           email: String(form.get("email") ?? ""),
+          cc: String(form.get("cc") ?? "")
+            .split(/[,、\s]+/)
+            .map((m) => m.trim())
+            .filter(Boolean),
           anniversaryDay: Number(form.get("anniversaryDay") ?? 1),
+          note: String(form.get("note") ?? "") || undefined,
         }),
       });
       const data: { ok: boolean; error?: string } = await res.json();
@@ -60,11 +65,15 @@ export function NewCustomerForm() {
         <input id="up-contact" name="contactName" required placeholder="例: 児玉" />
       </div>
       <div className="up-field">
-        <label htmlFor="up-email">請求明細メールの宛先</label>
+        <label htmlFor="up-email">請求メールの宛先（To）</label>
         <input id="up-email" name="email" type="email" required placeholder="例: info@example.com" />
       </div>
       <div className="up-field">
-        <label htmlFor="up-day">毎月の課金日（1〜28）</label>
+        <label htmlFor="up-cc">CC（複数はカンマ区切り）</label>
+        <input id="up-cc" name="cc" placeholder="例: keiri@example.com, jimu@example.com" />
+      </div>
+      <div className="up-field">
+        <label htmlFor="up-day">毎月の決済日（1〜28）</label>
         <input
           id="up-day"
           name="anniversaryDay"
@@ -74,6 +83,10 @@ export function NewCustomerForm() {
           defaultValue={15}
           required
         />
+      </div>
+      <div className="up-field">
+        <label htmlFor="up-note">備考（社内向け・請求書には載りません）</label>
+        <input id="up-note" name="note" placeholder="例: 請求書は院長と経理の両方へ" />
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <button type="submit" className="up-btn" disabled={busy}>

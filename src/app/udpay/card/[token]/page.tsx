@@ -38,14 +38,23 @@ export default async function UdpayCardRegisterPage({
           <div className="up-notice">
             <strong>{customer.name} {customer.contactName}先生</strong>
             <br />
-            株式会社ランサイドのサービス利用料のお支払いに使用するクレジットカードを
-            ご登録ください。毎月{customer.anniversaryDay}日に自動でお支払いが行われ、
-            お振込の手間がなくなります。
+            株式会社ランサイドのサービス利用料のお支払いに使用するクレジットカードをご登録ください。
+          </div>
+          <div className="up-card" style={{ marginBottom: 12 }}>
+            <strong>ご登録の前にご確認ください</strong>
+            <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
+              <li>
+                ご登録のカードで、<strong>株式会社ランサイドからのご請求を毎月お支払い</strong>いただきます
+                （毎月{customer.anniversaryDay}日ごろに自動でお支払い。お振込は不要です）。
+              </li>
+              <li>ご請求の内容は、お支払い前にメールでお知らせします。</li>
+              <li>カード番号は決済代行会社で安全に管理され、ランサイド・UDでは保持しません。</li>
+            </ul>
           </div>
           {customer.card.registered && (
             <p className="up-notice">
               現在 {customer.card.brand} {customer.card.maskedNumber} が登録されています。
-              新しいカードを登録すると差し替えられます。
+              新しいカードを登録すると差し替えられ、次回のお支払いから新しいカードを使います。
             </p>
           )}
           <CardForm token={params.token} />

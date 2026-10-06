@@ -30,6 +30,9 @@ export function NewCustomerForm() {
             .filter(Boolean),
           anniversaryDay: Number(form.get("anniversaryDay") ?? 1),
           note: String(form.get("note") ?? "") || undefined,
+          postalCode: String(form.get("postalCode") ?? "") || undefined,
+          address1: String(form.get("address1") ?? "") || undefined,
+          address2: String(form.get("address2") ?? "") || undefined,
         }),
       });
       const data: { ok: boolean; error?: string } = await res.json();
@@ -83,6 +86,12 @@ export function NewCustomerForm() {
           defaultValue={15}
           required
         />
+      </div>
+      <div className="up-field">
+        <label htmlFor="up-postal">住所（領収証の宛先に記載・任意）</label>
+        <input id="up-postal" name="postalCode" placeholder="郵便番号 例: 150-0001" style={{ marginBottom: 6 }} />
+        <input name="address1" aria-label="住所1行目" placeholder="例: 東京都渋谷区神宮前1-2-3" style={{ marginBottom: 6 }} />
+        <input name="address2" aria-label="住所2行目" placeholder="建物名など（任意）" />
       </div>
       <div className="up-field">
         <label htmlFor="up-note">備考（社内向け・請求書には載りません）</label>

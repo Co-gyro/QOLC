@@ -63,6 +63,11 @@ export default async function UdpayInvoiceDetailPage({ params }: { params: { id:
           決済日: {formatDateJa(chargeDate)}（毎月{customer.anniversaryDay}日）
           {chargeDate !== planned && "／予定日を過ぎているため翌日に課金します"}
         </p>
+        <p style={{ marginTop: -12 }}>
+          <Link className="up-btn secondary small" href={`/udpay/invoices/${invoice.id}/document`}>
+            請求書を表示（印刷・PDF保存）
+          </Link>
+        </p>
 
         {invoice.confirmationCancelledAt && invoice.status !== "confirmed" && (
           <p className="up-notice">

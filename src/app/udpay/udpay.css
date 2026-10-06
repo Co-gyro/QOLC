@@ -177,3 +177,57 @@
   .udpay-root .up-header { padding: 0 12px; gap: 12px; overflow-x: auto; }
   .udpay-root .up-container { padding: 20px 14px 48px; }
 }
+
+/* ── 帳票（ランサイド様指定フォーマットの請求書・領収証。A4印刷） ── */
+/* 印刷で flex/grid が崩れるため、帳票のレイアウトはすべて table で組む */
+.udpay-root .up-doc {
+  background: #fff; width: 210mm; min-height: 297mm; margin: 0 auto; padding: 14mm 12mm;
+  color: #000; font-size: 14px; line-height: 1.5; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+.udpay-root .up-doc table { border-collapse: collapse; width: 100%; }
+.udpay-root .up-doc td, .udpay-root .up-doc th { padding: 3px 6px; vertical-align: middle; }
+.udpay-root .up-doc .r { text-align: right; font-variant-numeric: tabular-nums; }
+.udpay-root .up-doc .c { text-align: center; }
+.udpay-root .up-doc .logo { height: 72px; width: auto; display: block; margin-bottom: 6px; }
+.udpay-root .up-doc-toolbar { max-width: 210mm; margin: 0 auto 12px; text-align: right; }
+.udpay-root .up-doc-toolbar .up-muted { display: block; margin-bottom: 8px; }
+.udpay-root .up-doc-toolbar .up-btn { margin-left: 8px; }
+
+/* 請求書（青緑） */
+.udpay-root .up-inv { --c: #237aab; }
+.udpay-root .up-inv h1.title { text-align: center; font-size: 28px; letter-spacing: 0.6em; text-indent: 0.6em; margin: 0 0 18px; }
+.udpay-root .up-inv .to { font-size: 20px; }
+.udpay-root .up-inv .lbl { background: var(--c); color: #fff; text-align: center; width: 70px; }
+.udpay-root .up-inv .total-box td { border: 1.5px solid #888; font-size: 22px; padding: 8px 12px; }
+.udpay-root .up-inv .total-box td.lbl { font-size: 14px; border-color: var(--c); }
+.udpay-root .up-inv .lines th { background: var(--c); color: #fff; font-weight: 500; border: 1px solid #fff; }
+.udpay-root .up-inv .lines td { border: 1px solid #9a9a9a; height: 27px; }
+.udpay-root .up-inv .sums td { border: 1px solid #9a9a9a; }
+.udpay-root .up-inv .sums td.lbl { width: auto; border-color: #fff; }
+.udpay-root .up-inv .breakdown td, .udpay-root .up-inv .breakdown th { font-size: 14px; font-weight: 400; }
+.udpay-root .up-inv .breakdown tr.head th { border-bottom: 1px solid #555; }
+.udpay-root .up-inv .note-bar { background: var(--c); color: #fff; text-align: center; padding: 3px; margin-top: 24px; }
+
+/* 領収証（青） */
+.udpay-root .up-rcp { --c: #0070c0; }
+.udpay-root .up-rcp h1.title { font-size: 32px; letter-spacing: 0.3em; margin: 0; display: inline-block; padding: 0 60px 2px 4px; border-bottom: 4px double var(--c); }
+.udpay-root .up-rcp h1.title span { color: var(--c); }
+.udpay-root .up-rcp .to { border-bottom: 2px solid var(--c); font-size: 18px; padding: 4px 6px; }
+.udpay-root .up-rcp .lbl { background: var(--c); color: #fff; font-weight: 700; text-align: center; }
+.udpay-root .up-rcp .box td { border: 1.5px solid #888; }
+.udpay-root .up-rcp .big { font-size: 26px; text-align: right; padding: 8px 10px; }
+.udpay-root .up-rcp .lines th { background: var(--c); color: #fff; border: 1px solid #888; font-size: 14px; }
+.udpay-root .up-rcp .lines td { border: 1px solid #aaa; height: 23px; }
+.udpay-root .up-rcp .lines tr:nth-child(even) td { background: #f2f2f2; }
+.udpay-root .up-rcp .lines tfoot td { background: var(--c); color: #fff; border-color: #888; }
+.udpay-root .up-rcp .kubun th { background: var(--c); color: #fff; font-weight: 400; border: 1px solid #888; }
+.udpay-root .up-rcp .kubun td { border: 1px solid #888; }
+.udpay-root .up-rcp .note-line { border-bottom: 1.5px dotted #1d7a8c; height: 23px; margin: 0 16px; }
+.udpay-root .up-rcp .issuer td { padding: 2px 6px; white-space: nowrap; }
+
+@media print {
+  @page { size: A4; margin: 0; }
+  .udpay-root .up-doc { box-shadow: none; margin: 0; min-height: 0; height: 296mm; overflow: hidden; }
+  .udpay-root .up-doc-toolbar { display: none !important; }
+  .udpay-root .up-container:has(.up-doc) { padding: 0; max-width: none; }
+}

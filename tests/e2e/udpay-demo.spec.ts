@@ -59,6 +59,13 @@ test.describe.serial("UD Payment デモ", () => {
     await expect(page.locator(".up-mail-body")).toContainText("今月の交通費は那覇往復1回分です。");
     await expect(page.locator(".up-mail-fixed")).toContainText("ご請求金額合計: ¥296,120（税込）");
     await page.screenshot({ path: `${SCREEN_DIR}/03-mail-preview.png`, fullPage: true });
+
+    // ランサイド様フォーマットの請求書
+    await page.getByRole("link", { name: "請求書を表示（印刷・PDF保存）" }).click();
+    await expect(page.getByRole("heading", { name: "請求書" })).toBeVisible();
+    await expect(page.getByText("うみかぜ歯科医院　御中")).toBeVisible();
+    await expect(page.getByText("296,120 円 (税込)")).toBeVisible();
+    await page.screenshot({ path: `${SCREEN_DIR}/09-invoice-document.png`, fullPage: true });
   });
 
   test("残りの下書きをまとめて課金予約できる", async ({ page }) => {
@@ -106,7 +113,9 @@ test.describe.serial("UD Payment デモ", () => {
     await expect(failedRow.getByText("入金済み", { exact: true })).toBeVisible();
     await failedRow.getByRole("link", { name: "領収書" }).click();
     await expect(page.getByRole("heading", { name: "領収書" })).toBeVisible();
-    await expect(page.getByText("みなと歯科医院 御中")).toBeVisible();
+    await expect(page.getByText("みなと歯科医院　御中")).toBeVisible();
+    await expect(page.getByText("T6010001241594")).toBeVisible();
+    await page.screenshot({ path: `${SCREEN_DIR}/08-receipt.png`, fullPage: true });
   });
 
   test("CSV一括取込で下書き請求書を作成できる", async ({ page }) => {

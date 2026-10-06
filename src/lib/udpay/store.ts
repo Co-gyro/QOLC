@@ -104,6 +104,9 @@ export async function createCustomer(input: {
   cc?: string[];
   anniversaryDay: number;
   note?: string;
+  postalCode?: string;
+  address1?: string;
+  address2?: string;
 }): Promise<UdpayCustomer> {
   const store = await loadStore();
   const customer: UdpayCustomer = {
@@ -114,6 +117,9 @@ export async function createCustomer(input: {
     cc: input.cc ?? [],
     anniversaryDay: input.anniversaryDay,
     note: input.note,
+    postalCode: input.postalCode,
+    address1: input.address1,
+    address2: input.address2,
     registrationToken: randomUUID().slice(0, 13),
     card: { registered: false },
     createdAt: new Date().toISOString(),

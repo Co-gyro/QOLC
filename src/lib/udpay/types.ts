@@ -35,6 +35,12 @@ export interface UdpayCustomer {
   cc: string[];
   /** 毎月の決済日（1〜28） */
   anniversaryDay: number;
+  /** 郵便番号（領収証の宛先に記載・任意） */
+  postalCode?: string;
+  /** 住所1行目（領収証の宛先に記載・任意） */
+  address1?: string;
+  /** 住所2行目（建物名など・任意） */
+  address2?: string;
   /** 備考（請求書・メールに載せない社内向けメモ） */
   note?: string;
   /** カード登録リンク用トークン */

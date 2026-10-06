@@ -44,6 +44,9 @@ const actionSchema = z.discriminatedUnion("action", [
     cc: z.array(z.string().email()).max(10).optional(),
     anniversaryDay: z.number().int().min(1).max(28),
     note: z.string().max(500).optional(),
+    postalCode: z.string().regex(/^\d{3}-?\d{4}$/).optional(),
+    address1: z.string().max(100).optional(),
+    address2: z.string().max(100).optional(),
   }),
   z.object({
     action: z.literal("registerCard"),

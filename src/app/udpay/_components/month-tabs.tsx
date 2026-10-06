@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { currentMonth, formatMonthJa, recentMonths } from "@/lib/udpay/logic";
+import { MonthSelect } from "./month-select";
 
 /** タブに並べる月数（それより前はプルダウン） */
 const TAB_MONTHS = 6;
@@ -15,9 +16,10 @@ function hrefFor(basePath: string, month: string, keep: Record<string, string | 
 }
 
 /**
- * 月タブ（直近の数か月はタブ、それより前はプルダウン）。
- * 当月に「今月」の印を付け、選択中の月を強調する。条件は URL に残るため、
- * ブラウザの戻る・URL共有でも同じ一覧が開ける。
+ * 一覧の上端につながる月タブ（直近の数か月はタブ、それより前は右端のプルダウン）。
+ * 当月に「今月」の印を付け、選択中の月のタブを一覧とつなげて表示する。
+ * 条件は URL に残るため、ブラウザの戻る・URL共有でも同じ一覧が開ける。
+ * 一覧（.up-table-wrap）と一緒に .up-tabbed で囲んで使う。
  */
 export function MonthTabs({
   basePath,
@@ -31,6 +33,7 @@ export function MonthTabs({
   const now = currentMonth();
   const tabs = recentMonths(TAB_MONTHS, now);
   const older = recentMonths(TAB_MONTHS + OLDER_MONTHS, now).slice(TAB_MONTHS);
+  const olderHrefs = Object.fromEntries(older.map((m) => [m, hrefFor(basePath, m, keep)]));
   return (
     <nav className="up-tabs" aria-label="月の切り替え">
       {tabs.map((m) => (
@@ -44,28 +47,7 @@ export function MonthTabs({
           {m === now && <span className="now">今月</span>}
         </Link>
       ))}
-      <form action={basePath} method="get">
-        {Object.entries(keep).map(([k, v]) =>
-          v ? <input key={k} type="hidden" name={k} value={v} /> : null,
-        )}
-        <select
-          name="month"
-          aria-label="それより前の月"
-          defaultValue={older.includes(month) ? month : ""}
-        >
-          <option value="" disabled>
-            それより前の月
-          </option>
-          {older.map((m) => (
-            <option key={m} value={m}>
-              {formatMonthJa(m)}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="up-btn secondary small">
-          表示
-        </button>
-      </form>
+      <MonthSelect months={older} value={month} hrefs={olderHrefs} />
     </nav>
   );
 }

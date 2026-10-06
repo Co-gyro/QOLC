@@ -97,17 +97,38 @@
 .udpay-root .up-badge.none { color: var(--muted); background: #eef0f4; }
 
 /* ── 月タブ・絞り込み・凡例・集計 ─────── */
-.udpay-root .up-tabs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 4px 0 14px; }
-.udpay-root .up-tab {
-  padding: 8px 14px; border-radius: 999px; border: 1.5px solid var(--border); background: #fff;
-  color: var(--navy); text-decoration: none; font-weight: 700; white-space: nowrap;
+/* 月タブ: 一覧の上端につながるタブ。選択中のタブは一覧と同じ白でつなげる */
+.udpay-root .up-tabbed { margin-top: 4px; }
+.udpay-root .up-tabs {
+  display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid var(--border);
+  overflow-x: auto; padding: 0 4px;
 }
-.udpay-root .up-tab.active { background: var(--navy); border-color: var(--navy); color: #fff; }
-.udpay-root .up-tab .now { font-size: 14px; color: var(--blue); margin-left: 4px; }
-.udpay-root .up-tab.active .now { color: #9fc0ff; }
-.udpay-root .up-tabs form { display: flex; gap: 6px; align-items: center; }
-.udpay-root .up-tabs select { width: auto; min-height: 40px; }
-.udpay-root .up-filter { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
+.udpay-root .up-tab {
+  padding: 10px 16px; border: 1px solid transparent; border-bottom: none; border-radius: 10px 10px 0 0;
+  color: var(--muted); text-decoration: none; font-weight: 600; white-space: nowrap; margin-bottom: -1px;
+}
+.udpay-root .up-tab:hover { color: var(--navy); background: #eef1f6; }
+.udpay-root .up-tab.active {
+  background: #fff; border-color: var(--border); color: var(--navy); font-weight: 800;
+  box-shadow: inset 0 3px 0 var(--blue);
+}
+.udpay-root .up-tab .now { font-size: 14px; color: var(--blue); margin-left: 4px; font-weight: 700; }
+.udpay-root .up-tab-select {
+  width: auto; min-height: 36px; margin: 0 0 6px auto; border: none; background: transparent;
+  color: var(--muted); font-weight: 600; cursor: pointer;
+}
+.udpay-root .up-tabbed .up-table-wrap { border-top: none; border-top-left-radius: 0; border-top-right-radius: 0; }
+.udpay-root .up-listbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.udpay-root .up-listbar .up-summary { margin: 0; }
+.udpay-root .up-legend-toggle summary { cursor: pointer; color: var(--muted); font-weight: 600; list-style: none; }
+.udpay-root .up-legend-toggle summary::before { content: "ⓘ "; }
+.udpay-root .up-legend-toggle[open] .up-legend {
+  position: absolute; right: 24px; z-index: 5; background: #fff; border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; flex-direction: column; gap: 8px; box-shadow: 0 6px 20px rgba(22,35,62,.12);
+}
+.udpay-root .up-legend-toggle { position: relative; }
+.udpay-root .up-filter { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.udpay-root .up-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .udpay-root .up-filter .up-field { margin: 0; }
 .udpay-root .up-filter input { width: 240px; }
 .udpay-root .up-filter select { width: auto; }

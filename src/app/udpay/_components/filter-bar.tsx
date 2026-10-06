@@ -37,13 +37,13 @@ export function FilterBar({
         v ? <input key={k} type="hidden" name={k} value={v} /> : null,
       )}
       <div className="up-field">
-        <label htmlFor="up-filter-q">キーワード</label>
-        <input id="up-filter-q" name="q" defaultValue={q} placeholder={placeholder} />
+        <label htmlFor="up-filter-q" className="up-sr">キーワード</label>
+        <input id="up-filter-q" name="q" defaultValue={q} placeholder={`🔍 ${placeholder}`} />
       </div>
       <div className="up-field">
-        <label htmlFor="up-filter-select">{selectLabel}</label>
+        <label htmlFor="up-filter-select" className="up-sr">{selectLabel}</label>
         <select id="up-filter-select" name={selectName} defaultValue={selectValue ?? ""}>
-          <option value="">すべて</option>
+          <option value="">{selectLabel}: すべて</option>
           {options.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}

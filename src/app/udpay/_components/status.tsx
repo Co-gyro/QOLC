@@ -25,6 +25,16 @@ export function StatusLegend() {
   );
 }
 
+/** 状態の凡例をたたんで置く「状態の見方」（一覧の右上に置く） */
+export function StatusLegendToggle() {
+  return (
+    <details className="up-legend-toggle">
+      <summary>状態の見方</summary>
+      <StatusLegend />
+    </details>
+  );
+}
+
 /**
  * 登録カードの表示（ブランド・下4桁・有効期限と「期限間近／期限切れ」の印）。
  */

@@ -11,19 +11,25 @@ import {
   matchesKeyword,
   todayJst,
 } from "@/lib/udpay/logic";
-import { DISPLAY_STATUS, displayStatusOf, parseStatusFilter } from "@/lib/udpay/status";
+import {
+  DISPLAY_STATUS,
+  displayStatusOf,
+  parseStatusFilter,
+} from "@/lib/udpay/status";
 import { UdpayHeader } from "../header";
 import { ActionButton } from "../action-button";
 import { MonthTabs } from "../_components/month-tabs";
 import { FilterBar } from "../_components/filter-bar";
-import { StatusBadge, StatusLegend } from "../_components/status";
+import { StatusBadge, StatusLegendToggle } from "../_components/status";
 import { StatusSummary } from "../_components/status-summary";
 import { RowActions } from "./row-actions";
 
 export const dynamic = "force-dynamic";
 
 /** 入金管理の絞り込みで選べる状態 */
-const FILTER_OPTIONS = (["reserved", "confirmed", "paid", "failed"] as const).map((s) => ({
+const FILTER_OPTIONS = (
+  ["reserved", "confirmed", "paid", "failed"] as const
+).map((s) => ({
   value: s,
   label: DISPLAY_STATUS[s].label,
 }));
@@ -44,7 +50,9 @@ export default async function UdpayPaymentsPage({
   const statusFilter = parseStatusFilter(searchParams.status);
   const today = todayJst();
   const store = await loadStore();
-  const allReserved = store.invoices.filter((i) => i.status === "reserved").length;
+  const allReserved = store.invoices.filter(
+    (i) => i.status === "reserved",
+  ).length;
   const rows = store.invoices
     .filter((i) => i.month === month && i.status !== "draft")
     .map((inv) => {
@@ -52,9 +60,18 @@ export default async function UdpayPaymentsPage({
       const payment = store.payments.find((p) => p.invoiceId === inv.id);
       return { inv, customer, payment, status: displayStatusOf(inv, payment) };
     })
-    .filter((r) => matchesKeyword(searchParams.q, [r.customer?.name, r.customer?.contactName, r.customer?.email]))
+    .filter((r) =>
+      matchesKeyword(searchParams.q, [
+        r.customer?.name,
+        r.customer?.contactName,
+        r.customer?.email,
+      ]),
+    )
     .filter((r) => !statusFilter || r.status === statusFilter)
-    .sort((a, b) => (a.customer?.anniversaryDay ?? 0) - (b.customer?.anniversaryDay ?? 0));
+    .sort(
+      (a, b) =>
+        (a.customer?.anniversaryDay ?? 0) - (b.customer?.anniversaryDay ?? 0),
+    );
   const failedCount = rows.filter((r) => r.status === "failed").length;
 
   return (
@@ -80,11 +97,11 @@ export default async function UdpayPaymentsPage({
         {searchParams.done && <p className="up-notice">{searchParams.done}</p>}
         {failedCount > 0 && (
           <p className="up-error">
-            与信落ちが{failedCount}件あります。顧客へ連絡のうえ「再決済」してください。カードを変える場合は、
+            与信落ちが{failedCount}
+            件あります。顧客へ連絡のうえ「再決済」してください。カードを変える場合は、
             顧客管理から登録リンクを送ってください（担当者には実運用でメール通知されます）。
           </p>
         )}
-        <MonthTabs basePath="/udpay/payments" month={month} keep={{ status: searchParams.status, q: searchParams.q }} />
         <FilterBar
           basePath="/udpay/payments"
           q={searchParams.q}
@@ -95,61 +112,89 @@ export default async function UdpayPaymentsPage({
           hidden={{ month }}
           placeholder="医院名・担当者名・メール"
         />
-        <StatusLegend />
-        <StatusSummary rows={rows.map((r) => ({ status: r.status, amount: computeTotals(r.inv.lines).total }))} />
+        <div className="up-listbar">
+          <StatusSummary
+            rows={rows.map((r) => ({
+              status: r.status,
+              amount: computeTotals(r.inv.lines).total,
+            }))}
+          />
+          <StatusLegendToggle />
+        </div>
 
-        <div className="up-table-wrap">
-          <table className="up-table">
-            <thead>
-              <tr>
-                <th>顧客名</th>
-                <th className="num">金額（税込）</th>
-                <th>決済日</th>
-                <th>状態</th>
-                <th>試行</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(({ inv, customer, payment, status }) => (
-                <tr key={inv.id}>
-                  <td>
-                    <strong>{customer?.name ?? "—"}</strong>
-                    <div className="up-muted">
-                      {customer?.card.brand} {customer?.card.maskedNumber}
-                    </div>
-                  </td>
-                  <td className="num">{formatYen(payment?.amount ?? computeTotals(inv.lines).total)}</td>
-                  <td>
-                    {formatDateJa(payment?.scheduledDate ?? chargeDateFor(inv.month, customer?.anniversaryDay ?? 1))}
-                  </td>
-                  <td>
-                    <StatusBadge status={status} />
-                  </td>
-                  <td>
-                    {!payment || payment.attempts.length === 0
-                      ? "—"
-                      : `${payment.attempts.length}回${payment.attempts.some((a) => a.result === "failed") ? "（失敗あり）" : ""}`}
-                  </td>
-                  <td>
-                    <RowActions
-                      invoiceId={inv.id}
-                      paymentId={payment?.id}
-                      status={status}
-                      cancellable={!!payment && canCancelConfirmation(payment.scheduledDate, today)}
-                    />
-                  </td>
-                </tr>
-              ))}
-              {rows.length === 0 && (
+        <div className="up-tabbed">
+          <MonthTabs
+            basePath="/udpay/payments"
+            month={month}
+            keep={{ status: searchParams.status, q: searchParams.q }}
+          />
+
+          <div className="up-table-wrap">
+            <table className="up-table">
+              <thead>
                 <tr>
-                  <td colSpan={6} className="up-muted">
-                    この月の課金予約・決済はありません（請求管理で課金予約すると表示されます）。
-                  </td>
+                  <th>顧客名</th>
+                  <th className="num">金額（税込）</th>
+                  <th>決済日</th>
+                  <th>状態</th>
+                  <th>試行</th>
+                  <th>操作</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map(({ inv, customer, payment, status }) => (
+                  <tr key={inv.id}>
+                    <td>
+                      <strong>{customer?.name ?? "—"}</strong>
+                      <div className="up-muted">
+                        {customer?.card.brand} {customer?.card.maskedNumber}
+                      </div>
+                    </td>
+                    <td className="num">
+                      {formatYen(
+                        payment?.amount ?? computeTotals(inv.lines).total,
+                      )}
+                    </td>
+                    <td>
+                      {formatDateJa(
+                        payment?.scheduledDate ??
+                          chargeDateFor(
+                            inv.month,
+                            customer?.anniversaryDay ?? 1,
+                          ),
+                      )}
+                    </td>
+                    <td>
+                      <StatusBadge status={status} />
+                    </td>
+                    <td>
+                      {!payment || payment.attempts.length === 0
+                        ? "—"
+                        : `${payment.attempts.length}回${payment.attempts.some((a) => a.result === "failed") ? "（失敗あり）" : ""}`}
+                    </td>
+                    <td>
+                      <RowActions
+                        invoiceId={inv.id}
+                        paymentId={payment?.id}
+                        status={status}
+                        cancellable={
+                          !!payment &&
+                          canCancelConfirmation(payment.scheduledDate, today)
+                        }
+                      />
+                    </td>
+                  </tr>
+                ))}
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="up-muted">
+                      この月の課金予約・決済はありません（請求管理で課金予約すると表示されます）。
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </main>
     </div>

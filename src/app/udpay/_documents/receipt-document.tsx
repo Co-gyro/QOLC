@@ -68,10 +68,11 @@ export function ReceiptDocument({ data, merchant }: { data: ReceiptDocumentData;
                   <tr><td>領収日</td><td>：</td><td><strong>{data.paidDate}</strong></td></tr>
                 </tbody>
               </table>
-              <img className="logo" src={merchant.logoPath} alt={merchant.name} style={{ margin: "10px 0 4px auto" }} />
-              <table className="issuer">
+              <table className="issuer" style={{ marginTop: 10 }}>
                 <tbody>
-                  <tr><td style={{ width: 72 }} /><td>{merchant.name}</td></tr>
+                  {/* ロゴは請求書と同じく会社名の真上（会社名と左端をそろえる） */}
+                  <tr><td style={{ width: 72 }} /><td><img className="logo" src={merchant.logoPath} alt={merchant.name} /></td></tr>
+                  <tr><td /><td>{merchant.name}</td></tr>
                   <tr><td>住所</td><td>〒{merchant.postalCode}</td></tr>
                   <tr><td /><td><strong>{merchant.receiptAddress1}</strong></td></tr>
                   <tr><td /><td>{merchant.address2}</td></tr>

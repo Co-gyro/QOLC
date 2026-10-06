@@ -123,9 +123,16 @@
 .udpay-root .up-legend-toggle summary { cursor: pointer; color: var(--muted); font-weight: 600; list-style: none; }
 .udpay-root .up-legend-toggle summary::before { content: "ⓘ "; }
 .udpay-root .up-legend-toggle[open] .up-legend {
-  position: absolute; right: 24px; z-index: 5; background: #fff; border: 1px solid var(--border);
-  border-radius: 10px; padding: 12px 14px; flex-direction: column; gap: 8px; box-shadow: 0 6px 20px rgba(22,35,62,.12);
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; width: min(520px, 90vw);
+  background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
+  display: grid; grid-template-columns: 1fr; gap: 10px; margin: 0;
+  box-shadow: 0 6px 20px rgba(22,35,62,.12); color: var(--text);
 }
+/* 1行に「状態バッジ」と「意味」を横並び（バッジ列の幅をそろえる） */
+.udpay-root .up-legend-toggle[open] .up-legend span.item {
+  display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 12px;
+}
+.udpay-root .up-legend-toggle[open] .up-legend .up-badge { justify-self: start; }
 .udpay-root .up-legend-toggle { position: relative; }
 .udpay-root .up-filter { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
 .udpay-root .up-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -195,6 +202,10 @@
   .udpay-root .up-receipt { border: none; }
 }
 @media (max-width: 720px) {
+  .udpay-root .up-brand-sub { display: none; }
+  .udpay-root .up-nav a { white-space: nowrap; padding: 8px 10px; }
+  .udpay-root .up-legend-toggle[open] .up-legend { right: auto; left: 0; width: calc(100vw - 28px); }
+  .udpay-root .up-legend-toggle[open] .up-legend span.item { grid-template-columns: 84px 1fr; }
   .udpay-root .up-header { padding: 0 12px; gap: 12px; overflow-x: auto; }
   .udpay-root .up-container { padding: 20px 14px 48px; }
 }

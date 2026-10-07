@@ -100,6 +100,21 @@ for (const f of FACILITIES) {
     : `✓ ログイン確認 ${f.email}（role=${claims?.app_metadata?.role}, facility=${claims?.app_metadata?.facility_id === f.id ? "一致" : "不一致"}）`);
 }
 
+// 運営センター（admin）のデモ用アカウント（明細の取込・突合の画面用）
+{
+  const email = "wallet-demo-admin@uni-dev.jp";
+  const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  let user = list?.users.find((u) => u.email === email);
+  if (!user) {
+    const pw = password();
+    const created = await admin.auth.admin.createUser({ email, password: pw, email_confirm: true, app_metadata: { role: "admin" } });
+    if (created.error) { console.error(`✗ ${email}: ${created.error.message}`); process.exit(1); }
+    user = created.data.user;
+    appendFileSync(ENV_PATH, `\n# QOLC デモ用 運営センター（admin）アカウント（${email}）\nWALLET_DEMO_ADMIN_PASSWORD=${pw}\n`);
+  }
+  must(await admin.from("profiles").update({ role: "admin", facility_id: null, display_name: "デモ運営センター" }).eq("id", user.id), `運営センターアカウント ${email}`);
+}
+
 // --reset: デモの記録・レシート・明細の取込を論理削除して、何もない状態に戻す（リハーサル用）
 if (process.argv.includes("--reset")) {
   const ids = FACILITIES.map((f) => f.id);

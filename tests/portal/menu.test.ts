@@ -15,13 +15,14 @@ describe("admin メニュー（業務ファースト構成）", () => {
     expect(sections[0].items[0]).toMatchObject({ href: "/admin/today", label: "今日のUD" });
   });
 
-  it("業務セクション: 相談・問い合わせ／加盟店申請・登録／日次決済／月次精算／その他業務", () => {
+  it("業務セクション: 相談・問い合わせ／加盟店申請・登録／日次決済／お買い物の明細照合／月次精算／その他業務", () => {
     const gyomu = sections.find((s) => s.title === "業務");
     expect(gyomu).toBeDefined();
     expect(gyomu!.items.map((m) => m.href)).toEqual([
       "/admin/inquiries",
       "/admin/applications",
       "/admin/payments",
+      "/admin/wallet/statements",
       "/admin/tasks",
       "/admin/other-tasks",
     ]);
@@ -84,12 +85,13 @@ describe("admin メニュー（業務ファースト構成）", () => {
     expect(new Set(flat).size).toBe(flat.length);
   });
 
-  it("他ポータルのメニューは変更していない", () => {
+  it("他ポータルのメニュー（施設は QOLC Wallet の「お買い物」を追加）", () => {
     expect(PORTAL_MENUS.facility.map((m) => m.href)).toEqual([
       "/facility/dashboard",
       "/facility/residents",
       "/facility/statements",
       "/facility/payments",
+      "/facility/wallet",
       "/facility/providers",
       "/facility/logs",
     ]);

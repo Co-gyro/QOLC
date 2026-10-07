@@ -1,5 +1,6 @@
 /**
- * GET  /api/wallet/declarations?date=YYYY-MM-DD  指定日（日本時間）の記録（新しい順）
+ * GET  /api/wallet/declarations?date=YYYY-MM-DD           指定日（日本時間）の記録（新しい順）
+ * GET  /api/wallet/declarations?from=YYYY-MM-DD&to=…       期間の記録（施設ポータル。最大93日）
  * POST /api/wallet/declarations                   入居者1人を指定して記録を作る（status=selecting）
  */
 import { NextResponse, type NextRequest } from "next/server";
@@ -12,7 +13,13 @@ import { apiOk } from "@/types/api";
 
 export const dynamic = "force-dynamic";
 
-const querySchema = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
+const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const querySchema = z.union([
+  z.object({ date: day }),
+  z.object({ from: day, to: day }).refine(
+    (q) => q.from <= q.to && Date.parse(q.to) - Date.parse(q.from) <= 92 * 86_400_000,
+  ),
+]);
 const createSchema = z.object({
   resident_id: z.string().uuid(),
   payment_method: z.enum(["apple_pay", "physical_card"]).default("apple_pay"),
@@ -22,10 +29,12 @@ const createSchema = z.object({
 export async function GET(req: NextRequest) {
   const staff = await authorizeWalletStaff(req);
   if ("response" in staff) return staff.response;
-  const query = querySchema.safeParse({ date: req.nextUrl.searchParams.get("date") });
-  if (!query.success) return walletError("date を YYYY-MM-DD で指定してください", "VALIDATION", 400).response;
+  const params = Object.fromEntries(req.nextUrl.searchParams.entries());
+  const query = querySchema.safeParse(params);
+  if (!query.success) return walletError("日付を YYYY-MM-DD で指定してください", "VALIDATION", 400).response;
 
-  const { from, to } = jstDayRange(query.data.date);
+  const from = jstDayRange("date" in query.data ? query.data.date : query.data.from).from;
+  const to = jstDayRange("date" in query.data ? query.data.date : query.data.to).to;
   const { data, error } = await staff.admin
     .from("purchase_declarations")
     .select(DECLARATION_SELECT)

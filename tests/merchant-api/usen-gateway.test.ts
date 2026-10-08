@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createHmac, randomBytes } from "node:crypto";
-import { classifyTrade, usenPay, usenSearchTrade, usenTokenInit } from "@/lib/merchant-api/usen-gateway";
+import { classifyTrade, usenPay, usenReturn, usenSearchTrade, usenTokenInit } from "@/lib/merchant-api/usen-gateway";
 import type { UsenProfile } from "@/lib/merchant-api/usen-profile";
 
 const key = randomBytes(64);
@@ -81,6 +81,18 @@ describe("usenSearchTrade（会員ID決済IF 6.1）", () => {
     expect(params.get("check_cd")).toBe("HM" + createHmac("md5", key).update("TSJM-0000123").digest("hex"));
     expect(params.get("group_id")).toBe("TESTGROUP");
     expect(res.status).toBe("sales");
+  });
+});
+
+describe("usenReturn（会員ID決済IF 3.4 即時売上返品）", () => {
+  it("/auth/return に check_cd=HM+HMAC-MD5(jutyu_cd,amount)・sales_day・group_id を送る", async () => {
+    const { calls, fetchImpl } = recorder("<response><result>ok</result><code>40</code><process_day>2026/10/08</process_day></response>");
+    const res = await usenReturn(profile, { jutyuCd: "TSJM-0000064", amount: 3390, salesDay: "2026/10/02" }, fetchImpl);
+    expect(calls[0].url).toBe("https://usen.test/payment/auth/return");
+    const params = new URLSearchParams(calls[0].body);
+    expect(params.get("check_cd")).toBe("HM" + createHmac("md5", key).update("TSJM-0000064,3390").digest("hex"));
+    expect(Object.fromEntries(params)).toMatchObject({ jutyu_cd: "TSJM-0000064", amount: "3390", sales_day: "2026/10/02", group_id: "TESTGROUP" });
+    expect(res).toMatchObject({ result: "ok", code: "40" });
   });
 });
 

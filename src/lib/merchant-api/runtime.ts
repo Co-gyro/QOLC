@@ -4,7 +4,7 @@
 import type { MerchantApiDeps } from "./deps";
 import { decryptSecret } from "./secret";
 import { createSupabaseMerchantApiStore } from "./supabase-store";
-import { usenPay, usenSearchTrade, usenTokenInit } from "./usen-gateway";
+import { usenPay, usenReturn, usenSearchTrade, usenTokenInit } from "./usen-gateway";
 import { resolveUsenProfile } from "./usen-profile";
 import type { CredentialRow } from "./types";
 
@@ -36,6 +36,7 @@ export function createMerchantApiDeps(): MerchantApiDeps {
       tokenInit: (profile, input) => usenTokenInit(profile, input),
       pay: (profile, input) => usenPay(profile, input),
       searchTrade: (profile, jutyuCd) => usenSearchTrade(profile, jutyuCd),
+      refund: (profile, input) => usenReturn(profile, input),
     },
     resolveProfile: (environment, mallCode) => resolveUsenProfile(environment, mallCode),
     secretsOf: (credential) => credentialSecrets(credential, new Date()),

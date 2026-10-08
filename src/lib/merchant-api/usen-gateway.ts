@@ -97,6 +97,43 @@ export async function usenPay(
   });
 }
 
+/** 即時売上返品（/auth/return）の結果 */
+export interface UsenReturnResult {
+  result?: string;
+  code?: string;
+  ucorp?: string;
+  process_day?: string;
+  [key: string]: string | undefined;
+}
+
+/**
+ * 即時売上返品（/auth/return・会員ID決済IF仕様書 3.4）。
+ * 売上待ち（締め前）なら売上を削除して与信を取り消し、売上済み（締め後）なら返品データを送る。
+ * 1つのAPIで締め日の前後どちらにも対応できるため、加盟店APIの返金はこれに統一する。
+ * check_cd は "HM" + HMAC-MD5("jutyu_cd,amount")。成功は result=ok・code=40。
+ *
+ * @param input.salesDay - 元決済の売上計上日 yyyy/mm/dd（異なるとエラー）
+ */
+export async function usenReturn(
+  profile: UsenProfile,
+  input: { jutyuCd: string; amount: number; salesDay: string },
+  fetchImpl?: typeof fetch
+): Promise<UsenReturnResult> {
+  const checkCd = generateCheckCodeWithKey("md5", profile.key, [input.jutyuCd, input.amount]);
+  const text = await postForm({
+    url: joinUrl(profile.memberApiBaseUrl, "/auth/return"),
+    params: {
+      jutyu_cd: input.jutyuCd,
+      amount: input.amount,
+      sales_day: input.salesDay,
+      group_id: profile.groupId,
+      check_cd: checkCd,
+    },
+    fetchImpl,
+  });
+  return parseXmlResponse(text) as UsenReturnResult;
+}
+
 /** 取引照会（/search/trade）の結果 */
 export interface UsenTradeResult {
   result?: string;

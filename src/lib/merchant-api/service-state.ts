@@ -157,7 +157,10 @@ export async function reconcile(
       });
       return done ?? (await refetch(deps, row));
     }
-    case "refunded": {
+    case "refunded":
+    // 締め前に即時売上返品（/auth/return）すると売上が削除され与信も取り消される（void）。
+    // 成立済みの決済が void になっているのは返金済みの意味
+    case "voided": {
       if (row.status !== "succeeded") return (await deps.store.updatePayment(row.id, synced)) ?? row;
       const done = await transition(deps, row, "refunded", { ...synced, refunded_at: now.toISOString() });
       return done ?? (await refetch(deps, row));

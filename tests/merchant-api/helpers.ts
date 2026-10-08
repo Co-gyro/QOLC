@@ -185,6 +185,7 @@ export class FakeUsen implements UsenPort {
   };
   payResult: Awaited<ReturnType<UsenPort["pay"]>> | Error = { result: "ok", code: "01", brand: "VISA" };
   trade: Awaited<ReturnType<UsenPort["searchTrade"]>> = { result: "ng", code: "01" };
+  refundResult: Awaited<ReturnType<UsenPort["refund"]>> | Error = { result: "ok", code: "40", process_day: "2026/10/08" };
   calls: string[] = [];
 
   async tokenInit(_p: UsenProfile, input: Parameters<UsenPort["tokenInit"]>[1]) {
@@ -196,6 +197,11 @@ export class FakeUsen implements UsenPort {
     this.calls.push(`pay:${input.jutyuCd}`);
     if (this.payResult instanceof Error) throw this.payResult;
     return this.payResult;
+  }
+  async refund(_p: UsenProfile, input: { jutyuCd: string; amount: number; salesDay: string }) {
+    this.calls.push(`refund:${input.jutyuCd}:${input.amount}:${input.salesDay}`);
+    if (this.refundResult instanceof Error) throw this.refundResult;
+    return this.refundResult;
   }
   async searchTrade(_p: UsenProfile, jutyuCd: string) {
     this.calls.push(`searchTrade:${jutyuCd}`);

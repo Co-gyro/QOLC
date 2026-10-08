@@ -6,6 +6,7 @@ import type { UsenProfile } from "./usen-profile";
 import type {
   TokenInitInput,
   UsenPayResponse,
+  UsenReturnResult,
   UsenTokenInitResponse,
   UsenTradeResult,
 } from "./usen-gateway";
@@ -16,6 +17,7 @@ export interface UsenPort {
   tokenInit(profile: UsenProfile, input: TokenInitInput): Promise<UsenTokenInitResponse>;
   pay(profile: UsenProfile, input: { jutyuCd: string; token: string; checkCd: string }): Promise<UsenPayResponse>;
   searchTrade(profile: UsenProfile, jutyuCd: string): Promise<UsenTradeResult>;
+  refund(profile: UsenProfile, input: { jutyuCd: string; amount: number; salesDay: string }): Promise<UsenReturnResult>;
 }
 
 /** 業務ロジックが使う依存一式 */

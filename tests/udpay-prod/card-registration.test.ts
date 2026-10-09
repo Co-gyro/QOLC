@@ -64,17 +64,31 @@ function deps(over: Partial<CardRegistrationDeps> = {}) {
     nextJutyuCd: vi.fn(async () => "A303-0000002"),
     tokenInit: vi.fn(async () => ({ result: "ok", code: "00" })),
     pay: vi.fn(async () => ({ result: "ok", code: "00", brand: "VISA", member_id: "U11111111222233334444555555555555" })),
-    memberGet: vi.fn(async () => ({
-      result: "ok",
-      code: "50",
-      member_data: "<card_num>4980************5001</card_num><expire_yyyy>2028</expire_yyyy><expire_mm>08</expire_mm><ucorp>VISA</ucorp>",
-    })),
+    // 既定: A303 の実挙動（トークン決済では会員が作られない）→ 1回目の取得は 51、登録後は取得できる
+    memberGet: vi
+      .fn()
+      .mockResolvedValueOnce({ result: "ng", code: "51" })
+      .mockResolvedValue(MEMBER_NEW),
+    memberEntryByJutyuCd: vi.fn(async () => ({ result: "ok", code: "50" })),
+    memberDelete: vi.fn(async () => ({ result: "ok", code: "50" })),
+    searchTrade: vi.fn(async () => ({ result: "ok", code: "01", card_num: "498012******5001", expire_yyyy: "2028", expire_mm: "08" })),
     audit: vi.fn(async () => true),
     formatUsenDate: () => "2026/10/09",
     ...over,
   };
   return { d, updates };
 }
+
+const MEMBER_NEW = {
+  result: "ok",
+  code: "50",
+  member_data: "<card_num>4980************5001</card_num><expire_yyyy>2028</expire_yyyy><expire_mm>08</expire_mm><ucorp>VISA</ucorp>",
+};
+const MEMBER_OLD = {
+  result: "ok",
+  code: "50",
+  member_data: "<card_num>3587************0000</card_num><expire_yyyy>2026</expire_yyyy><expire_mm>12</expire_mm><ucorp>JCB</ucorp>",
+};
 
 const INIT_BODY = { jutyu_cd: "A303-0000001", token: "tk", card_limit_yyyy: "2028", card_limit_mm: "08", cardholder_name: "TARO" };
 
@@ -118,10 +132,12 @@ describe("initCardToken", () => {
 describe("completeCardRegistration", () => {
   const PAY_BODY = { jutyu_cd: "A303-0000001", token: "tk", check_cd: "cc" };
 
-  it("成功時は会員ID・ブランド・下4桁・有効期限を保存する", async () => {
+  it("初回: 会員が無ければ受注コードから会員を作り、会員ID・ブランド・下4桁・有効期限を保存する", async () => {
     const { d, updates } = deps();
     const r = await completeCardRegistration(d, ctx(), PAY_BODY);
     expect(r).toEqual({ ok: true, brand: "VISA", last4: "5001", expireYm: "202808" });
+    expect(d.memberEntryByJutyuCd).toHaveBeenCalledWith({ memberId: "U11111111222233334444555555555555", jutyuCd: "A303-0000001" });
+    expect(d.memberDelete).not.toHaveBeenCalled();
     expect(updates[0]).toMatchObject({
       usen_member_id: "U11111111222233334444555555555555",
       card_brand: "VISA",
@@ -129,17 +145,33 @@ describe("completeCardRegistration", () => {
       card_expire_ym: "202808",
     });
   });
-  it("会員情報が取れなくても登録は成功扱い（有効期限は空）", async () => {
-    const { d, updates } = deps({ memberGet: vi.fn(async () => { throw new Error("timeout"); }) });
-    const r = await completeCardRegistration(d, ctx(), PAY_BODY);
+  it("カード変更: 会員のカードが今回の与信と違えば、削除して作り直す", async () => {
+    const memberGet = vi.fn().mockResolvedValueOnce(MEMBER_OLD).mockResolvedValue(MEMBER_NEW);
+    const { d, updates } = deps({ memberGet });
+    const r = await completeCardRegistration(d, ctx({ usenMemberId: "U11111111222233334444555555555555" }), PAY_BODY);
     expect(r.ok).toBe(true);
-    expect(updates[0]).toMatchObject({ card_expire_ym: null, card_checked_at: null });
+    expect(d.memberDelete).toHaveBeenCalled();
+    expect(d.memberEntryByJutyuCd).toHaveBeenCalled();
+    expect(updates[0]).toMatchObject({ card_last4: "5001", card_expire_ym: "202808" });
   });
-  it("失敗時は保存せず、入力し直し用の新しい受注コードを返す", async () => {
+  it("会員が既に今回のカードなら、そのまま保存する（登録し直さない）", async () => {
+    const { d } = deps({ memberGet: vi.fn(async () => MEMBER_NEW) });
+    expect((await completeCardRegistration(d, ctx(), PAY_BODY)).ok).toBe(true);
+    expect(d.memberEntryByJutyuCd).not.toHaveBeenCalled();
+    expect(d.memberDelete).not.toHaveBeenCalled();
+  });
+  it("会員を作れなければ登録失敗として保存せず、入力し直し用の受注コードを返す", async () => {
+    const { d, updates } = deps({ memberEntryByJutyuCd: vi.fn(async () => ({ result: "ng", code: "52" })) });
+    const r = await completeCardRegistration(d, ctx(), PAY_BODY);
+    expect(r.ok).toBe(false);
+    expect(updates).toHaveLength(0);
+  });
+  it("与信が失敗したら保存せず、入力し直し用の新しい受注コードを返す", async () => {
     const { d, updates } = deps({ pay: vi.fn(async () => ({ result: "ng", code: "02" })) });
     const r = await completeCardRegistration(d, ctx(), PAY_BODY);
     expect(r).toEqual({ ok: false, error: "カードを登録できませんでした（code=02）", retryJutyuCd: "A303-0000002" });
     expect(updates).toHaveLength(0);
+    expect(d.memberEntryByJutyuCd).not.toHaveBeenCalled();
   });
 });
 

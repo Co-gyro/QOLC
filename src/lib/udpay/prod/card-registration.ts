@@ -26,6 +26,9 @@ export interface CardRegistrationDeps {
   tokenInit: (params: TokenInitParams) => Promise<Record<string, unknown>>;
   pay: (args: { jutyu_cd: string; token: string; check_cd: string }) => Promise<PayResponse>;
   memberGet: (args: { memberId: string }) => Promise<MemberApiResult>;
+  memberEntryByJutyuCd: (args: { memberId: string; jutyuCd: string }) => Promise<MemberApiResult>;
+  memberDelete: (args: { memberId: string }) => Promise<MemberApiResult>;
+  searchTrade: (args: { jutyuCd: string }) => Promise<MemberApiResult>;
   audit: (entry: { action: string; request: unknown; response: unknown }) => Promise<unknown>;
   formatUsenDate: () => string;
 }
@@ -120,13 +123,60 @@ export function extractMemberCard(res: MemberApiResult): { last4: string | null;
   return { last4, expireYm: toExpireYm(pick("expire_yyyy"), pick("expire_mm")), brand: pick("ucorp") ?? null };
 }
 
+/** 取引照会の結果から、そのカードの下4桁・有効期限を取り出す */
+function tradeCard(res: MemberApiResult): { last4: string | null; expireYm: string | null } {
+  const raw = res as Record<string, string | undefined>;
+  const num = raw.card_num;
+  return {
+    last4: num && /\d{4}$/.test(num) ? num.slice(-4) : null,
+    expireYm: toExpireYm(raw.expire_yyyy, raw.expire_mm),
+  };
+}
+
+/**
+ * USEN の会員（カード保管）を、今回与信したカードの内容にそろえる。
+ *
+ * 2026-10-09 本番疎通で判明: モール A303 ではトークン式の /i/token/init に member_id を付けても
+ * 会員が作られない（与信は成功・/member/get は code=51）。そのため与信済みの受注コードから
+ * /member/entrybyjutyucd で会員を作る。既に会員がいてカードが違う（カード変更）場合は、
+ * entrybyjutyucd が code=51（登録済み）で失敗するため、削除してから作り直す。
+ */
+export async function ensureMemberCard(
+  deps: CardRegistrationDeps,
+  memberId: string,
+  jutyuCd: string,
+): Promise<{ ok: true; card: ReturnType<typeof extractMemberCard> } | { ok: false; error: string }> {
+  const audit = (action: string, request: unknown, response: unknown) => deps.audit({ action, request, response });
+  let current = await deps.memberGet({ memberId });
+  if (current.result === "ok") {
+    const trade = await deps.searchTrade({ jutyuCd });
+    const want = tradeCard(trade);
+    const have = extractMemberCard(current);
+    if (want.last4 && (want.last4 !== have.last4 || want.expireYm !== have.expireYm)) {
+      const del = await deps.memberDelete({ memberId });
+      await audit("udpay_member_replace_delete", { member_id: memberId, jutyu_cd: jutyuCd }, del);
+      current = { result: "ng", code: "51" } as MemberApiResult;
+    }
+  }
+  if (current.result !== "ok") {
+    if (current.code !== "51") return { ok: false, error: `会員情報を確認できませんでした（code=${current.code}）` };
+    const entry = await deps.memberEntryByJutyuCd({ memberId, jutyuCd });
+    await audit("udpay_member_entry", { member_id: memberId, jutyu_cd: jutyuCd }, entry);
+    if (entry.result !== "ok") return { ok: false, error: `会員を登録できませんでした（code=${entry.code}）` };
+    current = await deps.memberGet({ memberId });
+  }
+  if (current.result !== "ok") return { ok: false, error: `会員情報を確認できませんでした（code=${current.code}）` };
+  return { ok: true, card: extractMemberCard(current) };
+}
+
 /** カード登録の完了結果 */
 export type CompleteResult =
   | { ok: true; brand: string | null; last4: string | null; expireYm: string | null }
   | { ok: false; error: string; retryJutyuCd: string };
 
 /**
- * 決済（3DS 後の OnPaymentStart から呼ばれる）。成功なら会員IDとカード情報を顧客に保存する。
+ * 決済（3DS 後の OnPaymentStart から呼ばれる）。与信が成功したら USEN の会員を今回のカードに
+ * そろえ（ensureMemberCard）、会員IDとカード情報を顧客に保存する。
  * 失敗時は入力し直せるよう、新しい受注コードを返す（同じ受注コードは再利用できない）。
  */
 export async function completeCardRegistration(
@@ -134,27 +184,19 @@ export async function completeCardRegistration(
   ctx: RegistrationContext,
   body: { jutyu_cd: string; token: string; check_cd: string },
 ): Promise<CompleteResult> {
-  if (!belongsToMall(body.jutyu_cd, ctx.merchant.mallCode)) {
-    return { ok: false, error: "受注コードが不正です", retryJutyuCd: await deps.nextJutyuCd(ctx.merchant.mallCode) };
-  }
+  const retry = async (error: string): Promise<CompleteResult> => ({
+    ok: false,
+    error,
+    retryJutyuCd: await deps.nextJutyuCd(ctx.merchant.mallCode),
+  });
+  if (!belongsToMall(body.jutyu_cd, ctx.merchant.mallCode)) return retry("受注コードが不正です");
   const res = await deps.pay(body);
   await deps.audit({ action: "udpay_card_pay", request: { jutyu_cd: body.jutyu_cd, member_id: ctx.memberId }, response: res });
-  if (res.result !== "ok") {
-    return {
-      ok: false,
-      error: `カードを登録できませんでした（code=${res.code}）`,
-      retryJutyuCd: await deps.nextJutyuCd(ctx.merchant.mallCode),
-    };
-  }
-  const memberId = res.member_id || ctx.memberId;
-  // 下4桁・有効期限は取得できなくても登録自体は成功扱い（後から一括取得できる）
-  let card: ReturnType<typeof extractMemberCard> = { last4: null, expireYm: null, brand: null };
-  try {
-    const info = await deps.memberGet({ memberId });
-    if (info.result === "ok") card = extractMemberCard(info);
-  } catch {
-    // 取得失敗は無視
-  }
+  if (res.result !== "ok") return retry(`カードを登録できませんでした（code=${res.code}）`);
+  const memberId = ctx.memberId;
+  const ensured = await ensureMemberCard(deps, memberId, body.jutyu_cd);
+  if (!ensured.ok) return retry(`カードを登録できませんでした（${ensured.error}）`);
+  const card = ensured.card;
   const now = new Date().toISOString();
   const brand = res.brand ?? card.brand;
   const { error } = await deps.client
@@ -165,7 +207,7 @@ export async function completeCardRegistration(
       card_last4: card.last4,
       card_expire_ym: card.expireYm,
       card_registered_at: now,
-      card_checked_at: card.expireYm ? now : null,
+      card_checked_at: now,
     })
     .eq("id", ctx.customer.id);
   if (error) throw new Error(`カード情報の保存に失敗: ${error.message}`);

@@ -1,6 +1,13 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { pay, tokenInit } from "@/lib/payment/token-ec-api";
-import { formatUsenDate, memberGet, nextJutyuCd } from "@/lib/payment/member-api";
+import {
+  formatUsenDate,
+  memberDelete,
+  memberEntryByJutyuCd,
+  memberGet,
+  nextJutyuCd,
+  searchTrade,
+} from "@/lib/payment/member-api";
 import { logPaymentAudit } from "@/lib/payment/audit-log";
 import type { CardRegistrationDeps } from "./card-registration";
 
@@ -15,6 +22,9 @@ export function createCardRegistrationDeps(ipAddress: string | null): CardRegist
     tokenInit: async (params) => (await tokenInit(params)) as unknown as Record<string, unknown>,
     pay,
     memberGet: (args) => memberGet(args, { ipAddress }),
+    memberEntryByJutyuCd: (args) => memberEntryByJutyuCd(args, { ipAddress }),
+    memberDelete: (args) => memberDelete(args, { ipAddress }),
+    searchTrade: (args) => searchTrade(args, { ipAddress }),
     audit: (entry) =>
       logPaymentAudit({ action: entry.action, request: entry.request, response: entry.response, ipAddress }),
     formatUsenDate: () => formatUsenDate(),

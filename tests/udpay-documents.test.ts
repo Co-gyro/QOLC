@@ -49,3 +49,25 @@ describe("receiptRows", () => {
     expect(receiptRows([line(1_000, 8)])[0]).toMatchObject({ reduced: true, tax: 80, gross: 1_080 });
   });
 });
+
+describe("splitCustomerName", () => {
+  it("短い宛名は1行のまま", async () => {
+    const { splitCustomerName } = await import("@/lib/udpay/documents");
+    expect(splitCustomerName("さくら歯科クリニック")).toEqual(["さくら歯科クリニック"]);
+  });
+  it("長い宛名は最初の空白で法人名と医院名に分ける（全角・半角どちらも）", async () => {
+    const { splitCustomerName } = await import("@/lib/udpay/documents");
+    expect(splitCustomerName("医療法人社団ｘｘｘｘｘｘ会　〇×△□駅前あああああ歯科医院")).toEqual([
+      "医療法人社団ｘｘｘｘｘｘ会",
+      "〇×△□駅前あああああ歯科医院",
+    ]);
+    expect(splitCustomerName("医療法人社団さくら会 さくら歯科クリニック本院")).toEqual([
+      "医療法人社団さくら会",
+      "さくら歯科クリニック本院",
+    ]);
+  });
+  it("空白のない長い宛名は1行のまま（表示幅で折り返す）", async () => {
+    const { splitCustomerName } = await import("@/lib/udpay/documents");
+    expect(splitCustomerName("医療法人社団ああああああ会いいいい歯科医院")).toHaveLength(1);
+  });
+});

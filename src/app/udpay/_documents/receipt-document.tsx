@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- 印刷用帳票のため next/image の遅延読込を避ける */
 import type { ReceiptRow, TaxBreakdown } from "@/lib/udpay/documents";
 import type { MerchantProfile } from "@/lib/udpay/merchant-profile";
+import { CustomerName } from "./customer-name";
 
 /** 領収証の明細欄の行数（フォーマットどおり10行） */
 const MIN_ROWS = 10;
@@ -41,7 +42,7 @@ export function ReceiptDocument({ data, merchant }: { data: ReceiptDocumentData;
         <tbody>
           <tr>
             <td style={{ width: "54%", verticalAlign: "top", padding: 0 }}>
-              <div className="to">{data.customerName}　御中</div>
+              <div className="to"><CustomerName name={data.customerName} /></div>
               <div style={{ padding: "12px 0 0 36px", minHeight: 76 }}>
                 {data.postalCode && <div>〒{data.postalCode}</div>}
                 {data.address1 && <div>{data.address1}</div>}

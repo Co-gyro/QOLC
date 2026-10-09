@@ -95,3 +95,18 @@ export function formatSlashDate(date: string): string {
   const [y, m, d] = date.split("-").map(Number);
   return `${y}/${m}/${d}`;
 }
+
+/** 宛名を1行で表示できる目安の文字数（これを超えたら法人名と医院名の区切りで改行する） */
+const NAME_LINE_CHARS = 14;
+
+/**
+ * 帳票の宛名を行に分ける（ランサイド様要望 2026-10-08: 長い法人名の折り返し位置を手前に）。
+ * 長い宛名で空白（全角・半角）を含む場合は、最初の空白で「法人名」「医院名」に分けて改行する。
+ * 空白がない場合は1行のまま返し、表示側の幅で折り返す。
+ */
+export function splitCustomerName(name: string): string[] {
+  const trimmed = name.trim();
+  if (trimmed.length <= NAME_LINE_CHARS) return [trimmed];
+  const m = trimmed.match(/^(.+?)[\s\u3000]+(.+)$/);
+  return m ? [m[1], m[2]] : [trimmed];
+}

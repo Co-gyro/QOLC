@@ -9,7 +9,7 @@ import {
 } from "./logic";
 
 /** シードデータのバージョン。構造を変えたら上げる（ストアが自動で作り直される） */
-export const SEED_VERSION = 4;
+export const SEED_VERSION = 5;
 
 /** "YYYY-MM" を有効期限 "YYYYMM" にする */
 function ym(month: string): string {
@@ -18,7 +18,7 @@ function ym(month: string): string {
 
 /**
  * UD Payment デモの初期データを生成する。
- * ランサイド様の実態（歯科医院向け月次サポート・交通費実費・顧客ごとの決済日）
+ * ランサイド様の実態（歯科医院向け月次サポート・交通費実費・決済日は15日か28日）
  * に寄せた架空の顧客7件と、前々月・前月分の請求（決済確定済み）を含む。
  * 前月分は決済日が今日以前なら入金済み、先なら決済確定（課金待ち）になる。
  * 有効期限が近い顧客（ひかり歯科）と期限切れの顧客（こだま歯科）を1件ずつ入れる。
@@ -74,32 +74,32 @@ export function buildSeed(): UdpayStore {
   });
   const store: UdpayStore = {
     customers: [
-      customer("sakura", "さくら歯科クリニック", "田中", 14, visa("4242", "202903"), {
+      customer("sakura", "さくら歯科クリニック", "田中", 15, visa("4242", "202903"), {
         cc: ["keiri-sakura@example.com"],
         note: "請求書は院長と経理の両方へ",
         postalCode: "150-0001",
         address1: "東京都渋谷区神宮前1-2-3",
         address2: "さくらビル2階",
       }),
-      customer("minato", "みなと歯科医院", "佐藤", 5, {
+      customer("minato", "みなと歯科医院", "佐藤", 15, {
         ...visa("0505", "202811"),
         brand: "JCB",
         demoFailOnce: true,
       }, { postalCode: "220-0012", address1: "神奈川県横浜市西区みなとみらい4-5-6" }),
-      customer("hikari", "ひかり歯科", "鈴木", 14, {
+      customer("hikari", "ひかり歯科", "鈴木", 15, {
         ...visa("1414", ym(nextMonth(CUR))),
         brand: "Mastercard",
       }),
-      customer("aoba", "あおば歯科クリニック", "高橋", 20, visa("2020", "202807")),
-      customer("umikaze", "うみかぜ歯科医院", "宮里", 25, { ...visa("2525", "203001"), brand: "JCB" }, {
+      customer("aoba", "医療法人社団あおば会　あおば歯科クリニック", "高橋", 28, visa("2020", "202807")),
+      customer("umikaze", "うみかぜ歯科医院", "宮里", 28, { ...visa("2525", "203001"), brand: "JCB" }, {
         note: "交通費（航空券）が毎月変動",
         postalCode: "900-0015",
         address1: "沖縄県那覇市久茂地7-8-9",
       }),
-      customer("kodama", "こだま歯科クリニック", "児玉", 10, visa("1010", ym(PREV)), {
+      customer("kodama", "こだま歯科クリニック", "児玉", 15, visa("1010", ym(PREV)), {
         note: "数か月に1回の請求",
       }),
-      customer("wakaba", "わかば歯科", "伊藤", 10, { registered: false }, {
+      customer("wakaba", "わかば歯科", "伊藤", 28, { registered: false }, {
         createdAt: "2026-07-21T09:00:00+09:00",
       }),
     ],

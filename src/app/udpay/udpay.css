@@ -215,7 +215,10 @@
 .udpay-root .up-doc {
   background: #fff; width: 210mm; min-height: 297mm; margin: 0 auto; padding: 14mm 12mm;
   color: #000; font-size: 14px; line-height: 1.5; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  /* 印刷設定の「背景のグラフィック」がオフでも、見出しの色を印刷する（白文字が消えるのを防ぐ） */
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
+.udpay-root .up-doc * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .udpay-root .up-doc table { border-collapse: collapse; width: 100%; }
 .udpay-root .up-doc td, .udpay-root .up-doc th { padding: 3px 6px; vertical-align: middle; }
 .udpay-root .up-doc .r { text-align: right; font-variant-numeric: tabular-nums; }

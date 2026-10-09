@@ -20,6 +20,12 @@ export interface MerchantProfile {
   registrationNumber: string;
   /** ロゴ画像のパス（public 配下） */
   logoPath: string;
+  /**
+   * 顧客に設定できる決済日（加盟店ごとの設定）。
+   * ランサイド様は 15日・28日 を候補として税理士に相談中（2026-10-08 回答）。
+   * どちらか一方に絞る場合はこの配列を1件にするだけでよい。
+   */
+  chargeDays: number[];
 }
 
 /** デモの発行元（株式会社ランサイド） */
@@ -33,4 +39,5 @@ export const DEMO_MERCHANT: MerchantProfile = {
   contact: "永村隆司",
   registrationNumber: "T6010001241594",
   logoPath: "/udpay/runside-logo.png",
+  chargeDays: [15, 28],
 };

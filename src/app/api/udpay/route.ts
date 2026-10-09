@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   createCustomer,
   loadStore,
+  updateCustomer,
   markRegistrationMailSent,
   registerCardByToken,
   resetStore,
@@ -35,19 +36,22 @@ const lineSchema = z.object({
   taxRate: z.number().int().min(0).max(10),
 });
 
+/** 顧客の入力項目（新規追加・編集で共通） */
+const customerFields = {
+  name: z.string().min(1).max(100),
+  contactName: z.string().min(1).max(50),
+  email: z.string().email(),
+  cc: z.array(z.string().email()).max(10).optional(),
+  anniversaryDay: z.number().int().min(1).max(28),
+  note: z.string().max(500).optional(),
+  postalCode: z.string().regex(/^\d{3}-?\d{4}$/).optional(),
+  address1: z.string().max(100).optional(),
+  address2: z.string().max(100).optional(),
+};
+
 const actionSchema = z.discriminatedUnion("action", [
-  z.object({
-    action: z.literal("createCustomer"),
-    name: z.string().min(1).max(100),
-    contactName: z.string().min(1).max(50),
-    email: z.string().email(),
-    cc: z.array(z.string().email()).max(10).optional(),
-    anniversaryDay: z.number().int().min(1).max(28),
-    note: z.string().max(500).optional(),
-    postalCode: z.string().regex(/^\d{3}-?\d{4}$/).optional(),
-    address1: z.string().max(100).optional(),
-    address2: z.string().max(100).optional(),
-  }),
+  z.object({ action: z.literal("createCustomer"), ...customerFields }),
+  z.object({ action: z.literal("updateCustomer"), customerId: z.string().min(1), ...customerFields }),
   z.object({
     action: z.literal("registerCard"),
     token: z.string().min(1),
@@ -120,6 +124,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       const result = await registerCardByToken(input.token, input.cardNumber, input.expiry);
       return NextResponse.json(result, { status: result.ok ? 200 : 400 });
     }
+    case "updateCustomer":
+      return respond(await updateCustomer(input.customerId, input));
     case "sendRegistrationMail":
       return respond(await markRegistrationMailSent(input.customerId));
     case "copyPreviousMonth": {

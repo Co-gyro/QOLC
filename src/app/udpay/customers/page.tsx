@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { headers } from "next/headers";
 import { loadStore } from "@/lib/udpay/store";
 import { formatDateJa, matchesKeyword, todayJst } from "@/lib/udpay/logic";
@@ -98,6 +99,9 @@ export default async function UdpayCustomersPage({
                     <strong>{c.name}</strong>
                     <div>{c.contactName} 先生</div>
                     {c.note && <div className="up-muted">備考: {c.note}</div>}
+                    <Link className="up-btn secondary small" href={`/udpay/customers/${c.id}`} style={{ marginTop: 6 }}>
+                      編集
+                    </Link>
                   </td>
                   <td>
                     <div>To: {c.email}</div>

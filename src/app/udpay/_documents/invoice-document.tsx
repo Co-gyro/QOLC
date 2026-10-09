@@ -3,6 +3,7 @@ import { formatDateJa } from "@/lib/udpay/logic";
 import { taxBreakdown } from "@/lib/udpay/documents";
 import type { MerchantProfile } from "@/lib/udpay/merchant-profile";
 import type { UdpayInvoiceLine } from "@/lib/udpay/types";
+import { CustomerName } from "./customer-name";
 
 /** 請求書の明細欄の最低行数（フォーマットの行数に合わせて空行で埋める） */
 const MIN_ROWS = 13;
@@ -43,8 +44,8 @@ export function InvoiceDocument({ data, merchant }: { data: InvoiceDocumentData;
       <table>
         <tbody>
           <tr>
-            <td className="to" style={{ width: "62%" }}>
-              {data.customerName}　御中
+            <td className="to" style={{ width: "58%", paddingRight: 28 }}>
+              <CustomerName name={data.customerName} />
             </td>
             <td>
               <table>

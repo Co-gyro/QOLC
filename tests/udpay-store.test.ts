@@ -118,13 +118,13 @@ describe("一括実行・決済確定（要望6）", () => {
     expect(saved?.status).toBe("confirmed");
     expect(saved?.mailSentAt).toBeTruthy();
     const payment = (await loadStore()).payments.find((p) => p.invoiceId === inv.id);
-    // さくら歯科の決済日は14日 → 翌月14日に課金
-    expect(payment?.scheduledDate).toBe(chargeDateFor(MONTH, 14));
+    // さくら歯科の決済日は15日 → 翌月15日に課金
+    expect(payment?.scheduledDate).toBe(chargeDateFor(MONTH, 15));
   });
 
   it("決済日を過ぎてから決済確定した場合は翌日に課金する", async () => {
     const inv = await reservedInvoiceOf("cust-sakura");
-    const late = addDays(chargeDateFor(MONTH, 14), 3);
+    const late = addDays(chargeDateFor(MONTH, 15), 3);
     await confirmInvoices([inv.id], late);
     const payment = (await loadStore()).payments.find((p) => p.invoiceId === inv.id);
     expect(payment?.scheduledDate).toBe(addDays(late, 1));
@@ -150,7 +150,7 @@ describe("一括実行・決済確定（要望6）", () => {
   it("決済確定は課金日の前日まで取り消せ、課金予約に戻る", async () => {
     const inv = await reservedInvoiceOf("cust-sakura");
     await confirmInvoices([inv.id], `${MONTH}-01`);
-    const chargeDate = chargeDateFor(MONTH, 14);
+    const chargeDate = chargeDateFor(MONTH, 15);
     expect((await cancelConfirmation(inv.id, chargeDate)).ok).toBe(false);
     expect((await cancelConfirmation(inv.id, addDays(chargeDate, -1))).ok).toBe(true);
     const saved = await currentInvoiceOf("cust-sakura");
@@ -239,5 +239,30 @@ describe("importInvoiceLines（CSV一括取込）", () => {
     expect(summary.created).toBe(1);
     const sakuraAfter = (await loadStore()).invoices.find((i) => i.id === sakura.id)!;
     expect(sakuraAfter.lines.some((l) => l.description === "X")).toBe(false);
+  });
+});
+
+describe("updateCustomer（顧客情報の編集）", () => {
+  it("宛先・担当者・決済日を変更でき、カード情報と決済確定済みの課金日は変わらない", async () => {
+    const { updateCustomer } = await import("@/lib/udpay/store");
+    const inv = await reservedInvoiceOf("cust-sakura");
+    await confirmInvoices([inv.id], `${MONTH}-01`);
+    const before = (await loadStore()).payments.find((p) => p.invoiceId === inv.id)!.scheduledDate;
+    const result = await updateCustomer("cust-sakura", {
+      name: "医療法人社団さくら会　さくら歯科クリニック",
+      contactName: "田中（新担当）",
+      email: "new-sakura@example.com",
+      cc: [],
+      anniversaryDay: 28,
+    });
+    expect(result.ok).toBe(true);
+    const store = await loadStore();
+    const c = store.customers.find((x) => x.id === "cust-sakura")!;
+    expect(c.email).toBe("new-sakura@example.com");
+    expect(c.anniversaryDay).toBe(28);
+    expect(c.card.registered).toBe(true);
+    expect(c.registrationToken).toBe("demo-sakura");
+    expect(store.payments.find((p) => p.invoiceId === inv.id)!.scheduledDate).toBe(before);
+    expect((await updateCustomer("no-such", { name: "x", contactName: "x", email: "x@example.com", anniversaryDay: 15 })).ok).toBe(false);
   });
 });

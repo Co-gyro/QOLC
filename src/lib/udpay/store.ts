@@ -129,6 +129,46 @@ export async function createCustomer(input: {
   return customer;
 }
 
+/** 顧客の登録内容（新規追加・編集で共通の入力） */
+export interface CustomerInput {
+  name: string;
+  contactName: string;
+  email: string;
+  cc?: string[];
+  anniversaryDay: number;
+  note?: string;
+  postalCode?: string;
+  address1?: string;
+  address2?: string;
+}
+
+/**
+ * 顧客の登録内容を編集する（ランサイド様要望 2026-10-08: 登録ミス・担当者変更・メール変更）。
+ * カード情報・登録リンクは変えない。決済日の変更は、これから決済確定する請求から反映する
+ * （決済確定済みの課金日は変えない）。
+ */
+export async function updateCustomer(
+  customerId: string,
+  input: CustomerInput,
+): Promise<{ ok: boolean; error?: string }> {
+  const store = await loadStore();
+  const customer = store.customers.find((c) => c.id === customerId);
+  if (!customer) return { ok: false, error: "顧客が見つかりません" };
+  Object.assign(customer, {
+    name: input.name,
+    contactName: input.contactName,
+    email: input.email,
+    cc: input.cc ?? [],
+    anniversaryDay: input.anniversaryDay,
+    note: input.note,
+    postalCode: input.postalCode,
+    address1: input.address1,
+    address2: input.address2,
+  });
+  await saveStore(store);
+  return { ok: true };
+}
+
 /**
  * 有効期限の入力（"MM/YY" または "MM/YYYY"）を "YYYYMM" にする。不正なら null。
  */

@@ -160,4 +160,19 @@ test.describe.serial("UD Payment デモ", () => {
     const wakabaRow = row(page, "わかば歯科");
     await expect(wakabaRow.getByText(/有効期限 2028年12月/)).toBeVisible();
   });
+
+  test("顧客情報を編集できる（担当者・メール・決済日）", async ({ page }) => {
+    await page.goto("/udpay/customers?q=ひかり");
+    await row(page, "ひかり歯科").getByRole("link", { name: "編集" }).click();
+    await expect(page.getByRole("heading", { name: "顧客情報の編集" })).toBeVisible();
+    await page.getByLabel("担当者名").fill("山本");
+    await page.getByLabel("請求メールの宛先（To）").fill("new-hikari@example.com");
+    await page.getByLabel("毎月の決済日").selectOption("28");
+    await page.screenshot({ path: `${SCREEN_DIR}/10-customer-edit.png`, fullPage: true });
+    await page.getByRole("button", { name: "保存する" }).click();
+    const hikari = row(page, "ひかり歯科");
+    await expect(hikari.getByText("山本 先生")).toBeVisible();
+    await expect(hikari.getByText("To: new-hikari@example.com")).toBeVisible();
+    await expect(hikari.getByText("毎月28日")).toBeVisible();
+  });
 });

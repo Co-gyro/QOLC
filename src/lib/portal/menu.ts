@@ -58,6 +58,7 @@ export const PORTAL_MENU_SECTIONS: Record<PortalType, MenuSection[]> = {
         { href: "/admin/dashboard", label: "ダッシュボード", icon: "LayoutDashboard" },
         { href: "/admin/facilities", label: "介護施設", icon: "Building2" },
         { href: "/admin/merchants", label: "加盟店", icon: "Database" },
+        { href: "/admin/udpay", label: "UD Payment（請求・カード決済）", icon: "CreditCard" },
         { href: "/admin/csv-tools", label: "精算CSV変換", icon: "FileSpreadsheet" },
         // 精算まわりが並ぶ位置に置く（CSV変換の隣）。別システムなので別タブで開く
         { href: SELFISH_URL, label: "Selfish（精算）", icon: "Calculator", external: true },

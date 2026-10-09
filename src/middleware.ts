@@ -39,6 +39,8 @@ const PUBLIC_PATH_PREFIXES = [
   "/api/health",
   "/udpay",
   "/api/udpay",
+  // UD Payment 本番のカード登録ページ（登録リンクのトークンで保護・ログイン不要）
+  "/pay/udpay",
   "/_next",
   "/favicon",
   "/QOLC_design_system.html",

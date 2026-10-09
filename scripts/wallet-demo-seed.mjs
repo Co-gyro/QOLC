@@ -10,7 +10,7 @@
  * - 施設アカウントのパスワードは初回だけ生成し、.env.local.dev に追記する（チャット・ログに出さない）
  * - 実在の入居者・職員の情報は使わない
  */
-import { randomInt } from "node:crypto";
+import { createHash, randomInt } from "node:crypto";
 import { appendFileSync, readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 
@@ -115,10 +115,25 @@ for (const f of FACILITIES) {
   must(await admin.from("profiles").update({ role: "admin", facility_id: null, display_name: "デモ運営センター" }).eq("id", user.id), `運営センターアカウント ${email}`);
 }
 
+// デモ用 iPhone（端末）と、支払いの自動記録の鍵（鍵は .env.local.dev にだけ置き、DB にはハッシュだけ）
+{
+  let key = env.WALLET_DEMO_DEVICE_KEY;
+  if (!key) {
+    key = password(32);
+    appendFileSync(ENV_PATH, `\n# QOLC Wallet デモ用 iPhone の自動記録の鍵（ショートカットに設定する）\nWALLET_DEMO_DEVICE_KEY=${key}\n`);
+  }
+  const hash = createHash("sha256").update(key, "utf8").digest("hex");
+  must(await admin.from("devices").upsert({
+    id: "d0000000-0000-4000-8000-000000000001", facility_id: FACILITIES[0].id, name: "デモ iPhone",
+    card_id: CARDS[0].id, status: "active", auto_record_key_hash: hash,
+  }), "デモ用 iPhone（自動記録の鍵）");
+}
+
 // --reset: デモの記録・レシート・明細の取込を論理削除して、何もない状態に戻す（リハーサル用）
 if (process.argv.includes("--reset")) {
   const ids = FACILITIES.map((f) => f.id);
   const now = new Date().toISOString();
+  must(await admin.from("wallet_auto_records").update({ deleted_at: now }).in("facility_id", ids).is("deleted_at", null), "自動記録を論理削除");
   must(await admin.from("receipt_images").update({ deleted_at: now }).in("facility_id", ids).is("deleted_at", null), "レシートを論理削除");
   must(await admin.from("purchase_declarations").update({ deleted_at: now }).in("facility_id", ids).is("deleted_at", null), "記録を論理削除");
   const { data: lines } = await admin.from("card_statement_lines").select("import_id").in("facility_id", ids).is("deleted_at", null);

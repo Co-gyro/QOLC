@@ -18,6 +18,7 @@ const ROLE_HOME: Record<UserRole, string> = {
   facility_staff: "/facility/dashboard",
   provider: "/provider/dashboard",
   family: "/user/home",
+  udpay_merchant: "/billing",
 };
 
 export default async function RootPage() {

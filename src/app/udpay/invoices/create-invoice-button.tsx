@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useUdpayPaths } from "../_components/use-udpay-paths";
 
 /** 顧客の当月請求書（下書き）を作成し、編集画面へ遷移するボタン */
 export function CreateInvoiceButton({
@@ -11,13 +12,14 @@ export function CreateInvoiceButton({
   customerId: string;
   month: string;
 }) {
+  const { base, api } = useUdpayPaths();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
   async function create() {
     setBusy(true);
     try {
-      const res = await fetch("/api/udpay", {
+      const res = await fetch(api, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "createInvoice", customerId, month }),
@@ -28,7 +30,7 @@ export function CreateInvoiceButton({
         alert(data.error ?? "作成に失敗しました");
         return;
       }
-      router.push(`/udpay/invoices/${data.invoice.id}`);
+      router.push(`${base}/invoices/${data.invoice.id}`);
       router.refresh();
     } finally {
       setBusy(false);

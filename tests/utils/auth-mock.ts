@@ -40,6 +40,12 @@ export const MOCK_USERS: Record<UserRole, MockUser> = {
     email: "family@example.com",
     role: "family",
   },
+  udpay_merchant: {
+    id: "55555555-5555-5555-5555-555555555555",
+    email: "udpay@example.com",
+    role: "udpay_merchant",
+    merchantId: "dddddddd-dddd-dddd-dddd-dddddddddddd",
+  },
 };
 
 /**

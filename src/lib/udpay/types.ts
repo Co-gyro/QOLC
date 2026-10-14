@@ -78,6 +78,8 @@ export interface UdpayInvoice {
   lines: UdpayInvoiceLine[];
   status: UdpayInvoiceStatus;
   reservedAt?: string;
+  /** 課金予約した利用者（本番のみ。作成者と承認者を分けるため） */
+  reservedBy?: string;
   confirmedAt?: string;
   /** 請求メールの件名（未指定なら既定の件名） */
   mailSubject?: string;

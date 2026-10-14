@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CustomerFields, customerPayload, type CustomerFieldValues } from "../customer-fields";
+import { useUdpayPaths } from "../../_components/use-udpay-paths";
 
 /** 顧客情報の編集フォーム（保存後は顧客管理へ戻る） */
 export function EditCustomerForm({
@@ -12,6 +13,7 @@ export function EditCustomerForm({
   customerId: string;
   initial: CustomerFieldValues;
 }) {
+  const { base, api } = useUdpayPaths();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +23,7 @@ export function EditCustomerForm({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/udpay", {
+      const res = await fetch(api, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -35,7 +37,7 @@ export function EditCustomerForm({
         setError(data.error ?? "保存に失敗しました（入力内容をご確認ください）");
         return;
       }
-      router.push("/udpay/customers");
+      router.push(`${base}/customers`);
       router.refresh();
     } finally {
       setBusy(false);
@@ -50,7 +52,7 @@ export function EditCustomerForm({
         <button type="submit" className="up-btn" disabled={busy}>
           {busy ? "保存中…" : "保存する"}
         </button>
-        <button type="button" className="up-btn secondary" onClick={() => router.push("/udpay/customers")}>
+        <button type="button" className="up-btn secondary" onClick={() => router.push(`${base}/customers`)}>
           キャンセル
         </button>
       </div>

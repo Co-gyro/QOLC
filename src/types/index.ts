@@ -5,7 +5,7 @@
  * （database.types.ts は Supabase CLI で自動生成して別途配置）
  */
 
-export type UserRole = "admin" | "facility_staff" | "provider" | "family";
+export type UserRole = "admin" | "facility_staff" | "provider" | "family" | "udpay_merchant";
 
 export type PortalType = "admin" | "facility" | "provider" | "user";
 

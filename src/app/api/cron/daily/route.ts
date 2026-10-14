@@ -12,6 +12,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { apiError, apiOk } from "@/types/api";
+import { runDueCharges } from "@/lib/udpay/prod/charge";
+import { createChargeDeps } from "@/lib/udpay/prod/charge-deps";
 import {
   buildRunSteps,
   formatTitlePattern,
@@ -26,6 +28,8 @@ export const dynamic = "force-dynamic";
 // Next.js 14 では force-dynamic だけでは fetch データキャッシュが残り、
 // recurring_rules の古い last_run_on を読んで多重起票する（本番で実測）。
 export const fetchCache = "force-no-store";
+// UD Payment の課金（USEN 呼び出し）を含むため長めに取る
+export const maxDuration = 300;
 
 /** 起票結果1件（運用確認用の戻り JSON に含める） */
 interface CreatedRun {
@@ -95,7 +99,15 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json(apiOk({ date: todayStr, created, skipped, errors, opsCreated }));
+  // (c) UD Payment: 課金日が来た決済確定の請求を登録カードへ課金する（毎朝9時）
+  let udpay: Awaited<ReturnType<typeof runDueCharges>> | null = null;
+  try {
+    udpay = await runDueCharges(createChargeDeps(), todayStr);
+  } catch (e) {
+    errors.push({ rule: "udpay_charge", message: e instanceof Error ? e.message : "unknown" });
+  }
+
+  return NextResponse.json(apiOk({ date: todayStr, created, skipped, errors, opsCreated, udpay }));
 }
 
 /**

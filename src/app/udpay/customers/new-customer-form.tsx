@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CustomerFields, customerPayload } from "./customer-fields";
+import { useUdpayPaths } from "../_components/use-udpay-paths";
 
 /** 新規顧客の登録フォーム（登録後にカード登録リンクが発行される） */
 export function NewCustomerForm() {
+  const { api } = useUdpayPaths();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -17,7 +19,7 @@ export function NewCustomerForm() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/udpay", {
+      const res = await fetch(api, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "createCustomer", ...customerPayload(form) }),

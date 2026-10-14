@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatDateJa, formatMonthJa, formatYen } from "@/lib/udpay/logic";
+import { useUdpayPaths } from "../../_components/use-udpay-paths";
 
 /** 一括実行の対象候補（課金予約の請求1件） */
 export interface ConfirmCandidate {
@@ -26,6 +27,7 @@ export interface ConfirmCandidate {
  * 一括実行の確認フォーム。チェックした請求だけを決済確定し、合計件数・金額を常に表示する。
  */
 export function ConfirmForm({ candidates }: { candidates: ConfirmCandidate[] }) {
+  const { base, api } = useUdpayPaths();
   const router = useRouter();
   const [checked, setChecked] = useState<Set<string>>(
     new Set(candidates.filter((c) => !c.blocker).map((c) => c.invoiceId)),
@@ -49,7 +51,7 @@ export function ConfirmForm({ candidates }: { candidates: ConfirmCandidate[] }) 
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/udpay", {
+      const res = await fetch(api, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "confirmInvoices", invoiceIds: selected.map((c) => c.invoiceId) }),
@@ -60,7 +62,7 @@ export function ConfirmForm({ candidates }: { candidates: ConfirmCandidate[] }) 
         return;
       }
       const done = `一括実行しました: 決済確定 ${data.confirmed ?? 0}件（請求メール送付済み）`;
-      router.push(`/udpay/payments?month=${selected[0]?.month ?? ""}&done=${encodeURIComponent(done)}`);
+      router.push(`${base}/payments?month=${selected[0]?.month ?? ""}&done=${encodeURIComponent(done)}`);
       router.refresh();
     } finally {
       setBusy(false);

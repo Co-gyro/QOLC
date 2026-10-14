@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useUdpayPaths } from "./_components/use-udpay-paths";
 
 /**
  * デモ操作 API（/api/udpay）を叩いて画面を更新する汎用ボタン。
@@ -22,6 +23,7 @@ export function ActionButton({
   confirmMessage?: string;
   navigateTo?: string;
 }) {
+  const { api } = useUdpayPaths();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -29,7 +31,7 @@ export function ActionButton({
     if (confirmMessage && !confirm(confirmMessage)) return;
     setBusy(true);
     try {
-      const res = await fetch("/api/udpay", {
+      const res = await fetch(api, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...payload }),

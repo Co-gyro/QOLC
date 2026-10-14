@@ -8,6 +8,7 @@ import {
   type CsvImportRow,
   type CsvImportWarning,
 } from "@/lib/udpay/csv-import";
+import { useUdpayPaths } from "../_components/use-udpay-paths";
 
 /** 取込結果（APIレスポンス） */
 interface ImportResult {
@@ -31,6 +32,7 @@ export function CsvImportDialog({
   month: string;
   customerNames: string[];
 }) {
+  const { api } = useUdpayPaths();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<CsvImportRow[]>([]);
@@ -58,7 +60,7 @@ export function CsvImportDialog({
   async function runImport() {
     setBusy(true);
     try {
-      const res = await fetch("/api/udpay", {
+      const res = await fetch(api, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "importInvoiceCsv", month, rows }),

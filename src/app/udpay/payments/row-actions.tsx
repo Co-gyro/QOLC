@@ -12,11 +12,14 @@ export function RowActions({
   paymentId,
   status,
   cancellable,
+  base,
 }: {
   invoiceId: string;
   paymentId?: string;
   status: UdpayDisplayStatus;
   cancellable: boolean;
+  /** 画面のベースパス（/udpay デモ or /billing 本番） */
+  base: string;
 }) {
   return (
     <div className="up-actions">
@@ -46,11 +49,11 @@ export function RowActions({
         />
       )}
       {status === "paid" && paymentId && (
-        <Link className="up-btn secondary small" href={`/udpay/receipts/${paymentId}`}>
+        <Link className="up-btn secondary small" href={`${base}/receipts/${paymentId}`}>
           領収書
         </Link>
       )}
-      <Link className="up-btn secondary small" href={`/udpay/invoices/${invoiceId}`}>
+      <Link className="up-btn secondary small" href={`${base}/invoices/${invoiceId}`}>
         請求
       </Link>
     </div>

@@ -23,12 +23,17 @@ const MARKETING_HOSTS = (process.env.MARKETING_HOSTS ?? "qolc.jp,www.qolc.jp")
   .filter(Boolean);
 
 /** ロールごとに許可するパスのプレフィックス */
-const ROLE_PORTAL_MAP: Record<UserRole, PortalType> = {
+const ROLE_PORTAL_MAP: Record<UserRole, PortalType | null> = {
   admin: "admin",
   facility_staff: "facility",
   provider: "provider",
   family: "user",
+  // UD Payment 利用企業（ランサイド様など）は4ポータルではなく /billing だけを使う
+  udpay_merchant: null,
 };
+
+/** UD Payment 本番画面（加盟店の担当者・承認者が使う） */
+const BILLING_PREFIX = "/billing";
 
 /** 認証不要の公開パス（プレフィックス一致） */
 const PUBLIC_PATH_PREFIXES = [
@@ -168,9 +173,10 @@ export async function middleware(request: NextRequest) {
   }
 
   const portal = getPortalFromPath(pathname);
+  const isBilling = pathname === BILLING_PREFIX || pathname.startsWith(`${BILLING_PREFIX}/`);
 
   // ポータルパスでない（= 一般ページ） → そのまま通す
-  if (!portal) {
+  if (!portal && !isBilling) {
     return response;
   }
 
@@ -199,6 +205,11 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("error", "no_profile");
     return NextResponse.redirect(loginUrl);
+  }
+
+  // /billing は UD Payment 利用企業のロールだけ（加盟店の判定はページ側で udpay_members を確認）
+  if (isBilling) {
+    return role === "udpay_merchant" ? response : new NextResponse("Forbidden", { status: 403 });
   }
 
   const allowedPortal = ROLE_PORTAL_MAP[role];

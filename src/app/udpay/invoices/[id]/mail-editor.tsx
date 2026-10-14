@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { buildInvoiceMail } from "@/lib/udpay/logic";
 import type { UdpayInvoiceLine } from "@/lib/udpay/types";
+import { useUdpayPaths } from "../../_components/use-udpay-paths";
 
 /** メール本文の組み立てに使う請求データ（金額・明細・決済日は固定で差し込む） */
 export interface MailSource {
@@ -38,6 +39,7 @@ export function MailEditor({
   initialSubject?: string;
   initialComment?: string;
 }) {
+  const { api } = useUdpayPaths();
   const router = useRouter();
   const [subject, setSubject] = useState(initialSubject ?? "");
   const [comment, setComment] = useState(initialComment ?? "");
@@ -50,7 +52,7 @@ export function MailEditor({
     setBusy(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/udpay", {
+      const res = await fetch(api, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "updateInvoiceMail", invoiceId, subject, comment }),

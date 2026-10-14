@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { computeTotals, formatYen } from "@/lib/udpay/logic";
 import { LineRow, type EditableLine } from "./line-row";
+import { useUdpayPaths } from "../../_components/use-udpay-paths";
 
 /**
  * 請求書（下書き）の明細エディタ（要望4）。
@@ -17,6 +18,7 @@ export function InvoiceEditor({
   invoiceId: string;
   initialLines: { description: string; quantity: number; unitPrice: number }[];
 }) {
+  const { api } = useUdpayPaths();
   const router = useRouter();
   const [lines, setLines] = useState<EditableLine[]>(
     initialLines.map((l, i) => ({ key: i, ...l })),
@@ -56,7 +58,7 @@ export function InvoiceEditor({
         unitPrice: l.unitPrice,
         taxRate: 10,
       }));
-      const res = await fetch("/api/udpay", {
+      const res = await fetch(api, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -71,7 +73,7 @@ export function InvoiceEditor({
         return;
       }
       if (reserve) {
-        const res2 = await fetch("/api/udpay", {
+        const res2 = await fetch(api, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "reserveInvoices", invoiceIds: [invoiceId] }),

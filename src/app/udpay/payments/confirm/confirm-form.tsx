@@ -56,12 +56,16 @@ export function ConfirmForm({ candidates }: { candidates: ConfirmCandidate[] }) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "confirmInvoices", invoiceIds: selected.map((c) => c.invoiceId) }),
       });
-      const data: { ok: boolean; confirmed?: number; skipped?: unknown[]; error?: string } = await res.json();
+      const data: { ok: boolean; confirmed?: number; skipped?: { reason: string }[]; mailFailed?: number; error?: string } = await res.json();
       if (!data.ok) {
         setError(data.error ?? "一括実行に失敗しました");
         return;
       }
-      const done = `一括実行しました: 決済確定 ${data.confirmed ?? 0}件（請求メール送付済み）`;
+      const mailNote = data.mailFailed
+        ? `（請求メールの送信に失敗したものが${data.mailFailed}件あります。お手数ですが顧客へご連絡ください）`
+        : "（請求メール送付済み）";
+      const skipNote = data.skipped?.length ? ` ／ 対象外 ${data.skipped.length}件: ${data.skipped.map((s) => s.reason).join("・")}` : "";
+      const done = `一括実行しました: 決済確定 ${data.confirmed ?? 0}件${mailNote}${skipNote}`;
       router.push(`${base}/payments?month=${selected[0]?.month ?? ""}&done=${encodeURIComponent(done)}`);
       router.refresh();
     } finally {

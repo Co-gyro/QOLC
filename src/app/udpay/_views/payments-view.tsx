@@ -107,7 +107,7 @@ export async function PaymentsView({ searchParams, mode }: { searchParams: { mon
           <p className="up-error">
             与信落ちが{failedCount}
             件あります。顧客へ連絡のうえ「再決済」してください。カードを変える場合は、
-            顧客管理から登録リンクを送ってください（担当者には実運用でメール通知されます）。
+            顧客管理から登録リンクを送ってください{mode === "demo" ? "（担当者には実運用でメール通知されます）" : "（与信落ちは毎朝のお知らせメールでもお送りしています）"}。
           </p>
         )}
         <FilterBar

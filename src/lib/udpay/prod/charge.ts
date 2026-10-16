@@ -151,7 +151,14 @@ export async function recoverProcessing(deps: ChargeDeps, olderThanMinutes = 30)
 export async function runDueCharges(
   deps: ChargeDeps,
   today: string,
-): Promise<{ captured: number; failed: number; unknown: number; recovered: number }> {
+): Promise<{
+  captured: number;
+  failed: number;
+  unknown: number;
+  recovered: number;
+  /** 1件ごとの結果（お知らせメールに使う） */
+  details: { paymentId: string; outcome: ChargeOutcome; error?: string }[];
+}> {
   const recovered = await recoverProcessing(deps);
   const { data } = await deps.client
     .from("udpay_payments")
@@ -159,9 +166,10 @@ export async function runDueCharges(
     .eq("status", "scheduled")
     .lte("scheduled_date", today)
     .order("scheduled_date");
-  const result = { captured: 0, failed: 0, unknown: 0, recovered };
+  const result = { captured: 0, failed: 0, unknown: 0, recovered, details: [] as { paymentId: string; outcome: ChargeOutcome; error?: string }[] };
   for (const { id } of (data ?? []) as { id: string }[]) {
     const r = await chargePayment(deps, id);
+    if (r.outcome !== "skipped") result.details.push({ paymentId: id, outcome: r.outcome, error: r.error });
     if (r.outcome === "captured") result.captured++;
     else if (r.outcome === "failed") result.failed++;
     else if (r.outcome === "unknown") result.unknown++;

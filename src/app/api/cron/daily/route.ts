@@ -14,6 +14,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { apiError, apiOk } from "@/types/api";
 import { runDueCharges } from "@/lib/udpay/prod/charge";
 import { createChargeDeps } from "@/lib/udpay/prod/charge-deps";
+import { notifyChargeResults } from "@/lib/udpay/prod/charge-notify";
 import {
   buildRunSteps,
   formatTitlePattern,
@@ -103,6 +104,8 @@ export async function GET(req: NextRequest) {
   let udpay: Awaited<ReturnType<typeof runDueCharges>> | null = null;
   try {
     udpay = await runDueCharges(createChargeDeps(), todayStr);
+    // 結果のお知らせ（加盟店の利用者全員と UD へ）。送信失敗でも課金結果は変えない
+    await notifyChargeResults(getSupabaseAdminClient(), udpay.details, todayStr, process.env.NEXT_PUBLIC_APP_URL ?? "https://app.qolc.jp");
   } catch (e) {
     errors.push({ rule: "udpay_charge", message: e instanceof Error ? e.message : "unknown" });
   }

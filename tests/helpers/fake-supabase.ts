@@ -7,14 +7,14 @@ type Filter = (row: Record<string, unknown>) => boolean;
 
 /**
  * Supabase クライアントの最小限の偽物（UD Payment の課金テスト用）。
- * select / update / insert / upsert と eq・neq・lte・lt・in・is・order・maybeSingle・single に対応する。
+ * select / update / insert / upsert / delete と eq・neq・lte・lt・in・is・order・maybeSingle・single に対応する。
  * update は条件に合う行だけを書き換え、select を付けると書き換えた行を返す（条件付き UPDATE の検証用）。
  */
 export function fakeSupabase(tables: FakeTables): SupabaseClient {
   function builder(table: string) {
     const rows = (tables[table] ??= []);
     const filters: Filter[] = [];
-    let mode: "select" | "update" | "insert" = "select";
+    let mode: "select" | "update" | "insert" | "delete" = "select";
     let patch: Record<string, unknown> = {};
     let returning = false;
     const api = {
@@ -25,6 +25,10 @@ export function fakeSupabase(tables: FakeTables): SupabaseClient {
       update(v: Record<string, unknown>) {
         mode = "update";
         patch = v;
+        return api;
+      },
+      delete() {
+        mode = "delete";
         return api;
       },
       insert(v: Record<string, unknown> | Record<string, unknown>[]) {
@@ -54,6 +58,10 @@ export function fakeSupabase(tables: FakeTables): SupabaseClient {
           return { data: returning ? hit.map((r) => ({ ...r })) : null, error: null };
         }
         if (mode === "insert") return { data: null, error: null };
+        if (mode === "delete") {
+          for (const r of hit) rows.splice(rows.indexOf(r), 1);
+          return { data: null, error: null };
+        }
         return { data: hit.map((r) => ({ ...r })), error: null };
       },
       maybeSingle: async () => {

@@ -15,6 +15,7 @@ export default function AdminUdpayPage() {
         <p className="mt-2" style={{ color: "var(--qolc-muted)" }}>
           加盟店の顧客を登録し、カード登録リンクをお送りします。顧客がリンクからカードを登録すると、会員IDと有効期限がここに表示されます。
           <Link href="/admin/udpay/payments" className="ml-2 text-[#3D7A55] underline">決済の一覧・取消・返品へ</Link>
+          <Link href="/admin/udpay/members" className="ml-2 text-[#3D7A55] underline">利用者のアカウントへ</Link>
         </p>
       </div>
       <UdpayCustomerList />

@@ -32,6 +32,14 @@ const ROLE_PORTAL_MAP: Record<UserRole, PortalType | null> = {
   udpay_merchant: null,
 };
 
+/**
+ * 権限のない画面を開いたとき: 403 のまま案内ページ（/forbidden）を表示する。
+ * 別の役割のアカウントでログインしたままのことが多いため、ログアウトの導線を出す。
+ */
+function forbidden(request: NextRequest): NextResponse {
+  return NextResponse.rewrite(new URL("/forbidden", request.url), { status: 403 });
+}
+
 /** UD Payment 本番画面（加盟店の担当者・承認者が使う） */
 const BILLING_PREFIX = "/billing";
 
@@ -46,6 +54,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/api/udpay",
   // UD Payment 本番のカード登録ページ（登録リンクのトークンで保護・ログイン不要）
   "/pay/udpay",
+  "/forbidden",
   "/_next",
   "/favicon",
   "/QOLC_design_system.html",
@@ -209,14 +218,14 @@ export async function middleware(request: NextRequest) {
 
   // /billing は UD Payment 利用企業のロールだけ（加盟店の判定はページ側で udpay_members を確認）
   if (isBilling) {
-    return role === "udpay_merchant" ? response : new NextResponse("Forbidden", { status: 403 });
+    return role === "udpay_merchant" ? response : forbidden(request);
   }
 
   const allowedPortal = ROLE_PORTAL_MAP[role];
 
   // ロールに対応するポータル以外へのアクセスは 403
   if (portal !== allowedPortal) {
-    return new NextResponse("Forbidden", { status: 403 });
+    return forbidden(request);
   }
 
   return response;

@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { PortalLayout } from "@/components/layout/portal-layout";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { DataTable } from "@/components/shared/data-table";
@@ -143,7 +144,16 @@ function AdminMerchantsPageInner() {
         <DataTable<MerchantRow>
           rowKey={(r) => r.id}
           columns={[
-            { key: "name", header: "加盟店名", sortable: true },
+            {
+              key: "name",
+              header: "加盟店名",
+              sortable: true,
+              render: (r) => (
+                <Link href={`/admin/merchants/${r.id}`} className="font-bold text-[#3D7A55] underline">
+                  {r.name}
+                </Link>
+              ),
+            },
             { key: "mallCode", header: "モールコード", render: (r) => r.mallCode ?? "—" },
             { key: "terminalId", header: "端末番号", render: (r) => r.terminalId ?? "—" },
             {

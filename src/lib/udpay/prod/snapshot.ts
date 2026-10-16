@@ -27,7 +27,7 @@ const PAYMENT_STATUS: Record<string, UdpayPayment["status"] | undefined> = {
   scheduled: "scheduled",
   processing: "scheduled",
   captured: "paid",
-  refunded: "paid",
+  refunded: "refunded",
   failed: "failed",
 };
 
@@ -114,8 +114,7 @@ export async function loadBillingStore(client: SupabaseClient, merchantId: strin
     client
       .from("udpay_payments")
       .select("id, invoice_id, customer_id, amount, scheduled_date, status, attempt_count, last_error_code, captured_at, updated_at")
-      .eq("merchant_id", merchantId)
-      .neq("status", "cancelled"),
+      .eq("merchant_id", merchantId),
     client
       .from("udpay_mail_logs")
       .select("customer_id, created_at")
@@ -166,12 +165,13 @@ export async function loadBillingStore(client: SupabaseClient, merchantId: strin
     ];
   });
   const viewPayments: UdpayPayment[] = payments.flatMap((p) => {
-    const status = PAYMENT_STATUS[p.status];
+    // cancelled は「課金前の決済確定取消」（表示しない）と「課金当日の取消」（取消・返金済み）の2種類
+    const status = p.status === "cancelled" ? (p.captured_at ? "refunded" : undefined) : PAYMENT_STATUS[p.status];
     if (!status) return [];
     // 試行回数は件数だけ再現する（最後の試行の成否を反映）
     const attempts = Array.from({ length: p.attempt_count }, (_, n) => ({
       at: p.updated_at,
-      result: n === p.attempt_count - 1 && status === "paid" ? ("paid" as const) : ("failed" as const),
+      result: n === p.attempt_count - 1 && (status === "paid" || status === "refunded") ? ("paid" as const) : ("failed" as const),
       reason: p.last_error_code ?? undefined,
     }));
     return [

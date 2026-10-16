@@ -118,6 +118,8 @@ export async function recoverProcessing(deps: ChargeDeps, olderThanMinutes = 30)
     .from("udpay_payments")
     .select("id, amount, usen_jutyu_cd")
     .eq("status", "processing")
+    // 取消・返品の途中で止まったもの（captured_at あり）は対象外（UD が取引照会で確認する）
+    .is("captured_at", null)
     .lt("updated_at", before);
   let recovered = 0;
   for (const p of (data ?? []) as { id: string; amount: number; usen_jutyu_cd: string | null }[]) {

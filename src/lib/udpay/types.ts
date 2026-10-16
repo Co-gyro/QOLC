@@ -108,7 +108,8 @@ export interface UdpayPayment {
   amount: number;
   /** 課金日（ISO 日付 "YYYY-MM-DD"。予定日を過ぎて確定した場合は翌日） */
   scheduledDate: string;
-  status: "scheduled" | "paid" | "failed";
+  /** refunded=取消・返金済み（本番のみ。UD が管理画面から全額取消・返品した） */
+  status: "scheduled" | "paid" | "failed" | "refunded";
   attempts: UdpayChargeAttempt[];
   paidAt?: string;
 }

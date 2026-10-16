@@ -4,7 +4,7 @@ import type { UdpayInvoice, UdpayPayment } from "./types";
  * 請求の表示状態（請求管理・入金管理・ダッシュボードで共通）。
  * 名前と色を全画面でそろえる: 下書き=灰／課金予約=橙／決済確定=青／入金済み=緑／与信落ち=赤。
  */
-export type UdpayDisplayStatus = "none" | "draft" | "reserved" | "confirmed" | "paid" | "failed";
+export type UdpayDisplayStatus = "none" | "draft" | "reserved" | "confirmed" | "paid" | "failed" | "refunded";
 
 /** 状態の表示名・説明（凡例に使う） */
 export const DISPLAY_STATUS: Record<
@@ -17,6 +17,7 @@ export const DISPLAY_STATUS: Record<
   confirmed: { label: "決済確定", description: "メール送付済み。決済日に自動で課金" },
   paid: { label: "入金済み", description: "課金が完了" },
   failed: { label: "与信落ち", description: "課金できなかった。顧客へ連絡し再決済" },
+  refunded: { label: "取消・返金済み", description: "課金後に全額を取消・返品した（UDが対応）" },
 };
 
 /** 凡例に並べる順 */
@@ -38,6 +39,7 @@ export function displayStatusOf(
   if (invoice.status === "reserved") return "reserved";
   if (payment?.status === "paid") return "paid";
   if (payment?.status === "failed") return "failed";
+  if (payment?.status === "refunded") return "refunded";
   return "confirmed";
 }
 

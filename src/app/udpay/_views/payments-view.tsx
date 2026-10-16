@@ -29,7 +29,7 @@ import { RowActions } from "../payments/row-actions";
 
 /** 入金管理の絞り込みで選べる状態 */
 const FILTER_OPTIONS = (
-  ["reserved", "confirmed", "paid", "failed"] as const
+  ["reserved", "confirmed", "paid", "failed", "refunded"] as const
 ).map((s) => ({
   value: s,
   label: DISPLAY_STATUS[s].label,

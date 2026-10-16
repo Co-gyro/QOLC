@@ -2,7 +2,7 @@ import { formatYen } from "@/lib/udpay/logic";
 import { DISPLAY_STATUS, type UdpayDisplayStatus } from "@/lib/udpay/status";
 
 /** 集計に並べる状態の順 */
-const ORDER: UdpayDisplayStatus[] = ["none", "draft", "reserved", "confirmed", "paid", "failed"];
+const ORDER: UdpayDisplayStatus[] = ["none", "draft", "reserved", "confirmed", "paid", "failed", "refunded"];
 
 /**
  * 一覧の上に出す状態別の件数・合計金額（例: 「課金予約 5件・¥612,000」）。

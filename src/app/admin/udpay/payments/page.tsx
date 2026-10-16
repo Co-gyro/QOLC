@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PortalLayout } from "@/components/layout/portal-layout";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { UdpayPaymentList } from "@/components/udpay-admin/payment-list";
+import { UdpayChargeRuns } from "@/components/udpay-admin/charge-runs";
 
 /**
  * UD Payment — 決済の一覧と取消・返品（UD管理者）。
@@ -19,6 +20,7 @@ export default function AdminUdpayPaymentsPage() {
           <Link href="/admin/udpay" className="ml-2 text-[#3D7A55] underline">顧客とカード登録へ</Link>
         </p>
       </div>
+      <UdpayChargeRuns />
       <UdpayPaymentList />
     </PortalLayout>
   );

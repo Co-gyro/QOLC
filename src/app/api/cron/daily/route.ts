@@ -102,13 +102,26 @@ export async function GET(req: NextRequest) {
 
   // (c) UD Payment: 課金日が来た決済確定の請求を登録カードへ課金する（毎朝9時）
   let udpay: Awaited<ReturnType<typeof runDueCharges>> | null = null;
+  let udpayError: string | null = null;
   try {
     udpay = await runDueCharges(createChargeDeps(), todayStr);
     // 結果のお知らせ（加盟店の利用者全員と UD へ）。送信失敗でも課金結果は変えない
-    await notifyChargeResults(getSupabaseAdminClient(), udpay.details, todayStr, process.env.NEXT_PUBLIC_APP_URL ?? "https://app.qolc.jp");
+    await notifyChargeResults(admin, udpay.details, todayStr, process.env.NEXT_PUBLIC_APP_URL ?? "https://app.qolc.jp");
   } catch (e) {
-    errors.push({ rule: "udpay_charge", message: e instanceof Error ? e.message : "unknown" });
+    udpayError = e instanceof Error ? e.message : "unknown";
+    errors.push({ rule: "udpay_charge", message: udpayError });
   }
+  // 実行記録（課金0件の日も残す。UD 管理画面の「最後の自動課金」に出す）
+  await admin.from("activity_logs").insert({
+    actor_role: "system",
+    actor_name: "毎朝の自動課金",
+    action: "udpay_charge_run",
+    target_type: "udpay",
+    target_label: `UD Payment 自動課金 ${todayStr}`,
+    metadata: udpay
+      ? { date: todayStr, captured: udpay.captured, failed: udpay.failed, unknown: udpay.unknown, recovered: udpay.recovered }
+      : { date: todayStr, error: udpayError },
+  });
 
   return NextResponse.json(apiOk({ date: todayStr, created, skipped, errors, opsCreated, udpay }));
 }

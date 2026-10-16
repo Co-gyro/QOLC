@@ -35,6 +35,7 @@ const ACT_META: Record<string, { label: string; kind: Kind }> = {
   upload: { label: "明細アップロード", kind: "success" },
   merchant_create: { label: "加盟店登録", kind: "info" },
   payment_owner_set: { label: "決済オーナー設定", kind: "info" },
+  udpay_charge_run: { label: "UD Payment 自動課金", kind: "info" },
 };
 
 interface Entry {
@@ -61,6 +62,10 @@ function activitySummary(action: string, actor: string, label: string | null, me
     }
     case "merchant_create": return `${actor} が加盟店「${t}」を登録しました`;
     case "payment_owner_set": return `${actor} が ${t}さんの決済オーナーを設定しました`;
+    case "udpay_charge_run": {
+      const n = (k: string) => (meta && typeof meta[k] === "number" ? (meta[k] as number) : 0);
+      return `UD Payment の毎朝の自動課金を実行しました（入金済み${n("captured")}件・与信落ち${n("failed")}件）`;
+    }
     default: return `${actor} が操作を行いました`;
   }
 }

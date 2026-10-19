@@ -3,6 +3,7 @@
  *
  * トークン式カード登録の準備。受注コード(jutyu_cd)・会員ID・モールコードを払い出し、
  * フロントの ec-payment-web-adapter-token 初期化に必要な情報を返す。
+ * 登録済みのアカウントはカード変更として扱う（2026-10 カード有効期限の案内に合わせて解禁）。
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
@@ -47,9 +48,7 @@ export async function POST(req: NextRequest) {
   if (!account.is_payment_owner) {
     return NextResponse.json(apiError("支払いオーナーのみがカード登録できます", "NOT_PAYMENT_OWNER"), { status: 403 });
   }
-  if (account.usen_member_id) {
-    return NextResponse.json(apiError("既にカードが登録されています", "ALREADY_REGISTERED"), { status: 409 });
-  }
+  // 登録済みでも受け付ける（カード変更・有効期限切れ前の更新。token/init 側で member-modify を付ける）
 
   const mallCd = process.env.USEN_MALL_CD;
   if (!mallCd) {

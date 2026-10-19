@@ -1,4 +1,5 @@
 "use client";
+import { CARD_EXPIRY_LABELS, cardExpiryStatus, formatExpireYm } from "@/lib/payment/card-expiry";
 
 import { useEffect, useState, useCallback } from "react";
 import { PortalLayout } from "@/components/layout/portal-layout";
@@ -119,7 +120,23 @@ export default function FacilityResidentsPage() {
             {
               key: "cardRegistered",
               header: "カード",
-              render: (r) => <StatusBadge status={r.cardRegistered ? "active" : "inactive"} />,
+              render: (r) => {
+                const exp = cardExpiryStatus(r.cardExpireYm, new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10));
+                return (
+                  <span className="inline-flex flex-wrap items-center gap-1">
+                    <StatusBadge status={r.cardRegistered ? "active" : "inactive"} />
+                    {r.cardRegistered && (exp === "expiring" || exp === "expired") && (
+                      <span
+                        className="rounded px-2 py-0.5 text-sm font-bold"
+                        style={exp === "expired" ? { backgroundColor: "#FEE2E2", color: "#991B1B" } : { backgroundColor: "#FEF4E2", color: "#B45309" }}
+                        title={`有効期限 ${formatExpireYm(r.cardExpireYm)}`}
+                      >
+                        {CARD_EXPIRY_LABELS[exp]}（{formatExpireYm(r.cardExpireYm)}）
+                      </span>
+                    )}
+                  </span>
+                );
+              },
             },
             {
               key: "accountCount",

@@ -16,6 +16,7 @@ import { runDueCharges } from "@/lib/udpay/prod/charge";
 import { createChargeDeps } from "@/lib/udpay/prod/charge-deps";
 import { notifyChargeResults } from "@/lib/udpay/prod/charge-notify";
 import { runExpiryNotices } from "@/lib/udpay/prod/expiry-notice";
+import { runResidentExpiryNotices } from "@/lib/notifications/card-expiry-notice";
 import {
   buildRunSteps,
   formatTitlePattern,
@@ -120,6 +121,14 @@ export async function GET(req: NextRequest) {
     errors.push({ rule: "udpay_expiry", message: e instanceof Error ? e.message : "unknown" });
   }
 
+  // (e) QOLC: 家族のカード有効期限の案内（月初だけ。お知らせ＋LINE）
+  let qolcExpiry: Awaited<ReturnType<typeof runResidentExpiryNotices>> | null = null;
+  try {
+    qolcExpiry = await runResidentExpiryNotices(admin, todayStr, process.env.NEXT_PUBLIC_APP_URL ?? "https://app.qolc.jp");
+  } catch (e) {
+    errors.push({ rule: "qolc_card_expiry", message: e instanceof Error ? e.message : "unknown" });
+  }
+
   // 実行記録（課金0件の日も残す。UD 管理画面の「最後の自動課金」に出す）
   await admin.from("activity_logs").insert({
     actor_role: "system",
@@ -132,7 +141,7 @@ export async function GET(req: NextRequest) {
       : { date: todayStr, error: udpayError },
   });
 
-  return NextResponse.json(apiOk({ date: todayStr, created, skipped, errors, opsCreated, udpay, udpayExpiry }));
+  return NextResponse.json(apiOk({ date: todayStr, created, skipped, errors, opsCreated, udpay, udpayExpiry, qolcExpiry }));
 }
 
 /**

@@ -29,6 +29,8 @@ export interface ResidentRow {
   cardRegistered: boolean;
   /** 家族/本人アカウント数 */
   accountCount: number;
+  /** 登録カードの有効期限 YYYYMM（migration 042 以降・未取得は null） */
+  cardExpireYm: string | null;
 }
 
 interface RawResident {
@@ -43,7 +45,7 @@ interface RawResident {
   iryou_hihokensha_kigou: string | null;
   iryou_hihokensha_bangou: string | null;
   iryou_hihokensha_edaban: string | null;
-  resident_accounts: { usen_member_id: string | null; deleted_at: string | null }[];
+  resident_accounts: { usen_member_id: string | null; deleted_at: string | null; card_expire_ym?: string | null }[];
 }
 
 /** ログイン中ユーザー（facility_staff）の所属施設IDを取得 */
@@ -67,7 +69,7 @@ export async function fetchResidents(): Promise<ResidentRow[]> {
   const { data, error } = await supabase
     .from("residents")
     .select(
-      "id, name_last, name_first, name_last_kana, name_first_kana, insurance_number, kaigo_hokensha_bangou, iryou_hokensha_bangou, iryou_hihokensha_kigou, iryou_hihokensha_bangou, iryou_hihokensha_edaban, resident_accounts(usen_member_id, deleted_at)"
+      "id, name_last, name_first, name_last_kana, name_first_kana, insurance_number, kaigo_hokensha_bangou, iryou_hokensha_bangou, iryou_hihokensha_kigou, iryou_hihokensha_bangou, iryou_hihokensha_edaban, resident_accounts(*)"
     )
     .is("deleted_at", null)
     .order("name_last_kana", { ascending: true });
@@ -89,6 +91,8 @@ export async function fetchResidents(): Promise<ResidentRow[]> {
       iryouHihokenshaEdaban: r.iryou_hihokensha_edaban,
       cardRegistered: accounts.some((a) => !!a.usen_member_id),
       accountCount: accounts.length,
+      // resident_accounts(*) で取るため、042 未適用でもエラーにならない（列が無ければ undefined）
+      cardExpireYm: accounts.find((a) => a.usen_member_id && a.card_expire_ym)?.card_expire_ym ?? null,
     };
   });
 }

@@ -2,7 +2,7 @@
  * POST /api/payment/reg/[memberId]/pay
  *
  * 3DS認証後（OnPaymentStart）に呼ばれる。USEN /i/pay を実行し、
- * 成功なら会員ID（カード）を resident_account に保存する（カード登録完了）。
+ * 成功なら USEN の会員を確認し、会員ID・カード情報を resident_account に保存する（カード登録・変更の完了）。
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
@@ -11,6 +11,9 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { pay, isTokenOk, residentAccountIdFromMemberId } from "@/lib/payment/token-ec-api";
 import { logPaymentAudit } from "@/lib/payment/audit-log";
 import { apiError, apiOk } from "@/types/api";
+import { ensureMemberCard } from "@/lib/udpay/prod/card-registration";
+import { createCardRegistrationDeps } from "@/lib/udpay/prod/deps";
+import { saveResidentCard } from "@/lib/payment/resident-card";
 
 const bodySchema = z.object({
   jutyu_cd: z.string().min(1),
@@ -76,15 +79,20 @@ export async function POST(req: NextRequest, { params }: { params: { memberId: s
       });
     }
 
-    // カード登録成功 → 会員IDを保存（与信1円は別途取消運用 or capture無しのため売上化しない）
+    // カード登録成功 → USEN の会員を今回のカードにそろえ（無ければ作成・カード変更なら入れ替え）、
+    // 会員ID とブランド・下4桁・有効期限を保存する（UD Payment と同じ確認。2026-10 A303 で会員が作られない事象への備え）
     const savedMemberId = res.member_id || memberId;
-    const { error } = await admin
-      .from("resident_accounts")
-      .update({ usen_member_id: savedMemberId })
-      .eq("id", residentAccountId)
-      .is("usen_member_id", null);
-    if (error) {
-      return NextResponse.json(apiError(`会員ID保存に失敗: ${error.message}`, "SAVE_FAILED"), {
+    const ensured = await ensureMemberCard(createCardRegistrationDeps(req.headers.get("x-forwarded-for")), savedMemberId, parsed.data.jutyu_cd);
+    if (!ensured.ok) {
+      return NextResponse.json(apiError(`カード登録を完了できませんでした（${ensured.error}）`, "MEMBER_NG"), { status: 402 });
+    }
+    const saved = await saveResidentCard(admin, residentAccountId, savedMemberId, {
+      brand: res.brand ?? ensured.card.brand,
+      last4: ensured.card.last4,
+      expireYm: ensured.card.expireYm,
+    });
+    if (!saved.ok) {
+      return NextResponse.json(apiError(`会員ID保存に失敗: ${saved.error}`, "SAVE_FAILED"), {
         status: 500,
       });
     }

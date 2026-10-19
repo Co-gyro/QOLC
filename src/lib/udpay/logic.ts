@@ -220,3 +220,15 @@ export function matchesKeyword(
   if (!key) return true;
   return fields.some((f) => f?.toLowerCase().includes(key));
 }
+
+/**
+ * 数字の入力を整数にする。全角数字・全角マイナス・長音記号・カンマを受け付ける。
+ * 入力途中（「-」だけ・空）は null を返し、確定値は変えない。
+ */
+export function parseIntegerInput(text: string): number | null {
+  const normalized = text
+    .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/[−－ー‐]/g, "-")
+    .replace(/[,，\s]/g, "");
+  return /^-?\d+$/.test(normalized) ? Number(normalized) : null;
+}

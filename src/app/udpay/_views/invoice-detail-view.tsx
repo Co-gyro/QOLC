@@ -67,11 +67,18 @@ export async function InvoiceDetailView({ params, mode }: { params: { id: string
           決済日: {formatDateJa(chargeDate)}（毎月{customer.anniversaryDay}日）
           {chargeDate !== planned && "／予定日を過ぎているため翌日に課金します"}
         </p>
-        <p style={{ marginTop: -12 }}>
+        <div className="up-actions" style={{ marginTop: -12, marginBottom: 16 }}>
           <Link className="up-btn secondary small" href={`${base}/invoices/${invoice.id}/document`}>
             請求書を表示（印刷・PDF保存）
           </Link>
-        </p>
+          {payment?.status === "paid" ? (
+            <Link className="up-btn secondary small" href={`${base}/receipts/${payment.id}`}>
+              領収書を表示（印刷・PDF保存）
+            </Link>
+          ) : (
+            <span className="up-muted">領収書は課金が済む（入金済みになる）と発行できます。</span>
+          )}
+        </div>
 
         {invoice.confirmationCancelledAt && invoice.status !== "confirmed" && (
           <p className="up-notice">

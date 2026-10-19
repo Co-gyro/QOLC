@@ -85,7 +85,7 @@ export function UdpayCustomerForm(props: {
         毎月の決済日
         <select className={field} value={form.chargeDay} onChange={set("chargeDay")}>
           {days.map((d) => (
-            <option key={d} value={d}>毎月{d}日</option>
+            <option key={d} value={d}>毎月{d}日{d === props.chargeDays[0] ? "（標準）" : ""}</option>
           ))}
         </select>
       </label>

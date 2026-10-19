@@ -60,7 +60,7 @@ export function CustomerFields({ initial }: { initial?: CustomerFieldValues }) {
         <select id="up-day" name="anniversaryDay" defaultValue={initial?.anniversaryDay ?? days[0]}>
           {days.map((d) => (
             <option key={d} value={d}>
-              毎月{d}日
+              毎月{d}日{d === DEMO_MERCHANT.chargeDays[0] ? "（標準）" : ""}
             </option>
           ))}
         </select>

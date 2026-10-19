@@ -173,3 +173,19 @@ describe("matchesKeyword", () => {
     expect(matchesKeyword("DEMO", ["demo-x@example.com"])).toBe(true);
   });
 });
+
+describe("parseIntegerInput（明細の数字入力）", () => {
+  it("マイナス・全角・カンマを整数にする", async () => {
+    const { parseIntegerInput } = await import("@/lib/udpay/logic");
+    expect(parseIntegerInput("-5000")).toBe(-5000);
+    expect(parseIntegerInput("－５，０００")).toBe(-5000);
+    expect(parseIntegerInput("ー3000")).toBe(-3000);
+    expect(parseIntegerInput("12,300")).toBe(12300);
+  });
+  it("入力途中（「-」だけ・空・文字混じり）は null", async () => {
+    const { parseIntegerInput } = await import("@/lib/udpay/logic");
+    expect(parseIntegerInput("-")).toBeNull();
+    expect(parseIntegerInput("")).toBeNull();
+    expect(parseIntegerInput("12a")).toBeNull();
+  });
+});

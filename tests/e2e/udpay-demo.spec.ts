@@ -175,4 +175,26 @@ test.describe.serial("UD Payment デモ", () => {
     await expect(hikari.getByText("To: new-hikari@example.com")).toBeVisible();
     await expect(hikari.getByText("毎月28日")).toBeVisible();
   });
+
+  test("顧客をCSVで一括登録できる（重複はスキップ）", async ({ page }) => {
+    page.on("dialog", (d) => d.accept());
+    await page.goto("/udpay/customers");
+    await page.getByRole("button", { name: "CSVで一括登録" }).click();
+    const csv = [
+      "医院名,担当者名,メール,CC,決済日",
+      "医療法人社団なぎさ会　なぎさ歯科,渚,nagisa@example.com,keiri@example.com,",
+      "さくら歯科クリニック,田中,demo-sakura@example.com,,15",
+    ].join("\r\n");
+    await page.setInputFiles('input[aria-label="顧客CSVファイル"]', {
+      name: "customers.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(`\uFEFF${csv}`, "utf-8"),
+    });
+    await expect(page.getByText(/2件を読み込みました/)).toBeVisible();
+    await page.getByRole("button", { name: "2件を登録する" }).click();
+    await expect(page.getByText(/登録しました: 1件/)).toBeVisible();
+    await expect(page.getByText(/スキップ: さくら歯科クリニック/)).toBeVisible();
+    await expect(page.locator("tbody tr", { hasText: "なぎさ歯科" }).getByText("毎月15日")).toBeVisible();
+    await page.screenshot({ path: `${SCREEN_DIR}/11-customer-csv.png`, fullPage: true });
+  });
 });

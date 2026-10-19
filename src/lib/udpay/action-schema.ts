@@ -13,7 +13,7 @@ export const lineSchema = z.object({
 });
 
 /** 顧客の入力項目（新規追加・編集で共通） */
-const customerFields = {
+export const customerFields = {
   name: z.string().min(1).max(100),
   contactName: z.string().min(1).max(50),
   email: z.string().email(),
@@ -78,6 +78,12 @@ export const actionSchema = z.discriminatedUnion("action", [
   }),
   z.object({ action: z.literal("runChargeBatch") }),
   z.object({ action: z.literal("retryPayment"), paymentId: z.string().min(1) }),
+  z.object({
+    action: z.literal("importCustomers"),
+    customers: z.array(z.object(customerFields)).min(1).max(300),
+    /** 登録後にカード登録のご案内メールを送るか */
+    sendMail: z.boolean(),
+  }),
   z.object({ action: z.literal("resetDemo") }),
 ]);
 

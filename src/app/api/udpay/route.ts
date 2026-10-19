@@ -50,6 +50,22 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
     case "updateCustomer":
       return respond(await updateCustomer(input.customerId, input));
+    case "importCustomers": {
+      const store = await loadStore();
+      const exists = (n: string, e: string) => store.customers.some((c) => c.name === n && c.email === e);
+      let created = 0;
+      const skipped: string[] = [];
+      for (const c of input.customers) {
+        if (exists(c.name, c.email)) {
+          skipped.push(c.name);
+          continue;
+        }
+        const nc = await createCustomer(c);
+        if (input.sendMail) await markRegistrationMailSent(nc.id);
+        created++;
+      }
+      return NextResponse.json({ ok: true, created, skipped, mailed: input.sendMail ? created : 0 });
+    }
     case "sendRegistrationMail":
       return respond(await markRegistrationMailSent(input.customerId));
     case "copyPreviousMonth": {

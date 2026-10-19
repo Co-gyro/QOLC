@@ -11,6 +11,7 @@ import { ActionButton, CopyButton } from "../action-button";
 import { FilterBar } from "../_components/filter-bar";
 import { CardSummary } from "../_components/status";
 import { NewCustomerForm } from "../customers/new-customer-form";
+import { CustomerCsvDialog } from "../customers/customer-csv-dialog";
 
 
 /** カードの絞り込み */
@@ -63,7 +64,10 @@ export async function CustomersView({ searchParams, mode }: { searchParams: { q?
               （貴社・UDともにカード番号は扱いません）。
             </p>
           </div>
-          <NewCustomerForm />
+          <div className="up-actions" style={{ alignItems: "flex-start" }}>
+            <CustomerCsvDialog />
+            <NewCustomerForm />
+          </div>
         </div>
         {needsAttention > 0 && (
           <p className="up-notice">

@@ -16,7 +16,7 @@ import {
   type BillingCtx,
 } from "@/lib/udpay/prod/invoices";
 import { cancelConfirmation, confirmInvoices } from "@/lib/udpay/prod/confirm";
-import { createBillingCustomer, sendBillingRegistrationMail, updateBillingCustomer } from "@/lib/udpay/prod/billing-customers";
+import { createBillingCustomer, importBillingCustomers, sendBillingRegistrationMail, updateBillingCustomer } from "@/lib/udpay/prod/billing-customers";
 import { chargePayment } from "@/lib/udpay/prod/charge";
 import { createChargeDeps } from "@/lib/udpay/prod/charge-deps";
 
@@ -49,6 +49,8 @@ export async function POST(request: Request): Promise<NextResponse> {
         return respond(await createBillingCustomer(ctx, input));
       case "updateCustomer":
         return respond(await updateBillingCustomer(ctx, input.customerId, input));
+      case "importCustomers":
+        return NextResponse.json({ ok: true, ...(await importBillingCustomers(ctx, input.customers, input.sendMail, new URL(request.url).origin)) });
       case "sendRegistrationMail":
         return respond(await sendBillingRegistrationMail(ctx, input.customerId, new URL(request.url).origin));
       case "copyPreviousMonth":

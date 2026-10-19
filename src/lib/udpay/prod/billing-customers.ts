@@ -1,4 +1,4 @@
-import { createCustomer, getCustomer, updateCustomer, type CustomerInput } from "./customers";
+import { createCustomer, getCustomer, listCustomers, updateCustomer, type CustomerInput } from "./customers";
 import { getUdpayMerchant } from "./merchants";
 import { registrationUrl } from "./identifiers";
 import { sendCardRegistrationMail } from "./mail";
@@ -48,11 +48,48 @@ async function checkChargeDay(ctx: BillingCtx, day: number, current?: number | n
 }
 
 /** 顧客を登録する（カード登録リンクのトークンを発行） */
-export async function createBillingCustomer(ctx: BillingCtx, input: ScreenCustomerInput): Promise<Result> {
+export async function createBillingCustomer(ctx: BillingCtx, input: ScreenCustomerInput): Promise<Result & { customerId?: string }> {
   const dayError = await checkChargeDay(ctx, input.anniversaryDay);
   if (dayError) return { ok: false, error: dayError };
-  await createCustomer(ctx.client, ctx.member.merchantId, toCustomerInput(input));
-  return { ok: true };
+  const created = await createCustomer(ctx.client, ctx.member.merchantId, toCustomerInput(input));
+  return { ok: true, customerId: created.id };
+}
+
+/**
+ * 顧客のCSV一括登録。同じ医院名・同じ宛先（To）の顧客が既にいればスキップする。
+ * sendMail のときは、登録した顧客へカード登録のご案内メールを送る。
+ */
+export async function importBillingCustomers(
+  ctx: BillingCtx,
+  rows: ScreenCustomerInput[],
+  sendMail: boolean,
+  origin: string,
+): Promise<{ created: number; skipped: string[]; mailed: number; errors: string[] }> {
+  const existing = await listCustomers(ctx.client, ctx.member.merchantId);
+  const has = (r: ScreenCustomerInput) =>
+    existing.some((c) => c.name === r.name && c.contacts.some((x) => x.kind === "to" && x.email.toLowerCase() === r.email.toLowerCase()));
+  let created = 0;
+  let mailed = 0;
+  const skipped: string[] = [];
+  const errors: string[] = [];
+  for (const r of rows) {
+    if (has(r)) {
+      skipped.push(r.name);
+      continue;
+    }
+    const res = await createBillingCustomer(ctx, r);
+    if (!res.ok || !res.customerId) {
+      errors.push(`${r.name}: ${res.ok ? "登録できませんでした" : res.error}`);
+      continue;
+    }
+    created++;
+    if (sendMail) {
+      const m = await sendBillingRegistrationMail(ctx, res.customerId, origin);
+      if (m.ok) mailed++;
+      else errors.push(`${r.name}: ${m.error}`);
+    }
+  }
+  return { created, skipped, mailed, errors };
 }
 
 /** 顧客を編集する（自社の顧客のみ。カード情報・登録リンクは変えない） */

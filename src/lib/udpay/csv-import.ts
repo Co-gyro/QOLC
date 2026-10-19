@@ -51,7 +51,7 @@ export interface CsvMatchResult {
 }
 
 /** 列名の表記ゆれ吸収（NFKC正規化・空白除去・小文字化） */
-function normHeader(s: string): string {
+export function normHeader(s: string): string {
   return s.normalize("NFKC").replace(/\s/g, "").toLowerCase();
 }
 
@@ -64,7 +64,7 @@ const HEADER_ALIASES = {
 } as const;
 
 /** SJIS/UTF-8 バイナリ or 文字列 → UTF-8 文字列（other-cost-csv と同方式） */
-function decodeToUtf8(input: Uint8Array | string): string {
+export function decodeToUtf8(input: Uint8Array | string): string {
   if (typeof input === "string") return input.replace(/^﻿/, "");
   const arr = Array.from(input);
   const detected = detect(arr);
@@ -74,10 +74,10 @@ function decodeToUtf8(input: Uint8Array | string): string {
   return text.replace(/^﻿/, "");
 }
 
-/** 金額文字列を数値へ（カンマ・円記号・全角数字を吸収。不正は null） */
+/** 金額文字列を数値へ（カンマ・円記号・全角数字・マイナス＝値引きを吸収。不正は null） */
 function parseAmount(raw: string): number | null {
-  const s = raw.normalize("NFKC").replace(/[,¥￥円\s]/g, "");
-  if (!/^\d+$/.test(s)) return null;
+  const s = raw.normalize("NFKC").replace(/[−－ー‐▲△]/g, "-").replace(/[,¥￥円\s]/g, "");
+  if (!/^-?\d+$/.test(s)) return null;
   return Number(s);
 }
 

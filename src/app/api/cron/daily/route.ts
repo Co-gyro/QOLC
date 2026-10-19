@@ -15,6 +15,7 @@ import { apiError, apiOk } from "@/types/api";
 import { runDueCharges } from "@/lib/udpay/prod/charge";
 import { createChargeDeps } from "@/lib/udpay/prod/charge-deps";
 import { notifyChargeResults } from "@/lib/udpay/prod/charge-notify";
+import { runExpiryNotices } from "@/lib/udpay/prod/expiry-notice";
 import {
   buildRunSteps,
   formatTitlePattern,
@@ -111,6 +112,14 @@ export async function GET(req: NextRequest) {
     udpayError = e instanceof Error ? e.message : "unknown";
     errors.push({ rule: "udpay_charge", message: udpayError });
   }
+  // (d) UD Payment: カード有効期限の案内（月初だけ。期限月の前月1日と期限月1日）
+  let udpayExpiry: Awaited<ReturnType<typeof runExpiryNotices>> | null = null;
+  try {
+    udpayExpiry = await runExpiryNotices(admin, todayStr, process.env.NEXT_PUBLIC_APP_URL ?? "https://app.qolc.jp");
+  } catch (e) {
+    errors.push({ rule: "udpay_expiry", message: e instanceof Error ? e.message : "unknown" });
+  }
+
   // 実行記録（課金0件の日も残す。UD 管理画面の「最後の自動課金」に出す）
   await admin.from("activity_logs").insert({
     actor_role: "system",
@@ -119,11 +128,11 @@ export async function GET(req: NextRequest) {
     target_type: "udpay",
     target_label: `UD Payment 自動課金 ${todayStr}`,
     metadata: udpay
-      ? { date: todayStr, captured: udpay.captured, failed: udpay.failed, unknown: udpay.unknown, recovered: udpay.recovered }
+      ? { date: todayStr, captured: udpay.captured, failed: udpay.failed, unknown: udpay.unknown, recovered: udpay.recovered, expiry: udpayExpiry }
       : { date: todayStr, error: udpayError },
   });
 
-  return NextResponse.json(apiOk({ date: todayStr, created, skipped, errors, opsCreated, udpay }));
+  return NextResponse.json(apiOk({ date: todayStr, created, skipped, errors, opsCreated, udpay, udpayExpiry }));
 }
 
 /**

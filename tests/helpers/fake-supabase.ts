@@ -51,6 +51,9 @@ export function fakeSupabase(tables: FakeTables): SupabaseClient {
       lt: (k: string, v: string) => (filters.push((r) => String(r[k]) < v), api),
       in: (k: string, v: unknown[]) => (filters.push((r) => v.includes(r[k])), api),
       is: (k: string, v: unknown) => (filters.push((r) => (r[k] ?? null) === v), api),
+      not: (k: string, op: string, v: unknown) => (filters.push((r) => (op === "is" ? (r[k] ?? null) !== v : r[k] !== v)), api),
+      gte: (k: string, v: string) => (filters.push((r) => String(r[k]) >= v), api),
+      like: (k: string, pattern: string) => (filters.push((r) => String(r[k] ?? "").includes(pattern.replace(/%/g, ""))), api),
       order: () => api,
       limit: () => api,
       run() {

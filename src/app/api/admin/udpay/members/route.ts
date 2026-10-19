@@ -9,6 +9,7 @@ import { sendEmail } from "@/lib/email/send";
 import { logActivity } from "@/lib/audit/activity-log";
 import { buildMemberInviteMail, inviteMember, listMembers, memberInviteSchema } from "@/lib/udpay/prod/members-admin";
 import { getUdpayMerchant } from "@/lib/udpay/prod/merchants";
+import { canAddSeat } from "@/lib/admin/merchant-services";
 import { apiError, apiOk } from "@/types/api";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +36,9 @@ export async function POST(req: NextRequest) {
   const client = getSupabaseAdminClient();
   const merchant = await getUdpayMerchant(client, parsed.data.merchantId);
   if (!merchant) return NextResponse.json(apiError("UD Payment の加盟店ではありません", "NOT_FOUND"), { status: 404 });
+  // 契約・ライセンスの人数上限と状態を確認する（契約が無ければ制限しない）
+  const seat = await canAddSeat(client, merchant.id, "udpay");
+  if (!seat.ok) return NextResponse.json(apiError(seat.error, "SEAT_LIMIT"), { status: 409 });
   const r = await inviteMember(client, parsed.data, process.env.NEXT_PUBLIC_APP_URL ?? "https://app.qolc.jp");
   if (!r.ok) return NextResponse.json(apiError(r.error, "INVITE_FAILED"), { status: r.status });
   const mail = buildMemberInviteMail({ displayName: parsed.data.displayName, merchantName: merchant.name, isApprover: parsed.data.isApprover, inviteUrl: r.inviteUrl });

@@ -8,6 +8,7 @@ import { OverviewTab } from "./overview-tab";
 import { AccountsTab } from "./accounts-tab";
 import { ConnectionTab } from "./connection-tab";
 import { CardTab } from "./card-tab";
+import { ContractsTab } from "./contracts-tab";
 
 /** 準備中のタブの説明 */
 function Upcoming({ text }: { text: string }) {
@@ -47,9 +48,7 @@ export function MerchantKarte({ merchantId }: { merchantId: string }) {
           <TabsTrigger value="history">履歴</TabsTrigger>
         </TabsList>
         <TabsContent value="overview"><OverviewTab data={data} /></TabsContent>
-        <TabsContent value="contracts">
-          <Upcoming text="準備中です。サービスごとの契約（種類・プラン名・状態＝準備中／稼働中／一時停止／解約・開始日・利用人数の上限）をここで記録・変更できるようにします。" />
-        </TabsContent>
+        <TabsContent value="contracts"><ContractsTab merchantId={merchantId} /></TabsContent>
         <TabsContent value="accounts"><AccountsTab merchantId={merchantId} hasUdpay={Boolean(s.udpay)} /></TabsContent>
         <TabsContent value="connection"><ConnectionTab data={data} /></TabsContent>
         <TabsContent value="card"><CardTab data={data} /></TabsContent>

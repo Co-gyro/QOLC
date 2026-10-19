@@ -3,6 +3,11 @@
 import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { listAllMerchantServices, STATUS_LABEL, type ServiceKind } from "@/lib/admin/merchant-services";
+
+/** 一覧の契約欄に出すサービスの短い名前 */
+const SERVICE_SHORT: Record<ServiceKind, string> = { udpay: "UD Payment", merchant_api: "加盟店API", qolc: "QOLC", store_terminal: "店頭決済" };
 import { PortalLayout } from "@/components/layout/portal-layout";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { DataTable } from "@/components/shared/data-table";
@@ -38,6 +43,7 @@ function AdminMerchantsPageInner() {
   const [codes, setCodes] = useState<Map<string, MerchantCardCodes>>(new Map());
   const [relations, setRelations] = useState<Map<string, MerchantRelations>>(new Map());
   const [feeRates, setFeeRates] = useState<Map<string, MerchantFeeRates>>(new Map());
+  const [contracts, setContracts] = useState<Awaited<ReturnType<typeof listAllMerchantServices>>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<MerchantRow | null>(null);
@@ -48,18 +54,20 @@ function AdminMerchantsPageInner() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [mers, fmts, codeMap, rel, rates] = await Promise.all([
+      const [mers, fmts, codeMap, rel, rates, svc] = await Promise.all([
         fetchMerchants(),
         fetchUploadFormats(),
         fetchMerchantCardCodes(),
         fetchMerchantRelations(), // 内部で空 Map フォールバック
         fetchMerchantFeeRates(), // 同上（元申請の UD追記情報から）
+        listAllMerchantServices(createSupabaseBrowserClient()), // 契約（migration 041 未適用なら空）
       ]);
       setRows(mers);
       setFormats(fmts);
       setCodes(codeMap);
       setRelations(rel);
       setFeeRates(rates);
+      setContracts(svc);
     } catch (e) {
       setError(e instanceof Error ? e.message : "取得に失敗しました");
       setRows([]);
@@ -153,6 +161,24 @@ function AdminMerchantsPageInner() {
                   {r.name}
                 </Link>
               ),
+            },
+            {
+              key: "contracts",
+              header: "契約",
+              render: (r) => {
+                const list = contracts.get(r.id) ?? [];
+                if (list.length === 0) return <span style={{ color: "var(--qolc-muted)" }}>—</span>;
+                return (
+                  <div className="space-y-1">
+                    {list.map((c) => (
+                      <div key={c.service} className="text-sm">
+                        <span className="font-bold">{SERVICE_SHORT[c.service]}</span>
+                        <span className={`ml-1 rounded px-1.5 ${c.status === "active" ? "bg-[#F0F9F4] text-[#3D7A55]" : "bg-[#FEF4E2] text-[#B45309]"}`}>{STATUS_LABEL[c.status]}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              },
             },
             { key: "mallCode", header: "モールコード", render: (r) => r.mallCode ?? "—" },
             { key: "terminalId", header: "端末番号", render: (r) => r.terminalId ?? "—" },

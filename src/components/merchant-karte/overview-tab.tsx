@@ -70,7 +70,7 @@ export function OverviewTab({ data }: { data: MerchantOverview }) {
           </ServiceCard>
         )}
         <p className="text-sm" style={{ color: "var(--qolc-muted)" }}>
-          契約状態・プラン名・利用人数の上限は「契約・ライセンス」に記録します（準備中）。
+          契約状態・プラン名・利用人数の上限は「契約・ライセンス」タブで確認・変更できます。
         </p>
       </section>
     </div>

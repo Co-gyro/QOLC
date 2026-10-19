@@ -17,9 +17,11 @@ export function fakeSupabase(tables: FakeTables): SupabaseClient {
     let mode: "select" | "update" | "insert" | "delete" = "select";
     let patch: Record<string, unknown> = {};
     let returning = false;
+    let counting = false;
     const api = {
-      select() {
+      select(_cols?: string, opts?: { count?: string }) {
         if (mode !== "select") returning = true;
+        if (opts?.count) counting = true;
         return api;
       },
       update(v: Record<string, unknown>) {
@@ -62,7 +64,7 @@ export function fakeSupabase(tables: FakeTables): SupabaseClient {
           for (const r of hit) rows.splice(rows.indexOf(r), 1);
           return { data: null, error: null };
         }
-        return { data: hit.map((r) => ({ ...r })), error: null };
+        return { data: hit.map((r) => ({ ...r })), error: null, count: counting ? hit.length : null };
       },
       maybeSingle: async () => {
         const r = api.run();

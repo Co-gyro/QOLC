@@ -11,6 +11,7 @@
  * - メール重複時は 409 / 途中失敗時は作成ユーザーを削除してロールバックする。
  * - 発行操作は activity_logs に記録する（監査）。
  */
+import { buildSetPasswordUrl } from "@/lib/auth/invite-callback";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/applications/server";
@@ -119,7 +120,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     email: input.email,
     options: { redirectTo: `${appUrl}/set-password` },
   });
-  const inviteUrl = linkData?.properties?.action_link ?? null;
+  const hashed = linkData?.properties?.hashed_token;
+  const inviteUrl = hashed ? buildSetPasswordUrl(appUrl, hashed, "invite") : null;
   if (linkErr || !inviteUrl) {
     await admin.auth.admin.deleteUser(userId);
     return NextResponse.json(

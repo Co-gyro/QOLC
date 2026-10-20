@@ -1,3 +1,4 @@
+import { buildSetPasswordUrl } from "@/lib/auth/invite-callback";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
@@ -118,7 +119,8 @@ export async function inviteMember(client: SupabaseClient, input: MemberInvite, 
     email: input.email,
     options: { redirectTo: `${appUrl.replace(/\/$/, "")}/set-password` },
   });
-  const inviteUrl = link?.properties?.action_link ?? null;
+  const hashed = link?.properties?.hashed_token;
+  const inviteUrl = hashed ? buildSetPasswordUrl(appUrl, hashed, "invite") : null;
   if (linkErr || !inviteUrl) return rollback("招待リンクの生成に失敗しました");
   return { ok: true, userId, inviteUrl };
 }

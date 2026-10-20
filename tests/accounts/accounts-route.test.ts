@@ -45,7 +45,7 @@ vi.mock("@/lib/supabase/admin", () => ({
         generateLink: async (params: Record<string, unknown>) => {
           state.generateLinkCalls.push(params);
           if (state.linkError) return { data: { properties: null }, error: state.linkError };
-          return { data: { properties: { action_link: state.actionLink } }, error: null };
+          return { data: { properties: { action_link: state.actionLink, hashed_token: state.actionLink ? "h3" : undefined } }, error: null };
         },
       },
     },
@@ -132,7 +132,7 @@ describe("POST /api/admin/accounts", () => {
     expect(json.success).toBe(true);
     expect(json.data.userId).toBe("new-user-id");
     expect(json.data.portalName).toBe("施設ポータル");
-    expect(json.data.inviteUrl).toBe(state.actionLink); // skipped でもURLをコピー可能
+    expect(json.data.inviteUrl).toBe("https://app.qolc.jp/set-password?token_hash=h3&type=invite"); // skipped でもURLをコピー可能
 
     // createUser は email_confirm: false（確認は招待リンクで）
     expect(state.createUserCalls[0]).toMatchObject({

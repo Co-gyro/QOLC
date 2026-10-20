@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { parseAuthCallbackHash } from "@/lib/auth/invite-callback";
+import { parseAuthCallbackHash, parseTokenHashQuery } from "@/lib/auth/invite-callback";
 import { ROLE_HOME } from "@/lib/auth/role-home";
 import type { UserRole } from "@/types";
 
@@ -24,11 +24,29 @@ export function SetPasswordForm() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // リンクのトークンは一度しか使えないため、確認は1回だけ行う（開発時の二重実行でも使用済みにしない）
+  const started = useRef(false);
 
   useEffect(() => {
+    if (started.current) return;
+    started.current = true;
     /** 招待リンクのコールバックからセッションを確立する。 */
     async function prepareSession() {
       const supabase = createSupabaseBrowserClient();
+
+      // メールのリンク（?token_hash=…&type=invite|recovery）: 本人のブラウザでここで初めてトークンを使う
+      const th = parseTokenHashQuery(window.location.search);
+      if (th) {
+        const { error: otpErr } = await supabase.auth.verifyOtp({ token_hash: th.tokenHash, type: th.type });
+        window.history.replaceState(null, "", window.location.pathname);
+        if (!otpErr) {
+          setPhase("ready");
+          return;
+        }
+        setInvalidReason("リンクの有効期限が切れているか、すでに使用済みです。お手数ですが、管理者に再送を依頼してください。");
+        setPhase("invalid");
+        return;
+      }
 
       const parsed = parseAuthCallbackHash(window.location.hash);
       if (parsed.kind === "error") {

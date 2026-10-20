@@ -52,3 +52,27 @@ export function describeCallbackError(code: string, description: string | null):
   }
   return "認証エラーが発生しました。管理者にお問い合わせください。";
 }
+
+/** パスワード設定リンクの種類（Supabase の generateLink の type） */
+export type SetPasswordLinkType = "invite" | "recovery";
+
+/**
+ * メールに載せるパスワード設定リンクを作る（app.qolc.jp/set-password?token_hash=…&type=…）。
+ * Supabase の action_link（/auth/v1/verify 経由）は Redirect URLs の許可設定に外れると Site URL へ飛び、
+ * メールのセキュリティ機能がリンクを先に開くだけで使用済みになるため使わない。
+ * ページを開いた本人のブラウザで verifyOtp したときに初めてトークンを使う。
+ * @param hashedToken generateLink の properties.hashed_token
+ */
+export function buildSetPasswordUrl(appUrl: string, hashedToken: string, type: SetPasswordLinkType): string {
+  const q = new URLSearchParams({ token_hash: hashedToken, type });
+  return `${appUrl.replace(/\/$/, "")}/set-password?${q.toString()}`;
+}
+
+/** set-password のクエリから token_hash と type を取り出す（無ければ null） */
+export function parseTokenHashQuery(search: string): { tokenHash: string; type: SetPasswordLinkType } | null {
+  const params = new URLSearchParams(search);
+  const tokenHash = params.get("token_hash");
+  const type = params.get("type");
+  if (!tokenHash || (type !== "invite" && type !== "recovery")) return null;
+  return { tokenHash, type };
+}

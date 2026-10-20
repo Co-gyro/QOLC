@@ -26,12 +26,23 @@ describe("buildPasswordSetupMail", () => {
 describe("createPasswordSetupLink", () => {
   it("メール未確認（招待の期限切れ）は確認済みにしてから再設定リンクを作る", async () => {
     const updateUserById = vi.fn(async () => ({ error: null }));
-    const generateLink = vi.fn(async () => ({ data: { properties: { action_link: "https://link" } }, error: null }));
+    const generateLink = vi.fn(async () => ({ data: { properties: { action_link: "https://link", hashed_token: "h1" } }, error: null }));
     const client = {
       auth: { admin: { getUserById: async () => ({ data: { user: { email: "a@x.jp", email_confirmed_at: null } } }), updateUserById, generateLink } },
     } as unknown as SupabaseClient;
-    expect(await createPasswordSetupLink(client, "u1", "https://app.qolc.jp/")).toEqual({ ok: true, email: "a@x.jp", link: "https://link" });
+    expect(await createPasswordSetupLink(client, "u1", "https://app.qolc.jp/")).toEqual({ ok: true, email: "a@x.jp", link: "https://app.qolc.jp/set-password?token_hash=h1&type=recovery" });
     expect(updateUserById).toHaveBeenCalledWith("u1", { email_confirm: true });
     expect(generateLink).toHaveBeenCalledWith({ type: "recovery", email: "a@x.jp", options: { redirectTo: "https://app.qolc.jp/set-password" } });
+  });
+});
+
+describe("buildSetPasswordUrl / parseTokenHashQuery", () => {
+  it("app.qolc.jp の set-password へ token_hash 付きで作り、読み戻せる", async () => {
+    const { buildSetPasswordUrl, parseTokenHashQuery } = await import("@/lib/auth/invite-callback");
+    const url = buildSetPasswordUrl("https://app.qolc.jp/", "abc+/=", "invite");
+    expect(url.startsWith("https://app.qolc.jp/set-password?token_hash=")).toBe(true);
+    expect(parseTokenHashQuery(new URL(url).search)).toEqual({ tokenHash: "abc+/=", type: "invite" });
+    expect(parseTokenHashQuery("?token_hash=x&type=signup")).toBeNull();
+    expect(parseTokenHashQuery("")).toBeNull();
   });
 });

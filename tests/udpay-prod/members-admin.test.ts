@@ -23,7 +23,7 @@ function client(tables: FakeTables, linkOk = true) {
       admin: {
         createUser,
         deleteUser,
-        generateLink: vi.fn(async () => (linkOk ? { data: { properties: { action_link: "https://x/invite" } }, error: null } : { data: null, error: { message: "ng" } })),
+        generateLink: vi.fn(async () => (linkOk ? { data: { properties: { action_link: "https://x/invite", hashed_token: "h2" } }, error: null } : { data: null, error: { message: "ng" } })),
       },
     },
   }) as unknown as SupabaseClient;
@@ -37,7 +37,7 @@ describe("inviteMember", () => {
     const t: FakeTables = { profiles: [], udpay_members: [] };
     const { c, createUser } = client(t);
     const r = await inviteMember(c, INPUT, "https://app.qolc.jp");
-    expect(r).toEqual({ ok: true, userId: "u-new", inviteUrl: "https://x/invite" });
+    expect(r).toEqual({ ok: true, userId: "u-new", inviteUrl: "https://app.qolc.jp/set-password?token_hash=h2&type=invite" });
     expect(createUser).toHaveBeenCalledWith(expect.objectContaining({ app_metadata: { role: "udpay_merchant" } }));
     expect(t.profiles[0]).toMatchObject({ id: "u-new", role: "udpay_merchant" });
     expect(t.udpay_members[0]).toMatchObject({ user_id: "u-new", is_approver: true });

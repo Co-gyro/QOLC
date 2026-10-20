@@ -1,4 +1,5 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { buildSetPasswordUrl } from "@/lib/auth/invite-callback";
 
 /**
  * 加盟店カルテの「利用者」: 加盟店に属するログインアカウントを役割をまたいで一覧し、
@@ -114,7 +115,8 @@ export async function createPasswordSetupLink(
     email: user.email,
     options: { redirectTo: `${appUrl.replace(/\/$/, "")}/set-password` },
   });
-  const url = link?.properties?.action_link;
+  const hashed = link?.properties?.hashed_token;
+  const url = hashed ? buildSetPasswordUrl(appUrl, hashed, "recovery") : null;
   if (error || !url) return { ok: false, error: "パスワード設定リンクの作成に失敗しました" };
   return { ok: true, email: user.email, link: url };
 }
